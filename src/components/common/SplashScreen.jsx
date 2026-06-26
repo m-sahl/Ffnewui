@@ -4,8 +4,8 @@ const SplashScreen = ({ onDone }) => {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 300);
-    const t2 = setTimeout(() => setPhase(2), 1200);
-    const t3 = setTimeout(() => onDone(), 2600);
+    const t2 = setTimeout(() => setPhase(2), 1400);
+    const t3 = setTimeout(() => onDone(), 2800);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
@@ -13,54 +13,54 @@ const SplashScreen = ({ onDone }) => {
     <div style={{
       position: "fixed", inset: 0, display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(135deg, #0a0b1e 0%, #0d0e2a 50%, #0a1628 100%)",
-      zIndex: 999,
-      transition: "opacity 0.6s ease",
-      opacity: phase === 2 ? 0 : 1,
+      background: "linear-gradient(145deg, #06070f 0%, #0d0e1e 50%, #080c18 100%)",
+      zIndex: 999, transition: "opacity 0.7s ease", opacity: phase === 2 ? 0 : 1,
     }}>
-      {/* BG orbs */}
+      {/* Ambient BG orbs */}
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
-        <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%)", top: "10%", left: "10%", filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,238,0.1) 0%, transparent 70%)", bottom: "15%", right: "10%", filter: "blur(40px)" }} />
-        <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(244,114,182,0.08) 0%, transparent 70%)", top: "50%", right: "20%", filter: "blur(30px)" }} />
+        <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%)", top: "-10%", left: "-10%", filter: "blur(60px)" }} />
+        <div style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle, rgba(225,29,72,0.08) 0%, transparent 70%)", bottom: "5%", right: "-5%", filter: "blur(60px)" }} />
+        <div style={{ position: "absolute", width: 250, height: 250, borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,233,0.08) 0%, transparent 70%)", top: "55%", left: "20%", filter: "blur(40px)" }} />
       </div>
 
       <div style={{
-        textAlign: "center",
-        animation: phase >= 1 ? "splashFadeIn 0.8s cubic-bezier(0.22,1,0.36,1) both" : "none",
+        textAlign: "center", position: "relative", zIndex: 1,
+        animation: phase >= 1 ? "splashFadeIn 0.9s cubic-bezier(0.22,1,0.36,1) both" : "none",
         opacity: phase >= 1 ? 1 : 0,
       }}>
         {/* Logo mark */}
-        <div style={{ position: "relative", width: 100, height: 100, margin: "0 auto 24px" }}>
+        <div style={{ position: "relative", width: 110, height: 110, margin: "0 auto 28px" }}>
           <div style={{
-            width: 100, height: 100, borderRadius: 28,
-            background: "linear-gradient(135deg, #6c63ff, #8b5cf6, #22d3ee)",
+            width: 110, height: 110, borderRadius: 32,
+            background: "linear-gradient(145deg, #f59e0b, #d97706, #b45309)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "glowPulse 2s infinite",
-            boxShadow: "0 0 40px rgba(108,99,255,0.5)",
+            animation: "glowPulse 2.5s infinite",
           }}>
-            <span style={{ fontSize: 44, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, color: "white", letterSpacing: -2 }}>FF</span>
+            <span style={{ fontSize: 46, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, color: "#0a0b12", letterSpacing: -2 }}>FF</span>
           </div>
-          {/* Orbit dot */}
-          <div style={{ position: "absolute", inset: -10, animation: "orbitSpin 3s linear infinite" }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22d3ee", boxShadow: "0 0 10px #22d3ee" }} />
+          {/* Orbit */}
+          <div style={{ position: "absolute", inset: -12, animation: "orbitSpin 3.5s linear infinite" }}>
+            <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#f59e0b", boxShadow: "0 0 14px #f59e0b" }} />
           </div>
         </div>
 
+        {/* Title */}
         <div style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900, fontSize: 42,
-          background: "linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #22d3ee 100%)",
-          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          letterSpacing: -1, lineHeight: 1,
-        }}>FF</div>
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900, fontSize: 44,
+          background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 40%, #fef3c7 70%, #f59e0b 100%)",
+          backgroundSize: "200% auto",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          animation: "goldShimmer 3s linear infinite",
+          letterSpacing: -2, lineHeight: 1,
+        }}>FestFlow</div>
 
-        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, letterSpacing: 4, textTransform: "uppercase", marginTop: 8, fontWeight: 500 }}>
+        <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 12, letterSpacing: 5, textTransform: "uppercase", marginTop: 10, fontWeight: 600 }}>
           Arts & Cultural Fest
         </div>
 
-        {/* Loading bar */}
-        <div style={{ width: 120, height: 2, background: "rgba(255,255,255,0.1)", borderRadius: 2, margin: "28px auto 0", overflow: "hidden" }}>
-          <div style={{ height: "100%", background: "linear-gradient(90deg, #6c63ff, #22d3ee)", borderRadius: 2, animation: "progressFill 1.8s ease both", animationDelay: "0.4s" }} />
+        {/* Progress bar */}
+        <div style={{ width: 130, height: 2, background: "rgba(245,158,11,0.12)", borderRadius: 2, margin: "32px auto 0", overflow: "hidden" }}>
+          <div style={{ height: "100%", background: "linear-gradient(90deg, #d97706, #f59e0b, #fbbf24)", borderRadius: 2, animation: "progressFill 2s ease both", animationDelay: "0.3s" }} />
         </div>
       </div>
     </div>

@@ -1,158 +1,174 @@
 import { useState } from "react";
-import Ic from "../common/Ic";
-import { NumPinModal, TextPinModal } from "../common/AuthModals";
 import { useApp } from "../../context/AppContext";
-
-// Safe hex to rgb — fallback to 108,99,255 if invalid
-const hexToRgb = (hex) => {
-  try {
-    if (!hex || hex.length < 7) return "108,99,255";
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    if (isNaN(r) || isNaN(g) || isNaN(b)) return "108,99,255";
-    return `${r},${g},${b}`;
-  } catch { return "108,99,255"; }
-};
-
-// Color palette for groups — cycles if more groups than colors
-const GROUP_COLORS = [
-  "#6c63ff", "#22d3ee", "#f472b6", "#34d399",
-  "#fb923c", "#60a5fa", "#a78bfa", "#fbbf24",
-  "#f87171", "#2dd4bf",
-];
+import { NumPinModal, TextPinModal } from "../common/AuthModals";
+import { catColor } from "../../styles/DesignTokens";
+import Ic from "../common/Ic";
 
 const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
-  const { users } = useApp();
-  const [hovering, setHovering] = useState(null);
-  const [pinGroup, setPinGroup] = useState(null);
-  const [adminPin, setAdminPin] = useState(false);
+  const { groups, users, students } = useApp();
+  const [loginGroup, setLoginGroup] = useState(null);
+  const [adminModal, setAdminModal] = useState(false);
 
-  // Each user with role "group" IS a group — derive cards directly
-  const groupUsers = users.filter(u => u.role === "group");
+  const handleGroupLogin = (group) => setLoginGroup(group);
 
-  // Authenticate for a specific group card
   const verifyGroupPin = (pin) => {
-    return users.find(u => u.id === pinGroup.id && u.pin === pin) || null;
+    const u = users.find(u => u.id === loginGroup.id && u.pin === pin);
+    return u || null;
   };
 
-  // Authenticate as admin
-  const verifyAdminPin = (pin) => {
-    return users.find(u => u.role === "admin" && u.pin === pin) || null;
+  const verifyAdmin = (pass) => {
+    const u = users.find(u => u.role === "admin" && u.pin === pass);
+    return u || null;
   };
+
+  const groupColors = ["#f59e0b", "#0ea5e9", "#e11d48", "#10b981", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];
 
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", padding: "40px 20px",
-      background: dark
-        ? "radial-gradient(ellipse at 30% 20%, rgba(108,99,255,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(34,211,238,0.07) 0%, transparent 60%), #080917"
-        : "radial-gradient(ellipse at 30% 20%, rgba(108,99,255,0.08) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(34,211,238,0.05) 0%, transparent 60%), #f0f0fa",
-    }}>
-      {/* Header */}
-      <div className="anim-fadeUp" style={{ textAlign: "center", marginBottom: 52 }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: 22,
-          background: "linear-gradient(135deg, #6c63ff, #8b5cf6)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          margin: "0 auto 18px",
-          boxShadow: "0 8px 32px rgba(108,99,255,0.4)",
-          animation: "floatY 3s ease-in-out infinite",
-        }}>
-          <span style={{ fontSize: 28, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, color: "white" }}>FF</span>
-        </div>
-        <h1 className="ff-display grad-text" style={{ fontSize: 38, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>FF</h1>
-        <p className="text-muted" style={{ fontSize: 15 }}>Arts &amp; Cultural Fest Management</p>
+    <div style={{ minHeight: "100vh", background: dark ? "#080912" : "#f5f5fb", position: "relative", overflow: "hidden" }}>
+      {/* Ambient BG */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 0 }}>
+        <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(80px)" }} />
+        <div style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,233,0.06) 0%, transparent 70%)", bottom: "10%", left: "-5%", filter: "blur(60px)" }} />
       </div>
 
-      {/* Group Cards */}
-      <div className="anim-fadeUp stagger-2" style={{ width: "100%", maxWidth: 520, marginBottom: 14 }}>
-        <div className="text-muted" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", textAlign: "center", marginBottom: 16 }}>Select Your Group</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {groupUsers.map((u, i) => {
-            const color = GROUP_COLORS[i % GROUP_COLORS.length];
-            return (
-              <div key={u.id}
-                className={`card anim-fadeUp stagger-${i + 3}`}
-                onMouseEnter={() => setHovering(u.id)}
-                onMouseLeave={() => setHovering(null)}
-                onClick={() => setPinGroup({ id: u.id, name: u.name, color, pin: u.pin })}
-                style={{
-                  padding: "18px 22px", cursor: "pointer",
-                  borderLeft: `4px solid ${color}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: hovering === u.id
-                    ? (dark ? `rgba(${hexToRgb(color)},0.1)` : `rgba(${hexToRgb(color)},0.07)`)
-                    : (dark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.88)"),
-                }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 14, background: `${color}22`, display: "flex", alignItems: "center", justifyContent: "center", border: `1.5px solid ${color}44` }}>
-                    <Ic name="users" size={20} />
-                  </div>
-                  <div>
-                    <div className="ff-display fw-800" style={{ fontSize: 16 }}>{u.name}</div>
-                    <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>Group Portal</div>
-                  </div>
-                </div>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${color}18`, border: `1.5px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", color, transition: "transform 0.2s", transform: hovering === u.id ? "translateX(4px)" : "translateX(0)" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-                </div>
-              </div>
-            );
-          })}
-          {groupUsers.length === 0 && (
-            <div className="card" style={{ padding: 30, textAlign: "center", opacity: 0.6 }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>👥</div>
-              <div style={{ fontSize: 13, color: dark ? "#9ca3af" : "#6b7280" }}>No groups found. Admin can add groups from the portal.</div>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 520, margin: "0 auto", padding: "0 16px 120px" }}>
+        {/* Hero */}
+        <div className="anim-fadeUp" style={{ textAlign: "center", padding: "52px 0 36px" }}>
+          <div style={{ position: "relative", width: 90, height: 90, margin: "0 auto 22px" }}>
+            <div style={{
+              width: 90, height: 90, borderRadius: 26,
+              background: "linear-gradient(145deg, #f59e0b, #d97706)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 12px 40px rgba(245,158,11,0.4)",
+              animation: "glowPulse 3s infinite",
+            }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 36, color: "#0a0b12", letterSpacing: -1 }}>FF</span>
             </div>
-          )}
+          </div>
+
+          <h1 className="ff-display" style={{
+            fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.1,
+            background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 40%, #fef3c7 65%, #f59e0b 100%)",
+            backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            backgroundClip: "text", animation: "goldShimmer 4s linear infinite",
+          }}>FestFlow</h1>
+
+          <p style={{ fontSize: 13, color: dark ? "#6b7280" : "#9ca3af", marginTop: 8, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600 }}>
+            Arts & Cultural Fest
+          </p>
+
+          {/* Stats strip */}
+          <div style={{ display: "flex", gap: 0, marginTop: 28, justifyContent: "center", borderRadius: 14, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}` }}>
+            {[
+              { label: "Groups", value: groups.length },
+              { label: "Students", value: Object.values(students || {}).flat().length },
+              { label: "Categories", value: 3 },
+            ].map((s, i) => (
+              <div key={i} style={{
+                flex: 1, padding: "14px 10px", textAlign: "center",
+                background: dark ? "rgba(255,255,255,0.025)" : "rgba(255,255,255,0.8)",
+                borderRight: i < 2 ? `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}` : "none",
+              }}>
+                <div className="ff-display fw-800" style={{ fontSize: 22, color: "#f59e0b" }}>{s.value}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.5, color: dark ? "#6b7280" : "#9ca3af", marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Groups section */}
+        <div className="anim-fadeUp stagger-2">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            <div className="live-dot" />
+            <span className="ff-display fw-800" style={{ fontSize: 14 }}>Select Your Group</span>
+            <span className="text-muted" style={{ fontSize: 12 }}>to sign in</span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {groups.map((group, i) => {
+              const color = group.color || groupColors[i % groupColors.length];
+              const memberCount = (students[group.id] || []).length;
+              return (
+                <button key={group.id} onClick={() => handleGroupLogin(group)}
+                  className="anim-fadeUp"
+                  style={{
+                    animationDelay: `${0.05 * i}s`,
+                    display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+                    background: dark ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.88)",
+                    border: `1px solid ${dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
+                    borderLeft: `4px solid ${color}`,
+                    borderRadius: 16, cursor: "pointer", textAlign: "left", width: "100%",
+                    transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)",
+                    fontFamily: "inherit",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.boxShadow = `0 8px 28px ${color}22`; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+                    background: `${color}18`, color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 18,
+                  }}>
+                    {group.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="ff-display fw-800" style={{ fontSize: 15, color: dark ? "#e8e8f5" : "#12121e" }}>{group.name}</div>
+                    <div style={{ fontSize: 11.5, color: dark ? "#6b7280" : "#9ca3af", marginTop: 2, fontWeight: 500 }}>
+                      {memberCount} {memberCount === 1 ? "member" : "members"}
+                    </div>
+                  </div>
+                  <div style={{ color: dark ? "#374151" : "#d1d5db", flexShrink: 0 }}>
+                    <Ic name="chevronRight" size={16} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Admin link */}
+        <div className="anim-fadeUp stagger-4" style={{ marginTop: 36, textAlign: "center" }}>
+          <div style={{ height: 1, background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", marginBottom: 22 }} />
+          <button onClick={() => setAdminModal(true)} style={{
+            display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px",
+            background: dark ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.8)",
+            border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+            borderRadius: 50, cursor: "pointer", fontSize: 13, fontWeight: 600,
+            color: dark ? "#9ca3af" : "#6b7280", fontFamily: "inherit",
+            transition: "all 0.2s ease",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = dark ? "#9ca3af" : "#6b7280"; e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; }}
+          >
+            <Ic name="shield" size={14} /> Admin Portal
+          </button>
+          <div className="text-muted" style={{ fontSize: 11, marginTop: 10 }}>Authorized personnel only</div>
         </div>
       </div>
 
-      {/* Admin link */}
-      <div className="anim-fadeUp stagger-6" style={{ marginTop: 24 }}>
-        <button onClick={() => setAdminPin(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)", fontFamily: "Inter", transition: "color 0.2s", textDecoration: "underline", textUnderlineOffset: 3 }}
-          onMouseEnter={e => e.target.style.color = "#6c63ff"}
-          onMouseLeave={e => e.target.style.color = dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)"}>
-          Admin Access
-        </button>
-      </div>
-
-      {/* Group PIN modal — numpad for numeric, keyboard for text */}
-      {pinGroup && (() => {
-        const isNumeric = /^\d+$/.test(pinGroup.pin || "");
-        const pinLength = pinGroup.pin?.length || 3;
-        return isNumeric ? (
-          <NumPinModal
-            title={pinGroup.name}
-            subtitle="Enter your group PIN to continue"
-            dark={dark}
-            verify={verifyGroupPin}
-            pinLength={pinLength}
-            onSuccess={(u) => { onLeaderLogin(u, pinGroup); setPinGroup(null); }}
-            onClose={() => setPinGroup(null)}
-          />
-        ) : (
-          <TextPinModal
-            title={pinGroup.name}
-            subtitle="Enter your group password to continue"
-            dark={dark}
-            verify={verifyGroupPin}
-            onSuccess={(u) => { onLeaderLogin(u, pinGroup); setPinGroup(null); }}
-            onClose={() => setPinGroup(null)}
-          />
-        );
-      })()}
-
-      {/* Admin password modal */}
-      {adminPin && (
-        <TextPinModal
-          title="Admin Access"
-          subtitle="Enter your admin password to continue"
+      {/* Group PIN modal */}
+      {loginGroup && (
+        <NumPinModal
+          title={`Sign in — ${loginGroup.name}`}
+          subtitle="Enter your group PIN to continue"
+          verify={verifyGroupPin}
           dark={dark}
-          verify={verifyAdminPin}
-          onSuccess={(u) => { onAdminClick(u); setAdminPin(false); }}
-          onClose={() => setAdminPin(false)}
+          pinLength={users.find(u => u.id === loginGroup.id)?.pin?.length || 3}
+          onSuccess={(u) => { setLoginGroup(null); onLeaderLogin(u); }}
+          onClose={() => setLoginGroup(null)}
+        />
+      )}
+
+      {/* Admin modal */}
+      {adminModal && (
+        <TextPinModal
+          title="Admin Sign In"
+          subtitle="Enter admin password to access portal"
+          verify={verifyAdmin}
+          dark={dark}
+          onSuccess={(u) => { setAdminModal(false); onAdminClick(u); }}
+          onClose={() => setAdminModal(false)}
         />
       )}
     </div>

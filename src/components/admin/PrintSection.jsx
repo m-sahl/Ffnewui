@@ -116,7 +116,7 @@ const PrintSection = ({ dark }) => {
             .sheet { background: white; width: 210mm; min-height: 297mm; padding: 20mm; margin: 10mm auto; box-shadow: 0 0 20px rgba(0,0,0,0.05); box-sizing: border-box; position: relative; page-break-after: always; }
             .sheet-header { border-bottom: 2px solid #edeff5; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
             .sheet-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; color: #1a1a2e; text-transform: uppercase; letter-spacing: -0.5px; }
-            .sheet-meta { font-size: 13px; font-weight: 700; color: #6c63ff; text-transform: uppercase; letter-spacing: 0.5px; }
+            .sheet-meta { ... color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px; }
             .sep { margin: 0 10px; color: #d1d5db; }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             th { text-align: left; padding: 12px 15px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; border-bottom: 1px solid #edeff5; }
