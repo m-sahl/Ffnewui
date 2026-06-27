@@ -97,22 +97,22 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
 
         </div>
 
-        {/* Admin small card */}
-        <div className="anim-fadeUp stagger-4" style={{ marginTop: 10 }}>
-          <button onClick={() => setAdminModal(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-              background: "transparent",
-              border: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"}`,
-              borderRadius: 12, cursor: "pointer", width: "100%", fontFamily: "inherit",
-              transition: "all 0.18s ease",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.25)"; e.currentTarget.style.background = "rgba(245,158,11,0.04)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "transparent"; }}
+        {/* Admin pill */}
+        <div className="anim-fadeUp stagger-4" style={{ textAlign: "center", marginTop: 28 }}>
+          <button onClick={() => setAdminModal(true)} style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "7px 18px", borderRadius: 50,
+            background: "transparent",
+            border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+            cursor: "pointer", fontFamily: "inherit",
+            fontSize: 12, fontWeight: 600,
+            color: dark ? "#374151" : "#c4c4d4",
+            transition: "all 0.18s ease",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = dark ? "#374151" : "#c4c4d4"; e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; }}
           >
-            <Ic name="shield" size={13} color={dark ? "#374151" : "#c4c4d4"} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: dark ? "#374151" : "#c4c4d4", flex: 1, textAlign: "left" }}>Admin Portal</span>
-            <Ic name="chevronRight" size={13} color={dark ? "#2d2f3a" : "#d1d5db"} />
+            <Ic name="shield" size={12} /> Admin Portal
           </button>
         </div>
       </div>
