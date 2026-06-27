@@ -15,6 +15,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [tab, setTab]           = useState("members");   // members | events
   const [session, setSession]   = useState("Stage");     // Stage | Off-Stage (events tab)
   const [catFilter, setCatFilter] = useState("All");
+  const [memSearch, setMemSearch]       = useState("");
+  const [memSearchOpen, setMemSearchOpen] = useState(false);
   const [regModal, setRegModal] = useState(false);
   const [regForm, setRegForm]   = useState({ programId: "", participantIds: [] });
   const [editTarget, setEditTarget] = useState(null);
@@ -30,12 +32,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const initCol = dark ? "#9ca3af" : "#6b7280";
 
   // Filtered students
-  const filtStudents = catFilter === "All"
-    ? [...groupStudents].sort((a, b) => {
-        const ord = { Leader: 0, "Asst. Leader": 1, Member: 2 };
-        return (ord[a.groupRole || "Member"] ?? 2) - (ord[b.groupRole || "Member"] ?? 2);
-      })
-    : groupStudents.filter(s => s.category === catFilter);
+  const filtStudents = (catFilter === "All" ? [...groupStudents] : groupStudents.filter(s => s.category === catFilter))
+    .filter(s => !memSearch.trim() || s.name.toLowerCase().includes(memSearch.toLowerCase()))
+    .sort((a, b) => {
+      const ord = { Leader: 0, "Asst. Leader": 1, Member: 2 };
+      return (ord[a.groupRole || "Member"] ?? 2) - (ord[b.groupRole || "Member"] ?? 2);
+    });
 
   // Filtered regs — by session + category
   const filtRegs = groupRegs.filter(r => {
@@ -91,10 +93,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     setDelConfirm(null);
   };
 
-  // Programs available for registration in current session
-  const sessionPrograms = programs.filter(p =>
-    p.session === session && (catFilter === "All" || p.category === catFilter)
-  );
+  // Programs available for registration in current session — no cat filter (modal handles its own)
+  const sessionPrograms = programs.filter(p => p.session === session);
 
   return (
     <div className="anim-fadeIn" style={{ minHeight: "100vh" }}>
@@ -180,6 +180,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         {/* ── Members tab ── */}
         {tab === "members" && (
           <div className="anim-fadeIn">
+            {/* Search row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ flex: 1 }}>
+                {memSearchOpen && (
+                  <input className="input anim-slideDown" type="text" placeholder="Search by name…"
+                    value={memSearch} onChange={e => setMemSearch(e.target.value)}
+                    style={{ fontSize: 13 }} autoFocus />
+                )}
+              </div>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { setMemSearchOpen(o => !o); setMemSearch(""); }}
+                style={{ flexShrink: 0, color: memSearchOpen ? ACCENT : mutedTx }}>
+                <Ic name="search" size={15} />
+              </button>
+            </div>
             {filtStudents.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>👥</div>

@@ -44,6 +44,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [showSearch, setShowSearch]   = useState(false);
   const searchRef                     = useRef(null);
 
+  const [stuSearch, setStuSearch]     = useState("");
+  const [stuSearchOpen, setStuSearchOpen] = useState(false);
   const [progModal, setProgModal]     = useState(false);
   const [editProg, setEditProg]       = useState(null);
   const [progForm, setProgForm]       = useState({ name: "", session: "Stage", category: "Senior", type: "Single", maxParticipants: 1, criteria: ["", ""] });
@@ -175,10 +177,12 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
   // ── Renders ────────────────────────────────────────────────────────────────
   const renderStudents = () => {
-    const groupStudents = [...(students[activeGroup] || [])].sort((a, b) => {
-      const ord = { Leader: 0, "Asst. Leader": 1, Member: 2 };
-      return (ord[a.groupRole || "Member"] ?? 2) - (ord[b.groupRole || "Member"] ?? 2);
-    });
+    const groupStudents = [...(students[activeGroup] || [])]
+      .filter(s => !stuSearch.trim() || s.name.toLowerCase().includes(stuSearch.toLowerCase()))
+      .sort((a, b) => {
+        const ord = { Leader: 0, "Asst. Leader": 1, Member: 2 };
+        return (ord[a.groupRole || "Member"] ?? 2) - (ord[b.groupRole || "Member"] ?? 2);
+      });
     return (
       <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
         <div className="section-header">
@@ -198,6 +202,21 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               {g.name}
             </button>
           ))}
+        </div>
+
+        {/* Search row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            {stuSearchOpen && (
+              <input className="input anim-slideDown" type="text" placeholder="Search by name…"
+                value={stuSearch} onChange={e => setStuSearch(e.target.value)}
+                style={{ fontSize: 13 }} autoFocus />
+            )}
+          </div>
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { setStuSearchOpen(o => !o); setStuSearch(""); }}
+            style={{ flexShrink: 0, color: stuSearchOpen ? ACCENT : mutedTx }}>
+            <Ic name="search" size={15} />
+          </button>
         </div>
 
         {groupStudents.length === 0 ? (
