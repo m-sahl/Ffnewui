@@ -48,12 +48,8 @@ const migrateRegistrations = (saved) => {
   });
 };
 
-export const INITIAL_PROGRAMS = [
-  { id: "p1", name: "Western Music", category: "Senior", type: "Group", maxParticipants: 6, criteria: ["Rhythm", "Harmony"] },
-  { id: "p2", name: "Classical Dance", category: "Junior", type: "Single", maxParticipants: 1, criteria: ["Grace", "Expression"] },
-  { id: "p3", name: "Painting", category: "Sub-Junior", type: "Single", maxParticipants: 1, criteria: ["Creativity", "Technique"] },
-  { id: "p4", name: "Drama", category: "Senior", type: "Group", maxParticipants: 8, criteria: ["Acting", "Direction"] },
-];
+// Programs now have a `session` field: "Stage" | "Off-Stage"
+export const INITIAL_PROGRAMS = [];
 
 export const INITIAL_STUDENTS = {
   "u-g1": [
