@@ -76,11 +76,25 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const selectedProg = programs.find(p => p.id === regForm.programId);
   const isSelected   = id => regForm.participantIds.includes(id);
-  const togglePart   = id => {
+  const atMax        = selectedProg && regForm.participantIds.length >= selectedProg.maxParticipants;
+
+  // Students already registered for this program in ANY group (excluding current edit target)
+  const alreadyRegistered = new Set(
+    registrations
+      .filter(r => r.programId === regForm.programId && r.id !== editTarget)
+      .flatMap(r => r.participantIds)
+  );
+
+  const togglePart = id => {
+    if (alreadyRegistered.has(id)) return; // blocked
     setRegForm(prev => {
       const ids = prev.participantIds.includes(id)
         ? prev.participantIds.filter(x => x !== id)
-        : (selectedProg?.type === "Single" ? [id] : [...prev.participantIds, id].slice(0, selectedProg?.maxParticipants));
+        : selectedProg?.type === "Single"
+          ? [id]
+          : prev.participantIds.length >= selectedProg?.maxParticipants
+            ? prev.participantIds // already at max — don't add
+            : [...prev.participantIds, id];
       return { ...prev, participantIds: ids };
     });
   };
@@ -305,17 +319,27 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
             {regForm.programId && (
               <div className="anim-fadeIn">
-                <label className="label">
-                  Participants
-                  {regForm.participantIds.length > 0 && <span style={{ marginLeft: 6, color: ACCENT }}>({regForm.participantIds.length} selected)</span>}
+                <label className="label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>
+                    Participants
+                    {regForm.participantIds.length > 0 && <span style={{ marginLeft: 6, color: ACCENT }}>({regForm.participantIds.length}/{selectedProg?.maxParticipants} selected)</span>}
+                  </span>
+                  {atMax && !isSelected && <span style={{ fontSize: 10, fontWeight: 700, color: mutedTx, letterSpacing: 0.5 }}>MAX REACHED</span>}
                 </label>
                 <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"}`, maxHeight: 260, overflowY: "auto" }}>
                   {groupStudents.filter(s => s.category === selectedProg?.category).map((s, i) => {
-                    const active = isSelected(s.id);
+                    const active     = isSelected(s.id);
+                    const registered = alreadyRegistered.has(s.id);
+                    const maxed      = !active && atMax;
+                    const disabled   = registered || maxed;
                     return (
-                      <div key={s.id} onClick={() => togglePart(s.id)} style={{
-                        padding: "11px 14px", display: "flex", alignItems: "center", gap: 11, cursor: "pointer",
-                        background: active ? (dark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.05)") : "transparent",
+                      <div key={s.id} onClick={() => !disabled && togglePart(s.id)} style={{
+                        padding: "11px 14px", display: "flex", alignItems: "center", gap: 11,
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        opacity: registered ? 0.38 : maxed ? 0.5 : 1,
+                        background: active
+                          ? (dark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.05)")
+                          : "transparent",
                         borderTop: i > 0 ? `1px solid ${dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` : "none",
                         transition: "background 0.12s",
                       }}>
@@ -327,9 +351,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                         }}>
                           {active && <Ic name="check" size={12} color="#0a0b12" />}
                         </div>
-                        <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{s.chestNo}</span>
+                        <span style={{ color: active ? ACCENT : mutedTx, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{s.chestNo}</span>
                         <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{s.name}</span>
-                        <Tag label={s.category} dark={dark} />
+                        {registered
+                          ? <span style={{ fontSize: 10, fontWeight: 700, color: mutedTx, letterSpacing: 0.5 }}>REGISTERED</span>
+                          : <Tag label={s.category} dark={dark} />
+                        }
                       </div>
                     );
                   })}
