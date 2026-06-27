@@ -112,7 +112,7 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
             onMouseEnter={e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)"; }}
             onMouseLeave={e => { e.currentTarget.style.color = dark ? "#374151" : "#c4c4d4"; e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; }}
           >
-            <Ic name="shield" size={12} /> Admin Portal
+            <span style={{ color: dark ? "#374151" : "#c4c4d4", display:"inline-flex" }}><Ic name="shield" size={12} /></span> Admin Portal
           </button>
         </div>
       </div>
