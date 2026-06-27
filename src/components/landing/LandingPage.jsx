@@ -95,19 +95,34 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           })}
         </div>
 
-        {/* Admin link */}
-        <div className="anim-fadeUp stagger-4" style={{ textAlign: "center", marginTop: 32 }}>
-          <button onClick={() => setAdminModal(true)} style={{
-            background: "none", border: "none", cursor: "pointer",
-            fontSize: 12, color: dark ? "#374151" : "#c4c4d4", fontFamily: "inherit",
-            fontWeight: 600, transition: "color 0.15s",
-          }}
-            onMouseEnter={e => e.currentTarget.style.color = "#f59e0b"}
-            onMouseLeave={e => e.currentTarget.style.color = dark ? "#374151" : "#c4c4d4"}
+          {/* Admin card */}
+          <button onClick={() => setAdminModal(true)}
+            className="anim-fadeUp"
+            style={{
+              animationDelay: `${0.06 * groups.length}s`,
+              display: "flex", alignItems: "center", gap: 14, padding: "16px 18px",
+              background: dark ? "rgba(245,158,11,0.04)" : "rgba(245,158,11,0.04)",
+              border: `1px solid ${dark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.15)"}`,
+              borderRadius: 16, cursor: "pointer", width: "100%", fontFamily: "inherit",
+              transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 10px 30px rgba(245,158,11,0.15)"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.35)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = dark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.15)"; }}
           >
-            Admin Portal
+            <div style={{
+              width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+              background: "rgba(245,158,11,0.12)", color: "#f59e0b",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Ic name="shield" size={18} />
+            </div>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#f59e0b", flex: 1, textAlign: "left" }}>
+              Admin
+            </span>
+            <div style={{ color: dark ? "rgba(245,158,11,0.3)" : "rgba(245,158,11,0.4)", flexShrink: 0 }}>
+              <Ic name="chevronRight" size={16} />
+            </div>
           </button>
-        </div>
       </div>
 
       {loginGroup && (
