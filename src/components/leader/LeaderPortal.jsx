@@ -76,7 +76,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const selectedProg = programs.find(p => p.id === regForm.programId);
   const isSelected   = id => regForm.participantIds.includes(id);
-  const atMax        = selectedProg && regForm.participantIds.length >= selectedProg.maxParticipants;
+  const atMax = selectedProg && regForm.participantIds.length >= selectedProg.maxParticipants;
 
   // Students already registered for this program in ANY group (excluding current edit target)
   const alreadyRegistered = new Set(
@@ -86,15 +86,15 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   );
 
   const togglePart = id => {
-    if (alreadyRegistered.has(id)) return; // blocked
+    if (alreadyRegistered.has(id)) return; // blocked — registered elsewhere
+    const currentlySelected = regForm.participantIds.includes(id);
+    if (!currentlySelected && atMax) return; // at max and trying to add a new one
     setRegForm(prev => {
-      const ids = prev.participantIds.includes(id)
-        ? prev.participantIds.filter(x => x !== id)
+      const ids = currentlySelected
+        ? prev.participantIds.filter(x => x !== id)        // deselect
         : selectedProg?.type === "Single"
-          ? [id]
-          : prev.participantIds.length >= selectedProg?.maxParticipants
-            ? prev.participantIds // already at max — don't add
-            : [...prev.participantIds, id];
+          ? [id]                                             // single — replace
+          : [...prev.participantIds, id];                   // group — add
       return { ...prev, participantIds: ids };
     });
   };
