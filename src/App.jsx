@@ -10,14 +10,20 @@ import { ToastProvider } from "./components/common/Toast";
 const AppContent = () => {
   const { groups } = useApp();
   const [loading, setLoading] = useState(true);
-  const [user, setUser]       = useState(null);
+  const [user, setUser]       = useState(() => {
+    try { const s = localStorage.getItem("ff_user"); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const [dark, setDark]       = useState(() => localStorage.getItem("ff_dark") !== "false");
 
   useEffect(() => { localStorage.setItem("ff_dark", dark); }, [dark]);
+  useEffect(() => {
+    if (user) localStorage.setItem("ff_user", JSON.stringify(user));
+    else localStorage.removeItem("ff_user");
+  }, [user]);
 
   const handleSplashDone = useCallback(() => setLoading(false), []);
   const handleLogin      = useCallback((u) => setUser(u), []);
-  const handleLogout     = useCallback(() => setUser(null), []);
+  const handleLogout     = useCallback(() => { setUser(null); localStorage.removeItem("ff_user"); }, []);
 
   if (loading) return <SplashScreen onDone={handleSplashDone} />;
 
