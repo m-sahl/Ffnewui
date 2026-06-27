@@ -95,34 +95,26 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           })}
         </div>
 
-          {/* Admin card */}
+        </div>
+
+        {/* Admin small card */}
+        <div className="anim-fadeUp stagger-4" style={{ marginTop: 10 }}>
           <button onClick={() => setAdminModal(true)}
-            className="anim-fadeUp"
             style={{
-              animationDelay: `${0.06 * groups.length}s`,
-              display: "flex", alignItems: "center", gap: 14, padding: "16px 18px",
-              background: dark ? "rgba(245,158,11,0.04)" : "rgba(245,158,11,0.04)",
-              border: `1px solid ${dark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.15)"}`,
-              borderRadius: 16, cursor: "pointer", width: "100%", fontFamily: "inherit",
-              transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)",
+              display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+              background: "transparent",
+              border: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"}`,
+              borderRadius: 12, cursor: "pointer", width: "100%", fontFamily: "inherit",
+              transition: "all 0.18s ease",
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 10px 30px rgba(245,158,11,0.15)"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.35)"; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = dark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.15)"; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.25)"; e.currentTarget.style.background = "rgba(245,158,11,0.04)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"; e.currentTarget.style.background = "transparent"; }}
           >
-            <div style={{
-              width: 42, height: 42, borderRadius: 13, flexShrink: 0,
-              background: "rgba(245,158,11,0.12)", color: "#f59e0b",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Ic name="shield" size={18} />
-            </div>
-            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#f59e0b", flex: 1, textAlign: "left" }}>
-              Admin
-            </span>
-            <div style={{ color: dark ? "rgba(245,158,11,0.3)" : "rgba(245,158,11,0.4)", flexShrink: 0 }}>
-              <Ic name="chevronRight" size={16} />
-            </div>
+            <Ic name="shield" size={13} color={dark ? "#374151" : "#c4c4d4"} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: dark ? "#374151" : "#c4c4d4", flex: 1, textAlign: "left" }}>Admin Portal</span>
+            <Ic name="chevronRight" size={13} color={dark ? "#2d2f3a" : "#d1d5db"} />
           </button>
+        </div>
       </div>
 
       {loginGroup && (
