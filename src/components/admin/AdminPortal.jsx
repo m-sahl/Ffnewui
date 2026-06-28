@@ -78,6 +78,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [editUserForm, setEditUserForm]   = useState({ name: "", pin: "" });
 
   const [delConfirm, setDelConfirm]   = useState(null);
+  const [showMessages, setShowMessages] = useState(false);
 
   useEffect(() => {
     if (groups.length > 0 && !groups.some(g => g.id === activeGroup)) setActiveGroup(groups[0].id);
