@@ -7,18 +7,16 @@ import LeaderPortal from "./components/leader/LeaderPortal";
 import AdminPortal from "./components/admin/AdminPortal";
 import { ToastProvider } from "./components/common/Toast";
 
-const safeGet = (key) => {
-  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch { return null; }
-};
-const safeSet = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+const safeGet    = (key) => { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch { return null; } };
+const safeSet    = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
 const safeRemove = (key) => { try { localStorage.removeItem(key); } catch {} };
 
 const AppContent = () => {
-  const { users } = useApp();
-  const [user, setUser]     = useState(() => safeGet("ff_user"));
-  const [loading, setLoading] = useState(!safeGet("ff_user"));
-  const [dark, setDark]     = useState(() => localStorage.getItem("ff_dark") !== "false");
-  const { groups } = useApp();
+  const { groups, users } = useApp();  // single call
+
+  const [user, setUser]       = useState(() => safeGet("ff_user"));
+  const [loading, setLoading] = useState(() => !safeGet("ff_user"));
+  const [dark, setDark]       = useState(() => localStorage.getItem("ff_dark") !== "false");
 
   useEffect(() => {
     if (!user || !users.length) return;
