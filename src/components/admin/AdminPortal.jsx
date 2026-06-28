@@ -366,7 +366,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     <Tag label={p.category} dark={dark} />
                     <Tag label={p.type} dark={dark} />
-                    <Tag label={`Max ${p.maxParticipants}`} dark={dark} />
+                    {p.type !== "General" && <Tag label={`Max ${p.maxParticipants}`} dark={dark} />}
                     {p.criteria?.filter(Boolean).map(c => <Tag key={c} label={c} dark={dark} />)}
                   </div>
                 </div>

@@ -76,7 +76,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   };
 
   const saveReg = () => {
-    if (!regForm.programId || regForm.participantIds.length === 0) return;
+    if (!regForm.programId) return;
+    if (selectedProg?.type !== "General" && regForm.participantIds.length === 0) return;
     const p = programs.find(pg => pg.id === regForm.programId);
     if (editTarget) {
       setRegistrations(prev => prev.map(r => r.id === editTarget ? { ...r, ...regForm } : r));
@@ -295,14 +296,18 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
                       {/* Participants list */}
                       <div style={{ height: 1, background: border, marginBottom: 10 }} />
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        {parts.map(s => (
-                          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
-                            <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
-                          </div>
-                        ))}
-                      </div>
+                      {p?.type === "General" ? (
+                        <div style={{ fontSize: 12, color: mutedTx, fontStyle: "italic" }}>General event — no individual participants</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {parts.map(s => (
+                            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
+                              <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -343,8 +348,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               </select>
             </div>
 
-            {/* Participant selector */}
-            {regForm.programId && (
+            {/* Participant selector — hidden for General type */}
+            {regForm.programId && selectedProg?.type !== "General" && (
               <div className="anim-fadeIn">
                 <label className="label" style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>Participants <span style={{ color: ACCENT, fontWeight: 700 }}>({regForm.participantIds.length}/{max})</span></span>
@@ -394,7 +399,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setRegModal(false)}>Cancel</button>
               <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveReg}
-                disabled={!regForm.programId || regForm.participantIds.length === 0}>
+                disabled={!regForm.programId || (selectedProg?.type !== "General" && regForm.participantIds.length === 0)}>
                 {editTarget ? "Save Changes" : "Register"}
               </button>
             </div>
