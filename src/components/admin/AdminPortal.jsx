@@ -491,12 +491,16 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             </div>
           </div>
         }
-        right={view === "programs" && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: mutedTx }}>
-            {session}
-          </span>
-        )}
-        right={<AdminMsgBtn onClick={() => setShowMessages(true)} unread={(messages||[]).filter(m => m.to === "admin" && !m.read).length} />}
+        right={
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {view === "programs" && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: mutedTx }}>
+                {session}
+              </span>
+            )}
+            <AdminMsgBtn onClick={() => setShowMessages(true)} unread={(messages||[]).filter(m => m.to === "admin" && !m.read).length} />
+          </div>
+        }
         dark={dark} setDark={setDark}
         context="Admin mode · Full access"
         onLogout={onBack} isAdmin
