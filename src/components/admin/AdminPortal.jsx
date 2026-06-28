@@ -301,7 +301,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
         {/* Stage / Off-Stage toggle */}
         <div style={{ display: "flex", gap: 0, borderRadius: 12, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 4, marginBottom: 16 }}>
-          {["Stage", "Off-Stage"].map(s => (
+          {["Stage", "Off-Stage", "General"].map(s => (
             <button key={s} onClick={() => { setSession(s); setCatFilter("All"); setSearch(""); setShowSearch(false); }}
               style={{
                 flex: 1, padding: "10px", border: "none", cursor: "pointer", borderRadius: 9,
@@ -366,7 +366,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     <Tag label={p.category} dark={dark} />
                     <Tag label={p.type} dark={dark} />
-                    {p.type !== "General" && <Tag label={`Max ${p.maxParticipants}`} dark={dark} />}
+                    <Tag label={`Max ${p.maxParticipants}`} dark={dark} />
                     {p.criteria?.filter(Boolean).map(c => <Tag key={c} label={c} dark={dark} />)}
                   </div>
                 </div>
@@ -552,6 +552,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 <select className="input select" value={progForm.session} onChange={e => setProgForm({ ...progForm, session: e.target.value })}>
                   <option value="Stage">Stage</option>
                   <option value="Off-Stage">Off-Stage</option>
+                  <option value="General">General</option>
                 </select>
               </div>
             </div>
