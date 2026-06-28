@@ -7,35 +7,31 @@ import LeaderPortal from "./components/leader/LeaderPortal";
 import AdminPortal from "./components/admin/AdminPortal";
 import { ToastProvider } from "./components/common/Toast";
 
+const safeGet = (key) => {
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch { return null; }
+};
+const safeSet = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+const safeRemove = (key) => { try { localStorage.removeItem(key); } catch {} };
+
 const AppContent = () => {
-  const { groups, users } = useApp();
+  const { users } = useApp();
+  const [user, setUser]     = useState(() => safeGet("ff_user"));
+  const [loading, setLoading] = useState(!safeGet("ff_user"));
+  const [dark, setDark]     = useState(() => localStorage.getItem("ff_dark") !== "false");
+  const { groups } = useApp();
 
-  // Restore user from localStorage
-  const [user, setUser] = useState(() => {
-    try { const s = localStorage.getItem("ff_user"); return s ? JSON.parse(s) : null; } catch { return null; }
-  });
-
-  // Skip splash on refresh if already logged in
-  const [loading, setLoading] = useState(!user);
-  const [dark, setDark] = useState(() => localStorage.getItem("ff_dark") !== "false");
-
-  // Re-validate restored user — if PIN changed or user deleted, kick them out
   useEffect(() => {
-    if (!user || users.length === 0) return;
+    if (!user || !users.length) return;
     const valid = users.find(u => u.id === user.id && u.pin === user.pin);
-    if (!valid) { setUser(null); localStorage.removeItem("ff_user"); }
+    if (!valid) { setUser(null); safeRemove("ff_user"); }
   }, [users]);
 
-  useEffect(() => { localStorage.setItem("ff_dark", dark); }, [dark]);
-
-  useEffect(() => {
-    if (user) localStorage.setItem("ff_user", JSON.stringify(user));
-    else localStorage.removeItem("ff_user");
-  }, [user]);
+  useEffect(() => { try { localStorage.setItem("ff_dark", dark); } catch {} }, [dark]);
+  useEffect(() => { user ? safeSet("ff_user", user) : safeRemove("ff_user"); }, [user]);
 
   const handleSplashDone = useCallback(() => setLoading(false), []);
   const handleLogin      = useCallback((u) => setUser(u), []);
-  const handleLogout     = useCallback(() => { setUser(null); localStorage.removeItem("ff_user"); }, []);
+  const handleLogout     = useCallback(() => { setUser(null); safeRemove("ff_user"); }, []);
 
   if (loading) return <SplashScreen onDone={handleSplashDone} />;
 
