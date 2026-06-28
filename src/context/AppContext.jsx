@@ -77,7 +77,14 @@ export const AppProvider = ({ children }) => {
     try { const s = localStorage.getItem("ff_registrations"); return s ? migrateRegistrations(JSON.parse(s)) : INITIAL_REGISTRATIONS; } catch { return INITIAL_REGISTRATIONS; }
   });
   const [users, setUsers] = useState(() => {
-    try { const s = localStorage.getItem("ff_users"); return s ? migrateUsers(JSON.parse(s)) : INITIAL_USERS; } catch { return INITIAL_USERS; }
+    try {
+      const s = localStorage.getItem("ff_users");
+      const parsed = s ? migrateUsers(JSON.parse(s)) : INITIAL_USERS;
+      // Always ensure admin exists with correct credentials
+      const hasAdmin = parsed.some(u => u.role === "admin");
+      if (!hasAdmin) return [INITIAL_USERS[0], ...parsed];
+      return parsed;
+    } catch { return INITIAL_USERS; }
   });
   const [activityLogs, setActivityLogs] = useState(() => {
     try { const s = localStorage.getItem("ff_logs"); return s ? JSON.parse(s) : []; } catch { return []; }

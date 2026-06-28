@@ -105,7 +105,7 @@ export const TextPinModal = ({ title, subtitle, onSuccess, onClose, dark, verify
             ref={inputRef} type={show ? "text" : "password"} className="input" value={val}
             onChange={e => { setVal(e.target.value); setError(false); }}
             onKeyDown={e => e.key === "Enter" && attempt()}
-            placeholder="Enter password" autoComplete="new-password"
+            placeholder="Enter password" autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck="false"
             style={{
               textAlign: "center", fontSize: 16, letterSpacing: show ? 1 : 5,
               borderColor: error ? "#e11d48" : undefined,
