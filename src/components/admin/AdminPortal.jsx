@@ -93,7 +93,6 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   // ── Shared styles ──────────────────────────────────────────────────────────
   const border  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
   const cardBg  = dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)";
-  const cardBg  = dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)";
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
   const initBg  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
   const initCol = dark ? "#9ca3af" : "#6b7280";
