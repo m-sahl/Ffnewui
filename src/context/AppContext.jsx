@@ -132,7 +132,7 @@ export const AppProvider = ({ children }) => {
       users, setUsers,
       activityLogs, setActivityLogs,
       logActivity,
-      messages, sendMessage, markRead,
+      messages, setMessages, sendMessage, markRead,
     }}>
       {children}
     </AppContext.Provider>
