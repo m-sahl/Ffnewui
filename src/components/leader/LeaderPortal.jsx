@@ -3,6 +3,7 @@ import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
+import InboxPanel from "./InboxPanel";
 import { CATS, ACCENT } from "../../styles/DesignTokens";
 
 const Tag = ({ label, dark }) => (
@@ -10,7 +11,8 @@ const Tag = ({ label, dark }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { programs, students, registrations, setRegistrations, logActivity } = useApp();
+  const { programs, students, registrations, setRegistrations, logActivity, messages } = useApp();
+  const [showInbox, setShowInbox] = useState(false);
 
   const [tab, setTab]                     = useState("members");
   const [session, setSession]             = useState("Stage");
@@ -123,6 +125,25 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               <div className="topbar-sub">Leader Portal</div>
             </div>
           </div>
+        }
+        right={
+          <button onClick={() => setShowInbox(true)} style={{
+            position: "relative", width: 32, height: 32, borderRadius: 9, border: "none",
+            background: "rgba(255,255,255,0.055)", color: "#9ca3af",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(245,158,11,0.1)"; e.currentTarget.style.color = "#f59e0b"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.055)"; e.currentTarget.style.color = "#9ca3af"; }}
+          >
+            <Ic name="message" size={15} />
+            {(() => {
+              const unread = messages.filter(m => m.from === "admin" && m.to === group.id && !m.read).length;
+              return unread > 0 ? (
+                <span style={{ position: "absolute", top: -3, right: -3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#0a0b12", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>
+              ) : null;
+            })()}
+          </button>
         }
         dark={dark} setDark={setDark}
         context={group.name}
@@ -383,6 +404,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           </div>
         </Modal>
       )}
+
+      {showInbox && <InboxPanel user={user} group={group} dark={dark} onClose={() => setShowInbox(false)} />}
 
       {/* ── Delete confirm ── */}
       {delConfirm && (

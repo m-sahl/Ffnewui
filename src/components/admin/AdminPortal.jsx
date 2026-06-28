@@ -4,6 +4,7 @@ import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
 import PrintSection from "./PrintSection";
+import MessagesPanel from "./MessagesPanel";
 import { CATS, ACCENT } from "../../styles/DesignTokens";
 
 // ── Bottom tab bar (all screen sizes) ─────────────────────────────────────────
@@ -32,7 +33,7 @@ const Tag = ({ label, dark }) => (
 );
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity } = useApp();
+  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, messages } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -480,6 +481,25 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             {session}
           </span>
         )}
+        right={
+          <button onClick={() => setShowMessages(true)} style={{
+            position: "relative", width: 32, height: 32, borderRadius: 9, border: "none",
+            background: "rgba(255,255,255,0.055)", color: "#9ca3af",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(245,158,11,0.1)"; e.currentTarget.style.color = "#f59e0b"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.055)"; e.currentTarget.style.color = "#9ca3af"; }}
+          >
+            <Ic name="message" size={15} />
+            {(() => {
+              const unread = messages.filter(m => m.to === "admin" && !m.read).length;
+              return unread > 0 ? (
+                <span style={{ position: "absolute", top: -3, right: -3, width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#0a0b12", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>
+              ) : null;
+            })()}
+          </button>
+        }
         dark={dark} setDark={setDark}
         context="Admin mode · Full access"
         onLogout={onBack} isAdmin
@@ -495,6 +515,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
       {/* Bottom nav — always visible */}
       <BottomNav view={view} setView={setView} />
+      {showMessages && <MessagesPanel user={user} dark={dark} onClose={() => setShowMessages(false)} />}
 
       {/* ── Modals ────────────────────────────────────────────────────── */}
 
