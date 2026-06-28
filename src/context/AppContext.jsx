@@ -89,6 +89,9 @@ export const AppProvider = ({ children }) => {
   const [activityLogs, setActivityLogs] = useState(() => {
     try { const s = localStorage.getItem("ff_logs"); return s ? JSON.parse(s) : []; } catch { return []; }
   });
+  const [locks, setLocks] = useState(() => {
+    try { const s = localStorage.getItem("ff_locks"); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
   const [messages, setMessages] = useState(() => {
     try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
   });
@@ -108,12 +111,25 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem("ff_registrations", JSON.stringify(registrations)); }, [registrations]);
   useEffect(() => { localStorage.setItem("ff_users",         JSON.stringify(users));         }, [users]);
   useEffect(() => { localStorage.setItem("ff_logs",          JSON.stringify(activityLogs));  }, [activityLogs]);
+  useEffect(() => { localStorage.setItem("ff_locks",         JSON.stringify(locks));         }, [locks]);
   useEffect(() => { localStorage.setItem("ff_messages",      JSON.stringify(messages));      }, [messages]);
 
   const logActivity = (userName, action, details) => {
     const newLog = { id: "log-" + Date.now() + Math.random().toString(36).substr(2,4), timestamp: new Date().toISOString(), userName, action, details };
     setActivityLogs(prev => [newLog, ...prev].slice(0, 500));
   };
+
+  const toggleLock = (groupId, session) => {
+    setLocks(prev => ({
+      ...prev,
+      [groupId]: {
+        ...(prev[groupId] || {}),
+        [session]: !(prev[groupId]?.[session]),
+      }
+    }));
+  };
+
+  const isLocked = (groupId, session) => !!(locks[groupId]?.[session]);
 
   const sendMessage = (from, fromName, to, text) => {
     const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2,4), from, fromName, to, text, timestamp: new Date().toISOString(), read: false, deletedFor: [] };
@@ -146,6 +162,7 @@ export const AppProvider = ({ children }) => {
       activityLogs, setActivityLogs,
       logActivity,
       messages, setMessages, sendMessage, markRead, deleteMessage,
+      locks, toggleLock, isLocked,
     }}>
       {children}
     </AppContext.Provider>

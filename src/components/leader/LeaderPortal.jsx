@@ -26,7 +26,7 @@ const LeaderMsgBtn = ({ onClick, unread }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { programs, students, registrations, setRegistrations, logActivity, messages } = useApp();
+  const { programs, students, registrations, setRegistrations, logActivity, messages, isLocked } = useApp();
   const [showInbox, setShowInbox] = useState(false);
 
   const [tab, setTab]                     = useState("members");
@@ -40,6 +40,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [delConfirm, setDelConfirm]       = useState(null);
 
   const groupStudents = students[group.id] || [];
+  const locked = isLocked(group.id, session);
   const groupRegs     = registrations.filter(r => r.groupId === group.id);
 
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
@@ -261,6 +262,15 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         {/* ── Registrations tab ── */}
         {tab === "events" && (
           <div className="anim-fadeIn">
+            {locked && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)", marginBottom: 14 }}>
+                <span style={{ fontSize: 16 }}>🔒</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#e11d48" }}>{session} registrations are locked</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>Contact admin to unlock</div>
+                </div>
+              </div>
+            )}
             {filtRegs.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
@@ -287,10 +297,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                             <Tag label={p?.type} dark={dark} />
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
-                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r.id)}><Ic name="trash" size={13} /></button>
-                        </div>
+                        {!locked && (
+                          <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
+                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r.id)}><Ic name="trash" size={13} /></button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Participants list */}
@@ -309,8 +321,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               </div>
             )}
 
-            {/* FAB */}
-            <button onClick={() => openReg()} style={{
+            {/* FAB — hidden when locked */}
+            {!locked && <button onClick={() => openReg()} style={{
               position: "fixed", bottom: 24, right: 20, width: 52, height: 52, borderRadius: "50%",
               background: "linear-gradient(135deg,#f59e0b,#d97706)", border: "none",
               color: "#0a0b12", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -321,7 +333,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
             >
               <Ic name="plus" size={22} />
-            </button>
+            </button>}
           </div>
         )}
       </div>

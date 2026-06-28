@@ -48,7 +48,7 @@ const AdminMsgBtn = ({ onClick, unread }) => (
 );
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, messages } = useApp();
+  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, messages, locks, toggleLock } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -92,6 +92,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
   // ── Shared styles ──────────────────────────────────────────────────────────
   const border  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const cardBg  = dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)";
   const cardBg  = dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)";
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
   const initBg  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
@@ -401,7 +402,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       <div className="section-header">
         <div>
           <div className="section-title">Groups</div>
-          <div className="section-sub">Manage login access</div>
+          <div className="section-sub">Manage access & registration locks</div>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setUserModal(true)}><Ic name="plus" size={13} /> Add</button>
       </div>
@@ -412,31 +413,43 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div style={{ fontSize: 13 }}>Add a group to get started</div>
         </div>
       ) : (
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>#</th><th>Name</th><th>Members</th><th>PIN</th><th style={{ textAlign: "right" }}>—</th></tr></thead>
-            <tbody>
-              {users.filter(u => u.role !== "admin").map((u, idx) => (
-                <tr key={u.id}>
-                  <td style={{ color: mutedTx }}>{idx + 1}</td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 8, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{u.name.charAt(0)}</div>
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ fontSize: 13, color: mutedTx }}>{(students[u.id] || []).length}</td>
-                  <td><span style={{ fontFamily: "monospace", letterSpacing: 3, color: dark ? "#374151" : "#d1d5db" }}>{"•".repeat(u.pin?.length || 3)}</span></td>
-                  <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {users.filter(u => u.role !== "admin").map((u, idx) => (
+            <div key={u.id} style={{ borderRadius: 14, border: `1px solid ${border}`, overflow: "hidden" }}>
+              {/* Group header row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: cardBg }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{u.name.charAt(0)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{(students[u.id] || []).length} members · PIN: {"•".repeat(u.pin?.length || 3)}</div>
+                </div>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
+                </div>
+              </div>
+
+              {/* Session lock toggles */}
+              <div style={{ borderTop: `1px solid ${border}`, padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx, letterSpacing: 0.5, textTransform: "uppercase", marginRight: 4 }}>Registration</span>
+                {["Stage", "Off-Stage", "General"].map(session => {
+                  const locked = locks[u.id]?.[session];
+                  return (
+                    <button key={session} onClick={() => toggleLock(u.id, session)} style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: "5px 12px", borderRadius: 20, border: "none", cursor: "pointer",
+                      fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                      background: locked ? "rgba(225,29,72,0.1)" : "rgba(16,185,129,0.1)",
+                      color: locked ? "#e11d48" : "#10b981",
+                      transition: "all 0.18s ease",
+                    }}>
+                      {locked ? "🔒" : "🔓"} {session}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
