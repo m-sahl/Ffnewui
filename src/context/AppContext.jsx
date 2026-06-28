@@ -116,8 +116,21 @@ export const AppProvider = ({ children }) => {
   };
 
   const sendMessage = (from, fromName, to, text) => {
-    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2,4), from, fromName, to, text, timestamp: new Date().toISOString(), read: false };
+    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2,4), from, fromName, to, text, timestamp: new Date().toISOString(), read: false, deletedFor: [] };
     setMessages(prev => [...prev, msg]);
+  };
+
+  // Delete for me: adds userId to deletedFor array (soft delete)
+  // Delete for everyone: removes message entirely
+  const deleteMessage = (id, mode, userId) => {
+    setMessages(prev => prev
+      .map(m => {
+        if (m.id !== id) return m;
+        if (mode === "everyone") return null;
+        return { ...m, deletedFor: [...(m.deletedFor || []), userId] };
+      })
+      .filter(Boolean)
+    );
   };
 
   const markRead = (toId) => {
@@ -132,7 +145,7 @@ export const AppProvider = ({ children }) => {
       users, setUsers,
       activityLogs, setActivityLogs,
       logActivity,
-      messages, setMessages, sendMessage, markRead,
+      messages, setMessages, sendMessage, markRead, deleteMessage,
     }}>
       {children}
     </AppContext.Provider>

@@ -12,7 +12,7 @@ const DotsIcon  = ({ s }) => <Icon size={s} fill="currentColor" stroke="none"><c
 const CheckIcon = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l3.5 3.5L13 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
 const InboxPanel = ({ user, group, dark, onClose }) => {
-  const { messages, sendMessage, markRead, setMessages } = useApp();
+  const { messages, sendMessage, markRead, setMessages, deleteMessage } = useApp();
   const [text, setText]         = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [ctxMsg, setCtxMsg]     = useState(null);
@@ -27,6 +27,7 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
   const headerBg = dark ? "rgba(7,8,15,0.97)" : "rgba(18,18,30,0.97)";
 
   const thread = messages
+    .filter(m => !(m.deletedFor||[]).includes(group.id))
     .filter(m => (m.from === "admin" && m.to === group.id) || (m.from === group.id && m.to === "admin"))
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -41,7 +42,10 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60);
   };
 
-  const deleteMsg = (id) => { setMessages(prev => prev.filter(m => m.id !== id)); setCtxMsg(null); };
+  const deleteMsg = (mode) => {
+    deleteMessage(ctxMsg.id, mode, group.id);
+    setCtxMsg(null);
+  };
 
   const clearChat = () => {
     setMessages(prev => prev.filter(m =>
@@ -183,10 +187,16 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
       {ctxMsg && (
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 300 }} onClick={() => setCtxMsg(null)} />
-          <div style={{ position: "fixed", top: ctxPos.y, left: ctxPos.x, zIndex: 301, background: dark ? "#1a1b2e" : "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.45)", minWidth: 170, border: `1px solid ${border}` }}>
-            <button onClick={() => deleteMsg(ctxMsg.id)} style={{ width: "100%", padding: "13px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, color: "#e11d48" }}>
-              <TrashIcon s={15} /> Delete message
+          <div style={{ position: "fixed", top: ctxPos.y, left: ctxPos.x, zIndex: 301, background: dark ? "#1a1b2e" : "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.45)", minWidth: 200, border: `1px solid ${border}` }}>
+            <div style={{ padding: "10px 16px 6px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: mutedTx }}>Delete message</div>
+            <button onClick={() => deleteMsg("me")} style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", borderTop: `1px solid ${border}`, cursor: "pointer", fontFamily: "inherit", fontSize: 14, color: dark ? "#e8e8f5" : "#111" }}>
+              <TrashIcon s={14} /> Delete for me
             </button>
+            {ctxMsg.from === group.id && (
+              <button onClick={() => deleteMsg("everyone")} style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", borderTop: `1px solid ${border}`, cursor: "pointer", fontFamily: "inherit", fontSize: 14, color: "#e11d48" }}>
+                <TrashIcon s={14} /> Delete for everyone
+              </button>
+            )}
           </div>
         </>
       )}

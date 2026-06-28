@@ -17,7 +17,7 @@ const CheckIcon   = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="
 const DblCheckIcon = ({ color }) => <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><path d="M1 5l3.5 3.5L10 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 5l3.5 3.5L16 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
 const MessagesPanel = ({ user, dark, onClose }) => {
-  const { groups, messages, sendMessage, markRead, setMessages } = useApp();
+  const { groups, messages, sendMessage, markRead, setMessages, deleteMessage } = useApp();
   const [selectedGroup, setSelectedGroup]     = useState(null);
   const [text, setText]                       = useState("");
   const [search, setSearch]                   = useState("");
@@ -41,7 +41,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
 
   const selectedGroupObj = groups.find(g => g.id === selectedGroup);
 
-  const thread = (selectedGroup ? messages.filter(m =>
+  const thread = (selectedGroup ? messages.filter(m => !(m.deletedFor||[]).includes("admin")).filter(m =>
     (m.from === "admin" && m.to === selectedGroup) ||
     (m.from === selectedGroup && m.to === "admin")
   ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [])
@@ -55,9 +55,10 @@ const MessagesPanel = ({ user, dark, onClose }) => {
   const totalUnread = messages.filter(m => m.to === "admin" && !m.read).length;
 
   const lastMsg = (gId) => {
-    const msgs = messages.filter(m =>
-      (m.from === gId && m.to === "admin") || (m.from === "admin" && m.to === gId)
-    ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const msgs = messages
+      .filter(m => !(m.deletedFor||[]).includes("admin"))
+      .filter(m => (m.from === gId && m.to === "admin") || (m.from === "admin" && m.to === gId))
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     return msgs[0] || null;
   };
 
@@ -76,8 +77,8 @@ const MessagesPanel = ({ user, dark, onClose }) => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60);
   };
 
-  const deleteMsg = (id) => {
-    setMessages(prev => prev.filter(m => m.id !== id));
+  const deleteMsg = (mode) => {
+    deleteMessage(ctxMsg.id, mode, "admin");
     setCtxMsg(null);
   };
 
@@ -360,10 +361,16 @@ const MessagesPanel = ({ user, dark, onClose }) => {
       {ctxMsg && (
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 300 }} onClick={() => setCtxMsg(null)} />
-          <div style={{ position: "fixed", top: ctxPos.y, left: ctxPos.x, zIndex: 301, background: dark ? "#1a1b2e" : "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.45)", minWidth: 170, border: `1px solid ${border}` }}>
-            <button onClick={() => deleteMsg(ctxMsg.id)} style={{ width: "100%", padding: "13px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, color: "#e11d48" }}>
-              <TrashIcon s={15} /> Delete message
+          <div style={{ position: "fixed", top: ctxPos.y, left: ctxPos.x, zIndex: 301, background: dark ? "#1a1b2e" : "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.45)", minWidth: 200, border: `1px solid ${border}` }}>
+            <div style={{ padding: "10px 16px 6px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: mutedTx }}>Delete message</div>
+            <button onClick={() => deleteMsg("me")} style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", borderTop: `1px solid ${border}`, cursor: "pointer", fontFamily: "inherit", fontSize: 14, color: dark ? "#e8e8f5" : "#111" }}>
+              <TrashIcon s={14} /> Delete for me
             </button>
+            {ctxMsg.from === "admin" && (
+              <button onClick={() => deleteMsg("everyone")} style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", borderTop: `1px solid ${border}`, cursor: "pointer", fontFamily: "inherit", fontSize: 14, color: "#e11d48" }}>
+                <TrashIcon s={14} /> Delete for everyone
+              </button>
+            )}
           </div>
         </>
       )}
