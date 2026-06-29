@@ -400,54 +400,43 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div style={{ fontSize: 13 }}>Add a group to get started</div>
         </div>
       ) : (
-        <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th>Group</th>
-                <th style={{ textAlign: "center" }}>Stage</th>
-                <th style={{ textAlign: "center" }}>Off-Stage</th>
-                <th style={{ textAlign: "center" }}>General</th>
-                <th style={{ textAlign: "right" }}>—</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.filter(u => u.role !== "admin").map(u => (
-                <tr key={u.id}>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 8, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{u.name.charAt(0)}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div>
-                        <div style={{ fontSize: 11, color: mutedTx }}>{(students[u.id] || []).length} members</div>
-                      </div>
-                    </div>
-                  </td>
-                  {["Stage", "Off-Stage", "General"].map(session => {
-                    const locked = locks[u.id]?.[session];
-                    return (
-                      <td key={session} style={{ textAlign: "center" }}>
-                        <button onClick={() => toggleLock(u.id, session)} style={{
-                          width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
-                          background: locked ? "rgba(225,29,72,0.1)" : "rgba(16,185,129,0.1)",
-                          fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          transition: "all 0.15s ease",
-                        }} title={locked ? `Unlock ${session}` : `Lock ${session}`}>
-                          {locked ? "🔒" : "🔓"}
-                        </button>
-                      </td>
-                    );
-                  })}
-                  <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+          {users.filter(u => u.role !== "admin").map((u, i) => (
+            <div key={u.id} style={{
+              padding: "14px 16px",
+              background: i % 2 === 0 ? cardBg : "transparent",
+              borderTop: i > 0 ? `1px solid ${border}` : "none",
+            }}>
+              {/* Group name + actions */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{(students[u.id] || []).length} members</div>
+                </div>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
+                </div>
+              </div>
+              {/* Lock toggles */}
+              <div style={{ display: "flex", gap: 6 }}>
+                {["Stage", "Off-Stage", "General"].map(session => {
+                  const locked = locks[u.id]?.[session];
+                  return (
+                    <button key={session} onClick={() => toggleLock(u.id, session)} style={{
+                      flex: 1, padding: "6px 0", borderRadius: 8, border: `1px solid ${locked ? "rgba(225,29,72,0.2)" : "rgba(16,185,129,0.2)"}`,
+                      background: locked ? "rgba(225,29,72,0.07)" : "rgba(16,185,129,0.07)",
+                      color: locked ? "#e11d48" : "#10b981",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                      transition: "all 0.15s",
+                    }}>
+                      {locked ? "🔒" : "🔓"} {session}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
