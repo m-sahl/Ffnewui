@@ -401,10 +401,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       <div className="section-header">
         <div>
           <div className="section-title">Groups</div>
-          <div className="section-sub">Manage access & registration locks</div>
+          <div className="section-sub">Access & registration locks</div>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setUserModal(true)}><Ic name="plus" size={13} /> Add</button>
       </div>
+
       {users.filter(u => u.role !== "admin").length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>🏷️</div>
@@ -412,43 +413,55 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div style={{ fontSize: 13 }}>Add a group to get started</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {users.filter(u => u.role !== "admin").map((u, idx) => (
-            <div key={u.id} style={{ borderRadius: 14, border: `1px solid ${border}`, overflow: "hidden" }}>
-              {/* Group header row */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: cardBg }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{u.name.charAt(0)}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</div>
-                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{(students[u.id] || []).length} members · PIN: {"•".repeat(u.pin?.length || 3)}</div>
-                </div>
-                <div style={{ display: "flex", gap: 5 }}>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
-                </div>
-              </div>
-
-              {/* Session lock toggles */}
-              <div style={{ borderTop: `1px solid ${border}`, padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx, letterSpacing: 0.5, textTransform: "uppercase", marginRight: 4 }}>Registration</span>
-                {["Stage", "Off-Stage", "General"].map(session => {
-                  const locked = locks[u.id]?.[session];
-                  return (
-                    <button key={session} onClick={() => toggleLock(u.id, session)} style={{
-                      display: "inline-flex", alignItems: "center", gap: 5,
-                      padding: "5px 12px", borderRadius: 20, border: "none", cursor: "pointer",
-                      fontFamily: "inherit", fontSize: 12, fontWeight: 700,
-                      background: locked ? "rgba(225,29,72,0.1)" : "rgba(16,185,129,0.1)",
-                      color: locked ? "#e11d48" : "#10b981",
-                      transition: "all 0.18s ease",
-                    }}>
-                      {locked ? "🔒" : "🔓"} {session}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <div className="tbl-wrap">
+          {/* Header */}
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Group</th>
+                <th style={{ textAlign: "center" }}>Stage</th>
+                <th style={{ textAlign: "center" }}>Off-Stage</th>
+                <th style={{ textAlign: "center" }}>General</th>
+                <th style={{ textAlign: "right" }}>—</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.filter(u => u.role !== "admin").map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{u.name.charAt(0)}</div>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: mutedTx }}>{(students[u.id] || []).length} members</div>
+                      </div>
+                    </div>
+                  </td>
+                  {["Stage", "Off-Stage", "General"].map(session => {
+                    const locked = locks[u.id]?.[session];
+                    return (
+                      <td key={session} style={{ textAlign: "center" }}>
+                        <button onClick={() => toggleLock(u.id, session)} style={{
+                          width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
+                          background: locked ? "rgba(225,29,72,0.1)" : "rgba(16,185,129,0.1)",
+                          fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.15s ease",
+                        }} title={locked ? `Unlock ${session}` : `Lock ${session}`}>
+                          {locked ? "🔒" : "🔓"}
+                        </button>
+                      </td>
+                    );
+                  })}
+                  <td style={{ textAlign: "right" }}>
+                    <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
+                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
