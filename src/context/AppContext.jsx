@@ -68,7 +68,12 @@ export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
   const [programs, setPrograms] = useState(() => {
-    try { const s = localStorage.getItem("ff_programs"); return s ? JSON.parse(s) : INITIAL_PROGRAMS; } catch { return INITIAL_PROGRAMS; }
+    try {
+      const s = localStorage.getItem("ff_programs");
+      const parsed = s ? JSON.parse(s) : INITIAL_PROGRAMS;
+      // Assign order to programs that don't have it
+      return parsed.map((p, i) => p.order ? p : { ...p, order: i + 1 });
+    } catch { return INITIAL_PROGRAMS; }
   });
   const [students, setStudents] = useState(() => {
     try { const s = localStorage.getItem("ff_students"); return s ? migrateStudents(JSON.parse(s)) : INITIAL_STUDENTS; } catch { return INITIAL_STUDENTS; }
