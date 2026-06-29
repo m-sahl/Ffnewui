@@ -243,10 +243,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             <div style={{ fontSize: 13 }}>Add students to this group to get started</div>
           </div>
         ) : (
-          <div className="tbl-wrap">
-            <table className="tbl">
+          <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr><th>Chest</th><th>Name</th><th>Category</th><th>Designation</th><th style={{ textAlign: "right" }}>—</th></tr>
+                <tr><th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Chest</th><th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Name</th><th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Cat</th><th style={{ padding: "10px 14px", textAlign: "right", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Role</th></tr>
               </thead>
               <tbody>
                 {groupStudents.map(s => (
@@ -263,15 +263,12 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                         </div>
                       </div>
                     </td>
-                    <td><Tag label={s.category} dark={dark} /></td>
-                    <td>
-                      <select className="input select" value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
-                        style={{ width: 140, height: 32, fontSize: 12, padding: "2px 10px", borderRadius: 8 }}>
+                    <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}` }}><span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: mutedTx }}>{s.category === "Sub-Junior" ? "Sub" : s.category}</span></td>
+                    <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}`, textAlign: "right" }}>
+                      <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
+                        style={{ background: "transparent", border: "none", color: mutedTx, fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
                         <option>Member</option><option>Leader</option><option>Asst. Leader</option>
                       </select>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteStudent(activeGroup, s.id, s.name)}><Ic name="trash" size={13} /></button>
                     </td>
                   </tr>
                 ))}
@@ -413,9 +410,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div style={{ fontSize: 13 }}>Add a group to get started</div>
         </div>
       ) : (
-        <div className="tbl-wrap">
-          {/* Header */}
-          <table className="tbl">
+        <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 <th>Group</th>

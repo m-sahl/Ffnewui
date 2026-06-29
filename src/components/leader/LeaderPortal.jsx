@@ -231,25 +231,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 <div style={{ fontSize: 13 }}>No students in {catFilter === "All" ? "this group" : `${catFilter} category`}</div>
               </div>
             ) : (
-              <div className="tbl-wrap">
-                <table className="tbl">
+              <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
-                    <tr><th>Chest</th><th>Name</th><th>Category</th><th>Role</th></tr>
+                    <tr>
+                      {["Chest","Name","Cat","Role"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>{h}</th>)}
+                    </tr>
                   </thead>
                   <tbody>
                     {filtStudents.map(s => (
                       <tr key={s.id}>
-                        <td><span className="ff-display fw-800" style={{ color: ACCENT, fontSize: 14 }}>{s.chestNo}</span></td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 30, height: 30, borderRadius: 8, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                              {s.name.charAt(0)}
-                            </div>
-                            <span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span>
-                          </div>
-                        </td>
-                        <td><Tag label={s.category} dark={dark} /></td>
-                        <td><span style={{ fontSize: 12, color: mutedTx }}>{s.groupRole || "Member"}</span></td>
+                        <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}` }}><span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13 }}>{s.chestNo}</span></td>
+                        <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}` }}><span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span></td>
+                        <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}` }}><span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: mutedTx }}>{s.category === "Sub-Junior" ? "Sub" : s.category}</span></td>
+                        <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}` }}><span style={{ fontSize: 12, color: mutedTx }}>{s.groupRole || "Member"}</span></td>
                       </tr>
                     ))}
                   </tbody>
