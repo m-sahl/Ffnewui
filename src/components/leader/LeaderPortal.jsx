@@ -286,7 +286,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                       {/* Program name + actions */}
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif", marginBottom: 6 }}>{p?.name}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                          <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>#{p?.order || ""}</span>
+                          <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p?.name}</div>
+                        </div>
                           <div style={{ display: "flex", gap: 5 }}>
                             <Tag label={p?.category} dark={dark} />
                             <Tag label={p?.type} dark={dark} />
@@ -345,7 +348,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 onChange={e => setRegForm({ programId: e.target.value, participantIds: [] })}>
                 <option value="">Choose a program…</option>
                 {sessionPrograms.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} · {p.category} · {p.session}</option>
+                  <option key={p.id} value={p.id}>#{p.order || ""} {p.name} · {p.category}</option>
                 ))}
               </select>
             </div>

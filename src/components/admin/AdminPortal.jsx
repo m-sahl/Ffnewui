@@ -150,7 +150,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       setPrograms(prev => prev.map(p => p.id === editProg ? { ...p, ...progForm } : p));
       logActivity(user.name, "Updated program", progForm.name);
     } else {
-      setPrograms(prev => [...prev, { id: "p-" + Math.random().toString(36).substr(2, 5), ...progForm }]);
+      setPrograms(prev => [...prev, { id: "p-" + Math.random().toString(36).substr(2, 5), order: prev.length + 1, ...progForm }]);
       logActivity(user.name, "Added program", `${progForm.name} (${progForm.session})`);
     }
     setProgModal(false);
@@ -350,7 +350,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx, flexShrink: 0 }}>#{i + 1}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx, flexShrink: 0 }}>#{p.order || (i + 1)}</span>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</div>
                   </div>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
