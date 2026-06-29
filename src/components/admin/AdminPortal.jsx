@@ -207,9 +207,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             <div className="section-title">Students</div>
             <div className="section-sub">{groupStudents.length} in selected group</div>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => setStuModal(true)}>
-            <Ic name="plus" size={13} /> Add
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { setStuSearchOpen(o => !o); setStuSearch(""); }}
+              style={{ color: stuSearchOpen ? ACCENT : mutedTx }}>
+              <Ic name="search" size={15} />
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setStuModal(true)}>
+              <Ic name="plus" size={13} /> Add
+            </button>
+          </div>
         </div>
 
         <div className="group-tabs" style={{ marginBottom: 18 }}>
@@ -221,20 +227,14 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           ))}
         </div>
 
-        {/* Search row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
-            {stuSearchOpen && (
-              <input className="input anim-slideDown" type="text" placeholder="Search by name…"
-                value={stuSearch} onChange={e => setStuSearch(e.target.value)}
-                style={{ fontSize: 13 }} autoFocus />
-            )}
+        {/* Search */}
+        {stuSearchOpen && (
+          <div style={{ marginBottom: 14 }}>
+            <input className="input" type="text" placeholder="Search by name…"
+              value={stuSearch} onChange={e => setStuSearch(e.target.value)}
+              style={{ fontSize: 13 }} autoFocus />
           </div>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { setStuSearchOpen(o => !o); setStuSearch(""); }}
-            style={{ flexShrink: 0, color: stuSearchOpen ? ACCENT : mutedTx }}>
-            <Ic name="search" size={15} />
-          </button>
-        </div>
+        )}
 
         {groupStudents.length === 0 ? (
           <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
@@ -244,36 +244,26 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr><th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Chest</th><th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Name</th><th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Cat</th><th style={{ padding: "10px 14px", textAlign: "right", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: mutedTx, background: dark ? "rgba(255,255,255,0.022)" : "rgba(0,0,0,0.022)", borderBottom: `1px solid ${border}` }}>Role</th></tr>
-              </thead>
-              <tbody>
-                {groupStudents.map(s => (
-                  <tr key={s.id}>
-                    <td><span className="ff-display fw-800" style={{ color: ACCENT, fontSize: 14 }}>{s.chestNo}</span></td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 8, background: initBg, color: initCol, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                          {s.name.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                          {s.groupRole && s.groupRole !== "Member" && <div style={{ fontSize: 10, color: mutedTx }}>{s.groupRole}</div>}
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}` }}><span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: mutedTx }}>{s.category === "Sub-Junior" ? "Sub" : s.category}</span></td>
-                    <td style={{ padding: "12px 14px", borderTop: `1px solid ${border}`, textAlign: "right" }}>
-                      <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
-                        style={{ background: "transparent", border: "none", color: mutedTx, fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
-                        <option>Member</option><option>Leader</option><option>Asst. Leader</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {groupStudents.map((s, i) => (
+              <div key={s.id} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                borderTop: i > 0 ? `1px solid ${border}` : "none",
+                background: i % 2 === 0 ? cardBg : "transparent",
+              }}>
+                <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13, minWidth: 36 }}>{s.chestNo}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{s.category === "Sub-Junior" ? "Sub-Junior" : s.category}</div>
+                </div>
+                <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
+                  style={{ background: "transparent", border: "none", color: mutedTx, fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                  <option>Member</option><option>Leader</option><option>Asst. Leader</option>
+                </select>
+                <button onClick={() => deleteStudent(activeGroup, s.id, s.name)} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, flexShrink: 0, display: "flex", alignItems: "center" }}>
+                  <Ic name="trash" size={14} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
