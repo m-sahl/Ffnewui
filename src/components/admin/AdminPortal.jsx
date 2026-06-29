@@ -349,7 +349,19 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{p.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</div>
+                    {(() => {
+                      const count = registrations
+                        .filter(r => r.programId === p.id)
+                        .flatMap(r => r.participantIds || []).length;
+                      return count > 0 ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px", borderRadius: 20, background: `rgba(245,158,11,0.12)`, color: ACCENT }}>
+                          {count} registered
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     <Tag label={p.category} dark={dark} />
                     <Tag label={p.type} dark={dark} />
