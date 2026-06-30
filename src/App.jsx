@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { AppProvider, useApp } from "./context/AppContext";
 import GlobalStyles from "./styles/GlobalStyles";
 import SplashScreen from "./components/common/SplashScreen";
@@ -12,15 +14,25 @@ const safeSet    = (key, val) => { try { localStorage.setItem(key, JSON.stringif
 const safeRemove = (key) => { try { localStorage.removeItem(key); } catch {} };
 
 const AppContent = () => {
-  const { groups, users } = useApp();  // single call
+  const { groups, users } = useApp();
+  const ensureAdmin = useMutation(api.users.ensureAdmin);
 
   const [user, setUser]       = useState(() => safeGet("ff_user"));
   const [loading, setLoading] = useState(() => !safeGet("ff_user"));
   const [dark, setDark]       = useState(() => localStorage.getItem("ff_dark") !== "false");
+  const [adminEnsured, setAdminEnsured] = useState(false);
 
+  // Ensure admin user exists on every app load
+  useEffect(() => {
+    if (!adminEnsured) {
+      ensureAdmin().then(() => setAdminEnsured(true)).catch(() => setAdminEnsured(true));
+    }
+  }, []);
+
+  // Re-validate stored user against Convex data
   useEffect(() => {
     if (!user || !users.length) return;
-    const valid = users.find(u => u.id === user.id && u.pin === user.pin);
+    const valid = users.find(u => u._id === user._id && u.pin === user.pin);
     if (!valid) { setUser(null); safeRemove("ff_user"); }
   }, [users]);
 
@@ -41,7 +53,7 @@ const AppContent = () => {
       ) : user.role === "group" ? (
         <LeaderPortal
           user={user}
-          group={groups.find(g => g.id === user.groupId) || { id: user.groupId, name: user.name, color: "#f59e0b" }}
+          group={groups.find(g => g.id === user._id) || { id: user._id, name: user.name, color: "#f59e0b" }}
           dark={dark} setDark={setDark} onBack={handleLogout}
         />
       ) : (

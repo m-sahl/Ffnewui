@@ -8,7 +8,7 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
   const [loginGroup, setLoginGroup] = useState(null);
   const [adminModal, setAdminModal] = useState(false);
 
-  const verifyGroupPin = (pin) => users.find(u => u.id === loginGroup.id && u.pin === pin) || null;
+  const verifyGroupPin = (pin) => { const u = users.find(x => x._id === loginGroup.id && x.pin === pin); return u || null; };
   const verifyAdmin    = (pass) => users.find(u => u.role === "admin" && u.pin === pass) || null;
 
   const groupColors = ["#f59e0b","#0ea5e9","#e11d48","#10b981","#8b5cf6","#f97316","#06b6d4","#ec4899"];
@@ -82,7 +82,7 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           title={loginGroup.name}
           subtitle="Enter your group PIN to continue"
           verify={verifyGroupPin} dark={dark}
-          pinLength={users.find(u => u.id === loginGroup.id)?.pin?.length || 3}
+          pinLength={users.find(u => u._id === loginGroup.id)?.pin?.length || 3}
           onSuccess={(u) => { setLoginGroup(null); onLeaderLogin(u); }}
           onClose={() => setLoginGroup(null)}
         />

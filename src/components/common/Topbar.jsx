@@ -5,7 +5,7 @@ import { NumPinModal, TextPinModal } from "./AuthModals";
 import { useApp } from "../../context/AppContext";
 
 const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength }) => {
-  const { users, setUsers, activityLogs, clearLogs } = useApp();
+  const { users, changeAdminPassword, activityLogs, clearLogs } = useApp();
   const [confirming, setConfirming]         = useState(false);
   const [changingPwd, setChangingPwd]       = useState(false);
   const [newPwd, setNewPwd]                 = useState("");

@@ -48,7 +48,7 @@ const AdminMsgBtn = ({ onClick, unread }) => (
 );
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
+  const { groups, users, students, studentsFlat, programs, registrations, activityLogs, messages, logActivity, clearLogs, toggleLock, isLocked, addStudent, updateStudentRole, deleteStudent, addProgram, editProgram, deleteProgram, addRegistration, editRegistration, deleteRegistration, addGroup, editGroup, deleteGroup } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -113,25 +113,17 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     }
     setDelConfirm({ type: "student", id: { gId, sId }, label: name });
   };
-  const confirmDeleteStudent = () => {
+  const confirmDeleteStudent = async () => {
     const { gId, sId } = delConfirm.id;
-    const s = (students[gId] || []).find(x => x.id === sId);
-    setStudents(prev => ({ ...prev, [gId]: prev[gId].filter(s => s.id !== sId) }));
+    const s = (students[gId] || []).find(x => x._id === sId);
+    await deleteStudent(sId);
     if (s) logActivity(user.name, "Deleted student", `${s.name} from ${groups.find(g => g.id === gId)?.name}`);
     setDelConfirm(null);
   };
 
-  const updateStudentRole = (gId, sId, role) => {
-    setStudents(prev => {
-      const updated = (prev[gId] || []).map(s => {
-        if (s.id === sId) return { ...s, groupRole: role };
-        if (role === "Leader" && s.groupRole === "Leader") return { ...s, groupRole: "Member" };
-        if (role === "Asst. Leader" && s.groupRole === "Asst. Leader") return { ...s, groupRole: "Member" };
-        return s;
-      });
-      return { ...prev, [gId]: updated };
-    });
-    const s = (students[gId] || []).find(x => x.id === sId);
+  const updateStudentRole = async (gId, sId, role) => {
+    await updateStudentRole(sId, role);
+    const s = (students[gId] || []).find(x => x._id === sId);
     logActivity(user.name, "Updated designation", `${s?.name} → ${role}`);
   };
 
@@ -141,14 +133,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setProgForm({ name: "", session, category: catFilter === "All" ? "Senior" : catFilter, type: "Single", maxParticipants: 1, criteria: ["", ""] });
     setProgModal(true);
   };
-  const openEditProg = (p) => { setEditProg(p.id); setProgForm(p); setProgModal(true); };
-  const saveProg = () => {
+  const openEditProg = (p) => { setEditProg(p._id); setProgForm({ ...p, id: undefined }); setProgModal(true); };
+  const saveProg = async () => {
     if (!progForm.name.trim()) return;
+    const data = { name: progForm.name, session: progForm.session, category: progForm.category, type: progForm.type, maxParticipants: progForm.maxParticipants, criteria: progForm.criteria.filter(Boolean) };
     if (editProg) {
-      setPrograms(prev => prev.map(p => p.id === editProg ? { ...p, ...progForm } : p));
+      await editProgram(editProg, data);
       logActivity(user.name, "Updated program", progForm.name);
     } else {
-      setPrograms(prev => [...prev, { id: "p-" + Math.random().toString(36).substr(2, 5), order: prev.length + 1, ...progForm }]);
+      await addProgram(data);
       logActivity(user.name, "Added program", `${progForm.name} (${progForm.session})`);
     }
     setProgModal(false);
@@ -159,33 +152,32 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     }
     setDelConfirm({ type: "program", id, label: name });
   };
-  const confirmDeleteProg = () => {
-    setPrograms(prev => prev.filter(p => p.id !== delConfirm.id));
+  const confirmDeleteProg = async () => {
+    await deleteProgram(delConfirm.id);
     logActivity(user.name, "Deleted program", delConfirm.label);
     setDelConfirm(null);
   };
 
   // ── Group ops ──────────────────────────────────────────────────────────────
-  const saveUser = () => {
+  const saveUser = async () => {
     if (!userForm.name.trim() || !userForm.pin.trim()) return;
-    const id = "u-" + Math.random().toString(36).substr(2, 5);
-    setUsers(prev => [...prev, { id, name: userForm.name.trim(), pin: userForm.pin.trim(), role: "group", groupId: id }]);
+    await addGroup(userForm.name.trim(), userForm.pin.trim());
     logActivity(user.name, "Added group", userForm.name);
     setUserModal(false); setUserForm({ name: "", pin: "" });
   };
   const openEditUser = (u) => { setEditingUser(u); setEditUserForm({ name: u.name, pin: u.pin }); setEditUserModal(true); };
-  const saveEditUser = () => {
+  const saveEditUser = async () => {
     if (!editUserForm.name.trim() || !editUserForm.pin.trim()) return;
-    setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, name: editUserForm.name.trim(), pin: editUserForm.pin.trim() } : u));
+    await editGroup(editingUser._id, editUserForm.name.trim(), editUserForm.pin.trim());
     logActivity(user.name, "Edited group", editUserForm.name);
     setEditUserModal(false); setEditingUser(null);
   };
   const deleteUser = (id, name) => {
-    if (id === user.id) { setDelConfirm({ type: "blocked", label: "You cannot delete your own account." }); return; }
+    if (id === user._id) { setDelConfirm({ type: "blocked", label: "You cannot delete your own account." }); return; }
     setDelConfirm({ type: "user", id, label: name });
   };
-  const confirmDeleteUser = () => {
-    setUsers(prev => prev.filter(u => u.id !== delConfirm.id));
+  const confirmDeleteUser = async () => {
+    await deleteGroup(delConfirm.id);
     logActivity(user.name, "Deleted group", delConfirm.label);
     setDelConfirm(null);
   };
@@ -252,7 +244,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
             {groupStudents.map((s, i) => (
-              <div key={s.id} style={{
+              <div key={s._id} style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
                 borderTop: i > 0 ? `1px solid ${border}` : "none",
                 background: i % 2 === 0 ? cardBg : "transparent",
@@ -262,11 +254,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
                   <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{s.category === "Sub-Junior" ? "Sub-Junior" : s.category}</div>
                 </div>
-                <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
+                <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s._id, e.target.value)}
                   style={{ background: "transparent", border: "none", color: mutedTx, fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                   <option>Member</option><option>Leader</option><option>Asst. Leader</option>
                 </select>
-                <button onClick={() => deleteStudent(activeGroup, s.id, s.name)} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, flexShrink: 0, display: "flex", alignItems: "center" }}>
+                <button onClick={() => deleteStudent(activeGroup, s._id, s.name)} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, flexShrink: 0, display: "flex", alignItems: "center" }}>
                   <Ic name="trash" size={14} />
                 </button>
               </div>
@@ -349,7 +341,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
             {filtered.map((p, i) => (
-              <div key={p.id} style={{
+              <div key={p._id} style={{
                 padding: "14px 16px",
                 background: i % 2 === 0 ? cardBg : (dark ? "rgba(255,255,255,0.018)" : "rgba(0,0,0,0.01)"),
                 borderTop: i > 0 ? `1px solid ${border}` : "none",
@@ -369,7 +361,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 </div>
                 <div style={{ display: "flex", gap: 5, flexShrink: 0, alignItems: "center" }}>
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditProg(p)}><Ic name="edit" size={13} /></button>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteProg(p.id, p.name)}><Ic name="trash" size={13} /></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteProg(p._id, p.name)}><Ic name="trash" size={13} /></button>
                 </div>
               </div>
             ))}
@@ -412,7 +404,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 1, borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
           {users.filter(u => u.role !== "admin").map((u, i) => (
-            <div key={u.id} style={{
+            <div key={u._id} style={{
               padding: "14px 16px",
               background: i % 2 === 0 ? cardBg : "transparent",
               borderTop: i > 0 ? `1px solid ${border}` : "none",
@@ -425,15 +417,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 </div>
                 <div style={{ display: "flex", gap: 5 }}>
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u.id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteUser(u._id, u.name)} disabled={u.id === user.id}><Ic name="trash" size={13} /></button>
                 </div>
               </div>
               {/* Lock toggles */}
               <div style={{ display: "flex", gap: 6 }}>
                 {["Stage", "Off-Stage", "General"].map(session => {
-                  const locked = locks[u.id]?.[session];
+                  const locked = isLocked(u._id, session);
                   return (
-                    <button key={session} onClick={() => toggleLock(u.id, session)} style={{
+                    <button key={session} onClick={() => toggleLock(u._id, session)} style={{
                       flex: 1, padding: "6px 0", borderRadius: 8, border: `1px solid ${locked ? "rgba(225,29,72,0.2)" : "rgba(16,185,129,0.2)"}`,
                       background: locked ? "rgba(225,29,72,0.07)" : "rgba(16,185,129,0.07)",
                       color: locked ? "#e11d48" : "#10b981",

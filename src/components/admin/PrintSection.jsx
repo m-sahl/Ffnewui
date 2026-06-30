@@ -20,7 +20,7 @@ const PrintSection = ({ dark }) => {
     p.session === session && (category === "All" || p.category === category)
   );
 
-  const prog = programs.find(p => p.id === selProg);
+  const prog = programs.find(p => p._id === selProg);
 
   const getParticipants = () => {
     if (!selProg) return [];
@@ -364,7 +364,7 @@ const PrintSection = ({ dark }) => {
         <div className="label" style={{ marginBottom: 8 }}>Program</div>
         <select className="input select" value={selProg} onChange={e => setSelProg(e.target.value)}>
           <option value="">Choose a program…</option>
-          {filteredPrograms.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {filteredPrograms.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
         </select>
       </div>
 
