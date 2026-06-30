@@ -37,11 +37,6 @@ const PrintSection = ({ dark }) => {
   };
 
   const participants = getParticipants();
-  const codeLetter = (i) => {
-    let n = i, s = "";
-    do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
-    return s;
-  };
   const criteria     = prog?.criteria?.filter(Boolean) || [];
   const togglePage   = (id) => setSelectedPages(p => ({ ...p, [id]: !p[id] }));
   const anySelected  = Object.values(selectedPages).some(Boolean);
@@ -115,7 +110,7 @@ const PrintSection = ({ dark }) => {
         `<td class="blank c"></td><td class="blank c"></td>`;
       const rows = participants.map((p, i) => `
         <tr class="${i % 2 === 0 ? "even" : ""}">
-          <td class="c code-letter">${codeLetter(i)}</td>
+          <td class="blank c"></td>
           ${critCells}
         </tr>`).join("") || `<tr><td colspan="${2 + criteria.length}" class="empty">No participants registered</td></tr>`;
 
@@ -244,12 +239,6 @@ const PrintSection = ({ dark }) => {
       font-family: Arial, sans-serif;
     }
     td.name  { font-weight: 600; width: 35%; }
-    td.code-letter {
-      font-weight: bold;
-      font-size: 16px;
-      font-family: Arial, sans-serif;
-      letter-spacing: 1px;
-    }
     td.blank { background: #fff !important; border: 1px solid #bbb; min-width: 70px; height: 34px; }
     td.blank.c { text-align: center; }
     td.sign  { min-width: 110px; }
