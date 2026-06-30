@@ -5,13 +5,15 @@ import { NumPinModal, TextPinModal } from "./AuthModals";
 import { useApp } from "../../context/AppContext";
 
 const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength }) => {
-  const { users, setUsers } = useApp();
+  const { users, setUsers, activityLogs, clearLogs } = useApp();
   const [confirming, setConfirming]         = useState(false);
   const [changingPwd, setChangingPwd]       = useState(false);
   const [newPwd, setNewPwd]                 = useState("");
   const [newPwdConfirm, setNewPwdConfirm]   = useState("");
   const [pwdError, setPwdError]             = useState("");
   const [pwdSuccess, setPwdSuccess]         = useState(false);
+  const [showLog, setShowLog]               = useState(false);
+  const [clearLogConfirm, setClearLogConfirm] = useState(false);
 
   const handleChangePassword = () => {
     if (!newPwd.trim()) { setPwdError("Password cannot be empty."); return; }
@@ -90,6 +92,16 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
                   </div>
                 )}
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 16px", borderTop: `1px solid ${border}` }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(245,158,11,0.1)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Ic name="list" size={16} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Activity Log</div>
+                  <div className="text-muted" style={{ fontSize: 12 }}>{activityLogs.length} events recorded</div>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowLog(true)}>View</button>
+              </div>
             </div>
           </div>
         )}
@@ -140,6 +152,59 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
           )
         )}
       </div>
+
+      {/* Activity Log sheet */}
+      {showLog && (
+        <div className="modal-bg" onClick={() => setShowLog(false)}>
+          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+              <div>
+                <div className="ff-display fw-800" style={{ fontSize: 17 }}>Activity Log</div>
+                <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>{activityLogs.length} events</div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {activityLogs.length > 0 && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => setClearLogConfirm(true)} style={{ color: "#e11d48" }}>Clear</button>
+                )}
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowLog(false)}><Ic name="x" size={14} /></button>
+              </div>
+            </div>
+            {activityLogs.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>No activity yet</div>
+              </div>
+            ) : (
+              <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${border}`, maxHeight: 400, overflowY: "auto" }}>
+                {activityLogs.map((l, i) => (
+                  <div key={l.id} style={{ padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? rowBg : "transparent" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{l.action}</div>
+                      <div style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap" }}>{new Date(l.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{l.details} · {l.userName}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Clear log confirm */}
+      {clearLogConfirm && (
+        <div className="modal-bg" onClick={() => setClearLogConfirm(false)}>
+          <div className="modal" style={{ maxWidth: 320, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div className="ff-display fw-800" style={{ fontSize: 16, marginBottom: 8 }}>Clear Activity Log?</div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>This will permanently remove all {activityLogs.length} log entries.</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setClearLogConfirm(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, height: 44, background: "#e11d48", color: "white", fontWeight: 700 }}
+                onClick={() => { clearLogs(); setClearLogConfirm(false); setShowLog(false); }}>Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,11 +9,11 @@ import { CATS, ACCENT } from "../../styles/DesignTokens";
 
 // ── Bottom tab bar (all screen sizes) ─────────────────────────────────────────
 const NAV = [
-  { id: "students", icon: "users",   label: "Students" },
-  { id: "programs", icon: "book",    label: "Programs" },
-  { id: "users",    icon: "shield",  label: "Groups"   },
-  { id: "logs",     icon: "list",    label: "Log"      },
-  { id: "print",    icon: "printer", label: "Print"    },
+  { id: "students",      icon: "users",   label: "Students" },
+  { id: "programs",      icon: "book",    label: "Programs" },
+  { id: "users",         icon: "shield",  label: "Groups"   },
+  { id: "registrations", icon: "list",    label: "Entries"  },
+  { id: "print",         icon: "printer", label: "Print"    },
 ];
 
 const BottomNav = ({ view, setView }) => (
@@ -442,48 +442,89 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     </div>
   );
 
-  const renderLogs = () => (
-    <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
-      <div className="section-header">
-        <div>
-          <div className="section-title">Audit Log</div>
-          <div className="section-sub">{activityLogs.length} events</div>
+  const renderRegistrations = () => {
+    const groupList = groups.map(g => {
+      const regs = registrations.filter(r => r.groupId === g.id);
+      return { ...g, regs, count: regs.length };
+    });
+
+    const pendingGroups = groupList.filter(g => g.count === 0);
+    const filtered = regGroupFilter === "all" ? groupList : groupList.filter(g => g.id === regGroupFilter);
+
+    return (
+      <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
+        <div className="section-header">
+          <div>
+            <div className="section-title">Registrations</div>
+            <div className="section-sub">{registrations.length} total entries</div>
+          </div>
         </div>
-        {activityLogs.length > 0 && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setDelConfirm({ type: "logs", label: "all audit logs" })} style={{ color: mutedTx }}>
-            Clear
-          </button>
+
+        {/* Pending groups alert */}
+        {pendingGroups.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)", marginBottom: 16 }}>
+            <span style={{ fontSize: 16 }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#e11d48" }}>{pendingGroups.length} group{pendingGroups.length > 1 ? "s" : ""} haven't registered yet</div>
+              <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{pendingGroups.map(g => g.name).join(", ")}</div>
+            </div>
+          </div>
         )}
-      </div>
-      {activityLogs.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No activity yet</div>
-          <div style={{ fontSize: 13 }}>Actions will appear here</div>
+
+        {/* Group filter pills */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 18 }}>
+          <button onClick={() => setRegGroupFilter("all")} className="btn btn-sm"
+            style={{ flexShrink: 0, fontWeight: 700, background: regGroupFilter === "all" ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: regGroupFilter === "all" ? "#0a0b12" : mutedTx }}>
+            All Groups
+          </button>
+          {groupList.map(g => (
+            <button key={g.id} onClick={() => setRegGroupFilter(g.id)} className="btn btn-sm"
+              style={{ flexShrink: 0, fontWeight: 700, background: regGroupFilter === g.id ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: regGroupFilter === g.id ? "#0a0b12" : mutedTx }}>
+              {g.name} {g.count === 0 && "⚠️"}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-          {activityLogs.map((l, i) => (
-            <div key={l.id} style={{
-              padding: "13px 18px", display: "flex", justifyContent: "space-between", gap: 12,
-              background: i % 2 === 0 ? cardBg : (dark ? "rgba(255,255,255,0.018)" : "rgba(0,0,0,0.01)"),
-              borderTop: i > 0 ? `1px solid ${border}` : "none",
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{l.action}</div>
-                <div style={{ fontSize: 12, color: mutedTx }}>{l.details} · {l.userName}</div>
+
+        {/* Group cards with registrations */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {filtered.map(g => (
+            <div key={g.id} style={{ borderRadius: 14, border: `1px solid ${border}`, overflow: "hidden" }}>
+              <div style={{ padding: "13px 16px", background: cardBg, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{g.name}</div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: g.count === 0 ? "#e11d48" : ACCENT }}>{g.count} {g.count === 1 ? "entry" : "entries"}</span>
               </div>
-              <div style={{ fontSize: 11, color: mutedTx, whiteSpace: "nowrap", flexShrink: 0 }}>
-                {new Date(l.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-              </div>
+              {g.regs.length === 0 ? (
+                <div style={{ padding: "16px", textAlign: "center", fontSize: 12, color: mutedTx }}>No registrations yet</div>
+              ) : (
+                <div>
+                  {g.regs.map((r, i) => {
+                    const p     = programs.find(pg => pg.id === r.programId);
+                    const parts = (r.participantIds || []).map(id => (students[g.id] || []).find(s => s.id === id)).filter(Boolean);
+                    return (
+                      <div key={r.id} style={{ padding: "12px 16px", borderTop: `1px solid ${border}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: parts.length ? 6 : 0 }}>
+                          <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
+                          <span style={{ fontWeight: 700, fontSize: 13 }}>{p?.name}</span>
+                          <Tag label={p?.session} dark={dark} />
+                        </div>
+                        {parts.length > 0 && (
+                          <div style={{ fontSize: 12, color: mutedTx }}>
+                            {parts.map(s => `${s.chestNo} ${s.name}`).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
-  const renderViews = { students: renderStudents, programs: renderPrograms, users: renderGroups, logs: renderLogs };
+  const renderViews = { students: renderStudents, programs: renderPrograms, users: renderGroups, registrations: renderRegistrations };
 
   return (
     <div className="anim-fadeIn" style={{ minHeight: "100vh" }}>
