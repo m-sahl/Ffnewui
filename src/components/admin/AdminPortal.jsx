@@ -78,6 +78,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [editUserForm, setEditUserForm]   = useState({ name: "", pin: "" });
 
   const [delConfirm, setDelConfirm]   = useState(null);
+  const [regGroupFilter, setRegGroupFilter] = useState("all");
   const [showMessages, setShowMessages] = useState(false);
 
   useEffect(() => {
