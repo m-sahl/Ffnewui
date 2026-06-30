@@ -79,6 +79,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
   const [delConfirm, setDelConfirm]   = useState(null);
   const [regGroupFilter, setRegGroupFilter] = useState("all");
+  const [regCatFilter, setRegCatFilter] = useState("All");
   const [showMessages, setShowMessages] = useState(false);
 
   useEffect(() => {
@@ -449,78 +450,73 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       return { ...g, regs, count: regs.length };
     });
 
-    const pendingGroups = groupList.filter(g => g.count === 0);
-    const filtered = regGroupFilter === "all" ? groupList : groupList.filter(g => g.id === regGroupFilter);
+    const activeGroupId = regGroupFilter === "all" ? groupList[0]?.id : regGroupFilter;
+    const activeGroupData = groupList.find(g => g.id === activeGroupId);
+
+    const filteredRegs = (activeGroupData?.regs || []).filter(r => {
+      if (regCatFilter === "All") return true;
+      const p = programs.find(pg => pg.id === r.programId);
+      return p?.category === regCatFilter;
+    });
 
     return (
       <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
         <div className="section-header">
           <div>
-            <div className="section-title">Registrations</div>
-            <div className="section-sub">{registrations.length} total entries</div>
+            <div className="section-title">Entries</div>
+            <div className="section-sub">{activeGroupData?.count || 0} registrations</div>
           </div>
         </div>
 
-        {/* Pending groups alert */}
-        {pendingGroups.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)", marginBottom: 16 }}>
-            <span style={{ fontSize: 16 }}>⚠️</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#e11d48" }}>{pendingGroups.length} group{pendingGroups.length > 1 ? "s" : ""} haven't registered yet</div>
-              <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{pendingGroups.map(g => g.name).join(", ")}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Group filter pills */}
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 18 }}>
-          <button onClick={() => setRegGroupFilter("all")} className="btn btn-sm"
-            style={{ flexShrink: 0, fontWeight: 700, background: regGroupFilter === "all" ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: regGroupFilter === "all" ? "#0a0b12" : mutedTx }}>
-            All Groups
-          </button>
+        {/* Group toggle */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 14 }}>
           {groupList.map(g => (
             <button key={g.id} onClick={() => setRegGroupFilter(g.id)} className="btn btn-sm"
-              style={{ flexShrink: 0, fontWeight: 700, background: regGroupFilter === g.id ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: regGroupFilter === g.id ? "#0a0b12" : mutedTx }}>
-              {g.name} {g.count === 0 && "⚠️"}
+              style={{ flexShrink: 0, fontWeight: 700, background: activeGroupId === g.id ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: activeGroupId === g.id ? "#0a0b12" : mutedTx }}>
+              {g.name}
             </button>
           ))}
         </div>
 
-        {/* Group cards with registrations */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {filtered.map(g => (
-            <div key={g.id} style={{ borderRadius: 14, border: `1px solid ${border}`, overflow: "hidden" }}>
-              <div style={{ padding: "13px 16px", background: cardBg, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{g.name}</div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: g.count === 0 ? "#e11d48" : ACCENT }}>{g.count} {g.count === 1 ? "entry" : "entries"}</span>
-              </div>
-              {g.regs.length === 0 ? (
-                <div style={{ padding: "16px", textAlign: "center", fontSize: 12, color: mutedTx }}>No registrations yet</div>
-              ) : (
-                <div>
-                  {g.regs.map((r, i) => {
-                    const p     = programs.find(pg => pg.id === r.programId);
-                    const parts = (r.participantIds || []).map(id => (students[g.id] || []).find(s => s.id === id)).filter(Boolean);
-                    return (
-                      <div key={r.id} style={{ padding: "12px 16px", borderTop: `1px solid ${border}` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: parts.length ? 6 : 0 }}>
-                          <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
-                          <span style={{ fontWeight: 700, fontSize: 13 }}>{p?.name}</span>
-                          <Tag label={p?.session} dark={dark} />
-                        </div>
-                        {parts.length > 0 && (
-                          <div style={{ fontSize: 12, color: mutedTx }}>
-                            {parts.map(s => `${s.chestNo} ${s.name}`).join(" · ")}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+        {/* Category filter pills */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 18 }}>
+          {["All", ...CATS].map(cat => (
+            <button key={cat} onClick={() => setRegCatFilter(cat)} className="btn btn-sm"
+              style={{ flexShrink: 0, fontWeight: 700, background: regCatFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: regCatFilter === cat ? "#0a0b12" : mutedTx }}>
+              {cat === "Sub-Junior" ? "Sub" : cat}
+            </button>
           ))}
         </div>
+
+        {/* Registrations list */}
+        {!activeGroupData || filteredRegs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
+            <div style={{ fontSize: 13 }}>{activeGroupData?.name || "This group"} has no entries{regCatFilter !== "All" ? ` in ${regCatFilter}` : ""}</div>
+          </div>
+        ) : (
+          <div style={{ borderRadius: 14, border: `1px solid ${border}`, overflow: "hidden" }}>
+            {filteredRegs.map((r, i) => {
+              const p     = programs.find(pg => pg.id === r.programId);
+              const parts = (r.participantIds || []).map(id => (students[activeGroupId] || []).find(s => s.id === id)).filter(Boolean);
+              return (
+                <div key={r.id} style={{ padding: "13px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: parts.length ? 6 : 0 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{p?.name}</span>
+                    <Tag label={p?.session} dark={dark} />
+                  </div>
+                  {parts.length > 0 && (
+                    <div style={{ fontSize: 12, color: mutedTx }}>
+                      {parts.map(s => `${s.chestNo} ${s.name}`).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   };
