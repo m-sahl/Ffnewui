@@ -78,6 +78,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const saveReg = () => {
     if (!regForm.programId) return;
+    // Block duplicate: same program already registered by this group (and not editing it)
+    const alreadyExists = !editTarget && groupRegs.some(r => r.programId === regForm.programId);
+    if (alreadyExists) return;
     const p = programs.find(pg => pg.id === regForm.programId);
     if (editTarget) {
       setRegistrations(prev => prev.map(r => r.id === editTarget ? { ...r, ...regForm } : r));
@@ -270,7 +273,11 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
-                <div style={{ fontSize: 13 }}>Tap + to register for an event</div>
+                <div style={{ fontSize: 13 }}>
+                  {sessionPrograms.length === 0
+                    ? `No ${session} programs added yet. Contact admin.`
+                    : "Tap + to register for an event"}
+                </div>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

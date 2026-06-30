@@ -48,7 +48,7 @@ const AdminMsgBtn = ({ onClick, unread }) => (
 );
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, messages, locks, toggleLock } = useApp();
+  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -88,8 +88,6 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     if (showSearch) setTimeout(() => searchRef.current?.focus(), 80);
   }, [showSearch]);
 
-  const catBase = { "Sub-Junior": 100, "Junior": 200, "Senior": 300 };
-
   // ── Shared styles ──────────────────────────────────────────────────────────
   const border  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
   const cardBg  = dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)";
@@ -101,9 +99,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const saveStudent = () => {
     if (!stuForm.name.trim()) return;
     const sId = "s-" + Math.random().toString(36).substr(2, 5);
-    const catStus = (students[activeGroup] || []).filter(s => s.category === stuForm.category);
-    const chest = catBase[stuForm.category] + catStus.length + 1;
-    const newStudent = { id: sId, ...stuForm, chestNo: chest.toString() };
+    const newStudent = { id: sId, ...stuForm, chestNo: nextChestNo(stuForm.category) };
     setStudents(prev => ({ ...prev, [activeGroup]: [...(prev[activeGroup] || []), newStudent] }));
     logActivity(user.name, "Added student", `${newStudent.name} (${newStudent.chestNo}) to ${groups.find(g => g.id === activeGroup)?.name}`);
     setStuModal(false); setStuForm({ name: "", category: "Senior" });
@@ -191,6 +187,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     logActivity(user.name, "Deleted group", delConfirm.label);
     setDelConfirm(null);
   };
+  const confirmClearLogs = () => { clearLogs(); setDelConfirm(null); };
 
   // ── Renders ────────────────────────────────────────────────────────────────
   const renderStudents = () => {
@@ -452,6 +449,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div className="section-title">Audit Log</div>
           <div className="section-sub">{activityLogs.length} events</div>
         </div>
+        {activityLogs.length > 0 && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setDelConfirm({ type: "logs", label: "all audit logs" })} style={{ color: mutedTx }}>
+            Clear
+          </button>
+        )}
       </div>
       {activityLogs.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
@@ -648,7 +650,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 <div style={{ display: "flex", gap: 10 }}>
                   <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setDelConfirm(null)}>Cancel</button>
                   <button className="btn" style={{ flex: 1, height: 44, background: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)", color: dark ? "#e8e8f5" : "#12121e", fontWeight: 700 }}
-                    onClick={delConfirm.type === "student" ? confirmDeleteStudent : delConfirm.type === "program" ? confirmDeleteProg : confirmDeleteUser}>
+                    onClick={delConfirm.type === "student" ? confirmDeleteStudent : delConfirm.type === "program" ? confirmDeleteProg : delConfirm.type === "logs" ? confirmClearLogs : confirmDeleteUser}>
                     Delete
                   </button>
                 </div>
