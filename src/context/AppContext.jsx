@@ -1,113 +1,106 @@
-import { createContext, useContext, useState, useEffect } from "react";
-
-export const INITIAL_USERS         = [{ id: "u-admin", name: "System Admin", role: "admin", pin: "admin" }];
-export const INITIAL_PROGRAMS      = [];
-export const INITIAL_STUDENTS      = {};
-export const INITIAL_REGISTRATIONS = [];
+import { createContext, useContext } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 const AppContext = createContext();
 export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
+  // ── Live queries (auto-update in realtime) ──────────────────────────────
+  const groups        = useQuery(api.users.listGroups) ?? [];
+  const users         = useQuery(api.users.list) ?? [];
+  const students       = useQuery(api.students.listAll) ?? [];
+  const programs       = useQuery(api.programs.list) ?? [];
+  const registrations  = useQuery(api.registrations.list) ?? [];
+  const locksList      = useQuery(api.locks.list) ?? [];
+  const messages        = useQuery(api.messages.list) ?? [];
+  const activityLogs    = useQuery(api.activityLogs.list) ?? [];
 
-  const [programs, setPrograms] = useState(() => {
-    try {
-      const s = localStorage.getItem("ff_programs");
-      const parsed = s ? JSON.parse(s) : INITIAL_PROGRAMS;
-      return parsed.map((p, i) => p.order ? p : { ...p, order: i + 1 });
-    } catch { return INITIAL_PROGRAMS; }
-  });
+  // ── Mutations ────────────────────────────────────────────────────────────
+  const addGroupMut       = useMutation(api.users.addGroup);
+  const editGroupMut      = useMutation(api.users.editGroup);
+  const deleteGroupMut    = useMutation(api.users.deleteGroup);
+  const changeAdminPinMut = useMutation(api.users.changeAdminPassword);
 
-  const [students, setStudents] = useState(() => {
-    try { const s = localStorage.getItem("ff_students"); return s ? JSON.parse(s) : INITIAL_STUDENTS; } catch { return INITIAL_STUDENTS; }
-  });
+  const addStudentMut     = useMutation(api.students.add);
+  const updateRoleMut     = useMutation(api.students.updateRole);
+  const removeStudentMut  = useMutation(api.students.remove);
 
-  const [registrations, setRegistrations] = useState(() => {
-    try { const s = localStorage.getItem("ff_registrations"); return s ? JSON.parse(s) : INITIAL_REGISTRATIONS; } catch { return INITIAL_REGISTRATIONS; }
-  });
+  const addProgramMut     = useMutation(api.programs.add);
+  const editProgramMut    = useMutation(api.programs.edit);
+  const removeProgramMut  = useMutation(api.programs.remove);
 
-  const [users, setUsers] = useState(() => {
-    try {
-      const s      = localStorage.getItem("ff_users");
-      const parsed = s ? JSON.parse(s) : INITIAL_USERS;
-      const hasAdmin = parsed.some(u => u.role === "admin");
-      if (!hasAdmin) return [INITIAL_USERS[0], ...parsed];
-      return parsed;
-    } catch { return INITIAL_USERS; }
-  });
+  const addRegMut         = useMutation(api.registrations.add);
+  const editRegMut        = useMutation(api.registrations.edit);
+  const removeRegMut      = useMutation(api.registrations.remove);
 
-  const [activityLogs, setActivityLogs] = useState(() => {
-    try { const s = localStorage.getItem("ff_logs"); return s ? JSON.parse(s) : []; } catch { return []; }
-  });
+  const toggleLockMut     = useMutation(api.locks.toggle);
 
-  const [locks, setLocks] = useState(() => {
-    try { const s = localStorage.getItem("ff_locks"); return s ? JSON.parse(s) : {}; } catch { return {}; }
-  });
+  const sendMessageMut    = useMutation(api.messages.send);
+  const markReadMut       = useMutation(api.messages.markRead);
+  const deleteMessageMut  = useMutation(api.messages.deleteMessage);
+  const clearChatMut      = useMutation(api.messages.clearChat);
 
-  const [messages, setMessages] = useState(() => {
-    try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
-  });
+  const addLogMut         = useMutation(api.activityLogs.add);
+  const clearLogsMut      = useMutation(api.activityLogs.clear);
 
-  const GROUP_COLORS = ["#6c63ff","#22d3ee","#f472b6","#34d399","#fb923c","#60a5fa","#a78bfa","#fbbf24","#f87171","#2dd4bf"];
+  // ── Students grouped by groupId — same shape the old code expects: { [groupId]: [students] } ──
+  const studentsByGroup = {};
+  for (const s of students) {
+    if (!studentsByGroup[s.groupId]) studentsByGroup[s.groupId] = [];
+    studentsByGroup[s.groupId].push(s);
+  }
 
-  const groups = users
-    .filter(u => u.role === "group")
-    .map((u, i) => ({ id: u.id, name: u.name, color: u.color || GROUP_COLORS[i % GROUP_COLORS.length] }));
-
-  useEffect(() => { localStorage.setItem("ff_programs",      JSON.stringify(programs));      }, [programs]);
-  useEffect(() => { localStorage.setItem("ff_students",      JSON.stringify(students));      }, [students]);
-  useEffect(() => { localStorage.setItem("ff_registrations", JSON.stringify(registrations)); }, [registrations]);
-  useEffect(() => { localStorage.setItem("ff_users",         JSON.stringify(users));         }, [users]);
-  useEffect(() => { localStorage.setItem("ff_logs",          JSON.stringify(activityLogs));  }, [activityLogs]);
-  useEffect(() => { localStorage.setItem("ff_locks",         JSON.stringify(locks));         }, [locks]);
-  useEffect(() => { localStorage.setItem("ff_messages",      JSON.stringify(messages));      }, [messages]);
-
+  // ── Helpers that mirror the old API ─────────────────────────────────────
   const logActivity = (userName, action, details) => {
-    const newLog = { id: "log-" + Date.now() + Math.random().toString(36).substr(2, 4), timestamp: new Date().toISOString(), userName, action, details };
-    setActivityLogs(prev => [newLog, ...prev].slice(0, 500));
+    addLogMut({ userName, action, details });
   };
+  const clearLogs = () => clearLogsMut();
 
-  const clearLogs = () => setActivityLogs([]);
-
-  const toggleLock = (groupId, session) => {
-    setLocks(prev => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), [session]: !(prev[groupId]?.[session]) } }));
+  const isLocked = (groupId, session) => {
+    const entry = locksList.find(l => l.groupId === groupId && l.session === session);
+    return !!entry?.locked;
   };
-  const isLocked = (groupId, session) => !!(locks[groupId]?.[session]);
+  const toggleLock = (groupId, session) => toggleLockMut({ groupId, session });
 
-  const sendMessage = (from, fromName, to, text) => {
-    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), from, fromName, to, text, timestamp: new Date().toISOString(), read: false, deletedFor: [] };
-    setMessages(prev => [...prev, msg]);
-  };
+  const sendMessage = (from, fromName, to, text) => sendMessageMut({ from, fromName, to, text });
+  const markRead     = (toId) => markReadMut({ toId });
+  const deleteMessage = (id, mode, userId) => deleteMessageMut({ id, mode, userId });
 
-  const deleteMessage = (id, mode, userId) => {
-    setMessages(prev => prev
-      .map(m => { if (m.id !== id) return m; if (mode === "everyone") return null; return { ...m, deletedFor: [...(m.deletedFor || []), userId] }; })
-      .filter(Boolean)
-    );
-  };
+  // ── Student CRUD wrapper to mirror old setStudents-style usage ─────────
+  const addStudent    = (groupId, name, category) => addStudentMut({ groupId, name, category });
+  const updateStudentRole = (id, groupRole) => updateRoleMut({ id, groupRole });
+  const deleteStudent = (id) => removeStudentMut({ id });
 
-  const markRead = (toId) => {
-    setMessages(prev => prev.map(m => m.to === toId && !m.read ? { ...m, read: true } : m));
-  };
+  // ── Program CRUD ─────────────────────────────────────────────────────────
+  const addProgram    = (data) => addProgramMut(data);
+  const editProgram   = (id, data) => editProgramMut({ id, ...data });
+  const deleteProgram = (id) => removeProgramMut({ id });
 
-  // Chest number: finds the max used in this category across ALL groups and increments
-  const nextChestNo = (category) => {
-    const base    = { "Sub-Junior": 100, "Junior": 200, "Senior": 300 };
-    const allInCat = Object.values(students).flat().filter(s => s.category === category);
-    const maxUsed  = allInCat.reduce((max, s) => Math.max(max, parseInt(s.chestNo) || 0), base[category]);
-    return (maxUsed + 1).toString();
-  };
+  // ── Registration CRUD ────────────────────────────────────────────────────
+  const addRegistration    = (groupId, programId, participantIds) => addRegMut({ groupId, programId, participantIds });
+  const editRegistration   = (id, participantIds) => editRegMut({ id, participantIds });
+  const deleteRegistration = (id) => removeRegMut({ id });
+
+  // ── Group CRUD ───────────────────────────────────────────────────────────
+  const addGroup    = (name, pin) => addGroupMut({ name, pin });
+  const editGroup   = (id, name, pin) => editGroupMut({ id, name, pin });
+  const deleteGroup = (id) => deleteGroupMut({ id });
+  const changeAdminPassword = (newPin) => changeAdminPinMut({ newPin });
 
   return (
     <AppContext.Provider value={{
-      groups, programs, setPrograms,
-      students, setStudents,
-      registrations, setRegistrations,
-      users, setUsers,
-      activityLogs, setActivityLogs, logActivity, clearLogs,
-      messages, setMessages, sendMessage, markRead, deleteMessage,
-      locks, toggleLock, isLocked,
-      nextChestNo,
+      groups, users, students: studentsByGroup, studentsFlat: students,
+      programs, registrations, messages, activityLogs,
+
+      addStudent, updateStudentRole, deleteStudent,
+      addProgram, editProgram, deleteProgram,
+      addRegistration, editRegistration, deleteRegistration,
+      addGroup, editGroup, deleteGroup, changeAdminPassword,
+
+      logActivity, clearLogs,
+      toggleLock, isLocked,
+      sendMessage, markRead, deleteMessage, clearChat: clearChatMut,
     }}>
       {children}
     </AppContext.Provider>
