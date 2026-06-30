@@ -468,11 +468,19 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         </div>
 
-        {/* Group toggle */}
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 14 }}>
+        {/* Group toggle — large pill style matching Programs page */}
+        <div style={{ display: "flex", gap: 0, borderRadius: 12, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 4, marginBottom: 16 }}>
           {groupList.map(g => (
-            <button key={g.id} onClick={() => setRegGroupFilter(g.id)} className="btn btn-sm"
-              style={{ flexShrink: 0, fontWeight: 700, background: activeGroupId === g.id ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: activeGroupId === g.id ? "#0a0b12" : mutedTx }}>
+            <button key={g.id} onClick={() => setRegGroupFilter(g.id)}
+              style={{
+                flex: 1, padding: "10px 6px", border: "none", cursor: "pointer", borderRadius: 9,
+                fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                background: activeGroupId === g.id ? (dark ? "rgba(255,255,255,0.08)" : "white") : "transparent",
+                color: activeGroupId === g.id ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
+                boxShadow: activeGroupId === g.id ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
+                transition: "all 0.18s ease",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
               {g.name}
             </button>
           ))}
