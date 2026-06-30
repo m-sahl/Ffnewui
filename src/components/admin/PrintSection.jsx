@@ -94,7 +94,7 @@ const PrintSection = ({ dark }) => {
         <tr class="${i % 2 === 0 ? "even" : ""}">
           <td class="chest">${p.chestNo}</td>
           <td class="name">${p.name}</td>
-          <td class="c code-letter">${codeLetter(i)}</td>
+          <td class="blank c"></td>
           <td class="blank sign"></td>
         </tr>`).join("") || `<tr><td colspan="4" class="empty">No participants registered</td></tr>`;
       return `
@@ -121,9 +121,21 @@ const PrintSection = ({ dark }) => {
 
       const judgeBox = `
         <div class="judge-box">
-          <div class="judge-row"><span>Judge Name:</span><span class="judge-line"></span></div>
-          <div class="judge-row"><span>Signature:</span><span class="judge-line"></span></div>
-          <div class="judge-row"><span>Date:</span><span class="judge-line short"></span></div>
+          <div class="judge-box-title">Judge Certification</div>
+          <div class="judge-grid">
+            <div class="judge-field">
+              <span class="judge-label">Judge Name</span>
+              <span class="judge-line"></span>
+            </div>
+            <div class="judge-field">
+              <span class="judge-label">Date</span>
+              <span class="judge-line"></span>
+            </div>
+            <div class="judge-field judge-field-wide">
+              <span class="judge-label">Signature</span>
+              <span class="judge-line judge-sign-line"></span>
+            </div>
+          </div>
         </div>`;
 
       return `
@@ -248,29 +260,54 @@ const PrintSection = ({ dark }) => {
       font-style: italic;
     }
 
-    /* Judge box */
+    /* Judge certification box */
     .judge-box {
-      margin-top: 28px;
-      border: 1px solid #000;
-      padding: 14px 18px;
-      max-width: 320px;
+      margin-top: 32px;
+      border: 1.5px solid #000;
+      border-radius: 4px;
+      padding: 0;
+      max-width: 420px;
+      overflow: hidden;
     }
-    .judge-row {
+    .judge-box-title {
+      background: #000;
+      color: #fff;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 7px 16px;
+      font-family: Arial, sans-serif;
+    }
+    .judge-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      padding: 16px 18px 18px;
+    }
+    .judge-field {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
-      font-size: 13px;
-      font-weight: 600;
+      flex-direction: column;
+      gap: 6px;
     }
-    .judge-row:last-child { margin-bottom: 0; }
+    .judge-field-wide {
+      grid-column: 1 / -1;
+      margin-top: 14px;
+    }
+    .judge-label {
+      font-size: 9px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #555;
+      font-family: Arial, sans-serif;
+    }
     .judge-line {
-      flex: 1;
-      border-bottom: 1px solid #000;
-      height: 18px;
+      border-bottom: 1.5px solid #000;
+      height: 22px;
       display: block;
     }
-    .judge-line.short { max-width: 120px; }
+    .judge-sign-line { height: 32px; }
 
     /* Footer */
     .sheet-foot {
