@@ -217,10 +217,18 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         </div>
 
-        <div className="group-tabs" style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", gap: 0, borderRadius: 12, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 4, marginBottom: 18 }}>
           {groups.map(g => (
-            <button key={g.id} onClick={() => setActiveGroup(g.id)} className="btn btn-sm"
-              style={{ background: activeGroup === g.id ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: activeGroup === g.id ? "#0a0b12" : mutedTx, fontWeight: 700 }}>
+            <button key={g.id} onClick={() => setActiveGroup(g.id)}
+              style={{
+                flex: 1, padding: "10px 6px", border: "none", cursor: "pointer", borderRadius: 9,
+                fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                background: activeGroup === g.id ? (dark ? "rgba(255,255,255,0.08)" : "white") : "transparent",
+                color: activeGroup === g.id ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
+                boxShadow: activeGroup === g.id ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
+                transition: "all 0.18s ease",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
               {g.name}
             </button>
           ))}
