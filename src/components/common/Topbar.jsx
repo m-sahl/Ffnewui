@@ -18,7 +18,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   const handleChangePassword = () => {
     if (!newPwd.trim()) { setPwdError("Password cannot be empty."); return; }
     if (newPwd !== newPwdConfirm) { setPwdError("Passwords do not match."); return; }
-    setUsers(prev => prev.map(u => u.role === "admin" ? { ...u, pin: newPwd.trim() } : u));
+    changeAdminPassword(newPwd.trim());
     setPwdSuccess(true); setPwdError(""); setNewPwd(""); setNewPwdConfirm("");
     setTimeout(() => { setPwdSuccess(false); setChangingPwd(false); }, 1500);
   };

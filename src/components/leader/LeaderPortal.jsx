@@ -32,7 +32,7 @@ const BottomNav = ({ tab, setTab, unread }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { programs, students, registrations, logActivity, messages, sendMessage, markRead, deleteMessage, isLocked, addRegistration, editRegistration, deleteRegistration } = useApp();
+  const { programs, students, registrations, logActivity, messages, sendMessage, markRead, deleteMessage, clearChat, isLocked, addRegistration, editRegistration, deleteRegistration } = useApp();
 
   const [tab, setTab]                     = useState("home");
   const [session, setSession]             = useState("Stage");
@@ -364,7 +364,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   // ── MESSAGES TAB (embedded, not overlay) ─────────────────────────────────
   const renderMessages = () => (
-    <EmbeddedInbox group={group} dark={dark} messages={messages} sendMessage={sendMessage} markRead={markRead} setMessages={setMessages} deleteMessage={deleteMessage} />
+    <EmbeddedInbox group={group} dark={dark} messages={messages} sendMessage={sendMessage} markRead={markRead} deleteMessage={deleteMessage} clearChat={clearChat} />
   );
 
   const renderViews = { home: renderHome, members: renderMembers, events: renderEvents, messages: renderMessages };
@@ -475,7 +475,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 };
 
 // ── Embedded inbox (full tab, not overlay) ──────────────────────────────────
-const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessages, deleteMessage }) => {
+const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, deleteMessage, clearChat }) => {
   const [text, setText]         = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [ctxMsg, setCtxMsg]     = useState(null);
@@ -498,7 +498,7 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
     setText("");
   };
 
-  const deleteMsg = (mode) => { deleteMessage(ctxMsg.id, mode, group.id); setCtxMsg(null); };
+  const deleteMsg = (mode) => { deleteMessage(ctxMsg._id, mode, group.id); setCtxMsg(null); };
 
   const fmtTime = (ts) => new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   const fmtDate = (ts) => {
@@ -559,7 +559,7 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
           const m = item;
           const isOwn = m.from === group.id;
           return (
-            <div key={m.id} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start", marginBottom: 2 }}
+            <div key={m._id} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start", marginBottom: 2 }}
               onContextMenu={e => { e.preventDefault(); setCtxMsg(m); setCtxPos({ x: e.clientX, y: e.clientY }); }}
             >
               <div style={{

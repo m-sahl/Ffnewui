@@ -98,12 +98,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const initCol = dark ? "#9ca3af" : "#6b7280";
 
   // ── Student ops ────────────────────────────────────────────────────────────
-  const saveStudent = () => {
+  const saveStudent = async () => {
     if (!stuForm.name.trim()) return;
-    const sId = "s-" + Math.random().toString(36).substr(2, 5);
-    const newStudent = { id: sId, ...stuForm, chestNo: nextChestNo(stuForm.category) };
-    setStudents(prev => ({ ...prev, [activeGroup]: [...(prev[activeGroup] || []), newStudent] }));
-    logActivity(user.name, "Added student", `${newStudent.name} (${newStudent.chestNo}) to ${groups.find(g => g.id === activeGroup)?.name}`);
+    await addStudent(activeGroup, stuForm.name.trim(), stuForm.category);
+    logActivity(user.name, "Added student", `${stuForm.name} to ${groups.find(g => g.id === activeGroup)?.name}`);
     setStuModal(false); setStuForm({ name: "", category: "Senior" });
   };
 

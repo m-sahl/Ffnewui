@@ -12,7 +12,7 @@ const DotsIcon  = ({ s }) => <Icon size={s} fill="currentColor" stroke="none"><c
 const CheckIcon = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l3.5 3.5L13 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
 const InboxPanel = ({ user, group, dark, onClose }) => {
-  const { messages, sendMessage, markRead, setMessages, deleteMessage } = useApp();
+  const { messages, sendMessage, markRead, deleteMessage, clearChat } = useApp();
   const [text, setText]         = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [ctxMsg, setCtxMsg]     = useState(null);
@@ -43,14 +43,12 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
   };
 
   const deleteMsg = (mode) => {
-    deleteMessage(ctxMsg.id, mode, group.id);
+    deleteMessage(ctxMsg._id, mode, group.id);
     setCtxMsg(null);
   };
 
   const clearChat = () => {
-    setMessages(prev => prev.filter(m =>
-      !((m.from === "admin" && m.to === group.id) || (m.from === group.id && m.to === "admin"))
-    ));
+    clearChat({ a: "admin", b: group.id });
     setShowMenu(false);
   };
 
@@ -136,7 +134,7 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
           const m = item;
           const isOwn = m.from === group.id;
           return (
-            <div key={m.id} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start", marginBottom: 2 }}
+            <div key={m._id} style={{ display: "flex", justifyContent: isOwn ? "flex-end" : "flex-start", marginBottom: 2 }}
               onTouchStart={e => handleLongPress(e, m)}
               onTouchEnd={cancelLongPress}
               onTouchMove={cancelLongPress}
