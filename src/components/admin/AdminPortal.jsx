@@ -48,7 +48,7 @@ const AdminMsgBtn = ({ onClick, unread }) => (
 );
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, users, students, studentsFlat, programs, registrations, activityLogs, messages, logActivity, clearLogs, toggleLock, isLocked, addStudent, updateStudentRole, deleteStudent, addProgram, editProgram, deleteProgram, addRegistration, editRegistration, deleteRegistration, addGroup, editGroup, deleteGroup } = useApp();
+  const { groups, users, students, studentsFlat, programs, registrations, activityLogs, messages, logActivity, clearLogs, toggleLock, isLocked, addStudent: addStudentMut, updateStudentRole: updateRoleMut, deleteStudent: deleteStudentMut, addProgram: addProgramMut, editProgram: editProgramMut, deleteProgram: deleteProgramMut, addRegistration, editRegistration, deleteRegistration, addGroup: addGroupMut, editGroup: editGroupMut, deleteGroup: deleteGroupMut } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -100,7 +100,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   // ── Student ops ────────────────────────────────────────────────────────────
   const saveStudent = async () => {
     if (!stuForm.name.trim()) return;
-    await addStudent(activeGroup, stuForm.name.trim(), stuForm.category);
+    await addStudentMut(activeGroup, stuForm.name.trim(), stuForm.category);
     logActivity(user.name, "Added student", `${stuForm.name} to ${groups.find(g => g.id === activeGroup)?.name}`);
     setStuModal(false); setStuForm({ name: "", category: "Senior" });
   };
@@ -114,13 +114,13 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const confirmDeleteStudent = async () => {
     const { gId, sId } = delConfirm.id;
     const s = (students[gId] || []).find(x => x._id === sId);
-    await deleteStudent(sId);
+    await deleteStudentMut(sId);
     if (s) logActivity(user.name, "Deleted student", `${s.name} from ${groups.find(g => g.id === gId)?.name}`);
     setDelConfirm(null);
   };
 
   const updateStudentRole = async (gId, sId, role) => {
-    await updateStudentRole(sId, role);
+    await updateRoleMut(sId, role);
     const s = (students[gId] || []).find(x => x._id === sId);
     logActivity(user.name, "Updated designation", `${s?.name} → ${role}`);
   };
@@ -136,10 +136,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     if (!progForm.name.trim()) return;
     const data = { name: progForm.name, session: progForm.session, category: progForm.category, type: progForm.type, maxParticipants: progForm.maxParticipants, criteria: progForm.criteria.filter(Boolean) };
     if (editProg) {
-      await editProgram(editProg, data);
+      await editProgramMut(editProg, data);
       logActivity(user.name, "Updated program", progForm.name);
     } else {
-      await addProgram(data);
+      await addProgramMut(data);
       logActivity(user.name, "Added program", `${progForm.name} (${progForm.session})`);
     }
     setProgModal(false);
@@ -151,7 +151,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setDelConfirm({ type: "program", id, label: name });
   };
   const confirmDeleteProg = async () => {
-    await deleteProgram(delConfirm.id);
+    await deleteProgramMut(delConfirm.id);
     logActivity(user.name, "Deleted program", delConfirm.label);
     setDelConfirm(null);
   };
@@ -159,14 +159,14 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   // ── Group ops ──────────────────────────────────────────────────────────────
   const saveUser = async () => {
     if (!userForm.name.trim() || !userForm.pin.trim()) return;
-    await addGroup(userForm.name.trim(), userForm.pin.trim());
+    await addGroupMut(userForm.name.trim(), userForm.pin.trim());
     logActivity(user.name, "Added group", userForm.name);
     setUserModal(false); setUserForm({ name: "", pin: "" });
   };
   const openEditUser = (u) => { setEditingUser(u); setEditUserForm({ name: u.name, pin: u.pin }); setEditUserModal(true); };
   const saveEditUser = async () => {
     if (!editUserForm.name.trim() || !editUserForm.pin.trim()) return;
-    await editGroup(editingUser._id, editUserForm.name.trim(), editUserForm.pin.trim());
+    await editGroupMut(editingUser._id, editUserForm.name.trim(), editUserForm.pin.trim());
     logActivity(user.name, "Edited group", editUserForm.name);
     setEditUserModal(false); setEditingUser(null);
   };
@@ -175,7 +175,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setDelConfirm({ type: "user", id, label: name });
   };
   const confirmDeleteUser = async () => {
-    await deleteGroup(delConfirm.id);
+    await deleteGroupMut(delConfirm.id);
     logActivity(user.name, "Deleted group", delConfirm.label);
     setDelConfirm(null);
   };

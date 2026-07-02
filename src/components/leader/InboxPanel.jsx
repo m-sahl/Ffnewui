@@ -12,7 +12,7 @@ const DotsIcon  = ({ s }) => <Icon size={s} fill="currentColor" stroke="none"><c
 const CheckIcon = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l3.5 3.5L13 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
 const InboxPanel = ({ user, group, dark, onClose }) => {
-  const { messages, sendMessage, markRead, deleteMessage, clearChat } = useApp();
+  const { messages, sendMessage, markRead, deleteMessage, clearChat: clearChatMut } = useApp();
   const [text, setText]         = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [ctxMsg, setCtxMsg]     = useState(null);
@@ -48,7 +48,7 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
   };
 
   const clearChat = () => {
-    clearChat({ a: "admin", b: group.id });
+    clearChatMut({ a: "admin", b: group.id });
     setShowMenu(false);
   };
 

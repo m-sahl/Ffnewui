@@ -17,7 +17,7 @@ const CheckIcon   = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="
 const DblCheckIcon = ({ color }) => <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><path d="M1 5l3.5 3.5L10 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 5l3.5 3.5L16 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
 const MessagesPanel = ({ user, dark, onClose }) => {
-  const { groups, messages, sendMessage, markRead, deleteMessage, clearChat } = useApp();
+  const { groups, messages, sendMessage, markRead, deleteMessage, clearChat: clearChatMut } = useApp();
   const [selectedGroup, setSelectedGroup]     = useState(null);
   const [text, setText]                       = useState("");
   const [search, setSearch]                   = useState("");
@@ -83,7 +83,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
   };
 
   const clearChat = () => {
-    clearChat({ a: "admin", b: selectedGroup });
+    clearChatMut({ a: "admin", b: selectedGroup });
     setShowMenu(false);
   };
 

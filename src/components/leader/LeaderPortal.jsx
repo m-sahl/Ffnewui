@@ -32,7 +32,7 @@ const BottomNav = ({ tab, setTab, unread }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { programs, students, registrations, logActivity, messages, sendMessage, markRead, deleteMessage, clearChat, isLocked, addRegistration, editRegistration, deleteRegistration } = useApp();
+  const { programs, students, registrations, logActivity, messages, sendMessage, markRead, deleteMessage, clearChat: clearChatMut, isLocked, addRegistration: addRegMut, editRegistration: editRegMut, deleteRegistration: deleteRegMut } = useApp();
 
   const [tab, setTab]                     = useState("home");
   const [session, setSession]             = useState("Stage");
@@ -89,10 +89,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     if (alreadyExists) return;
     const p = programs.find(pg => pg._id === regForm.programId);
     if (editTarget) {
-      await editRegistration(editTarget, regForm.participantIds);
+      await editRegMut(editTarget, regForm.participantIds);
       logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
     } else {
-      await addRegistration(group.id, regForm.programId, regForm.participantIds);
+      await addRegMut(group.id, regForm.programId, regForm.participantIds);
       logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
     }
     setRegModal(false);
@@ -101,7 +101,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const confirmDelete = async () => {
     const r  = registrations.find(x => x._id === delConfirm);
     const p  = programs.find(pg => pg._id === r?.programId);
-    await deleteRegistration(delConfirm);
+    await deleteRegMut(delConfirm);
     logActivity(user.name, "Cancelled registration", `${p?.name} for ${group.name}`);
     setDelConfirm(null);
   };
@@ -364,7 +364,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   // ── MESSAGES TAB (embedded, not overlay) ─────────────────────────────────
   const renderMessages = () => (
-    <EmbeddedInbox group={group} dark={dark} messages={messages} sendMessage={sendMessage} markRead={markRead} deleteMessage={deleteMessage} clearChat={clearChat} />
+    <EmbeddedInbox group={group} dark={dark} messages={messages} sendMessage={sendMessage} markRead={markRead} deleteMessage={deleteMessage} clearChat={clearChatMut} />
   );
 
   const renderViews = { home: renderHome, members: renderMembers, events: renderEvents, messages: renderMessages };
