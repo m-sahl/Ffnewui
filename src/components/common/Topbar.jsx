@@ -5,7 +5,7 @@ import { NumPinModal, TextPinModal } from "./AuthModals";
 import { useApp } from "../../context/AppContext";
 
 const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength }) => {
-  const { users, changeAdminPassword, activityLogs, clearLogs } = useApp();
+  const { users, setUsers, activityLogs, clearLogs } = useApp();
   const [confirming, setConfirming]         = useState(false);
   const [changingPwd, setChangingPwd]       = useState(false);
   const [newPwd, setNewPwd]                 = useState("");
@@ -18,7 +18,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   const handleChangePassword = () => {
     if (!newPwd.trim()) { setPwdError("Password cannot be empty."); return; }
     if (newPwd !== newPwdConfirm) { setPwdError("Passwords do not match."); return; }
-    changeAdminPassword(newPwd.trim());
+    setUsers(prev => prev.map(u => u.role === "admin" ? { ...u, pin: newPwd.trim() } : u));
     setPwdSuccess(true); setPwdError(""); setNewPwd(""); setNewPwdConfirm("");
     setTimeout(() => { setPwdSuccess(false); setChangingPwd(false); }, 1500);
   };
@@ -209,8 +209,18 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   );
 };
 
-export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin, verify, pinLength }) => {
-  const [settings, setSettings] = useState(false);
+export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose }) => {
+  const [settings, setSettings] = useState(_forceOpen || false);
+  const handleClose = () => { setSettings(false); onSettingsClose?.(); };
+
+  // Settings-only mode — just render the panel, no topbar chrome
+  if (_settingsOnly) {
+    return settings ? (
+      <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
+        context={context} onLogout={onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
+    ) : null;
+  }
+
   return (
     <>
       <div className="topbar">
@@ -223,7 +233,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin,
         </div>
       </div>
       {settings && (
-        <SettingsPanel dark={dark} setDark={setDark} onClose={() => setSettings(false)}
+        <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
           context={context} onLogout={onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
       )}
     </>
