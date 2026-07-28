@@ -209,8 +209,18 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   );
 };
 
-export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin, verify, pinLength }) => {
-  const [settings, setSettings] = useState(false);
+export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose }) => {
+  const [settings, setSettings] = useState(_forceOpen || false);
+  const handleClose = () => { setSettings(false); onSettingsClose?.(); };
+
+  // Settings-only mode — just render the panel, no topbar chrome
+  if (_settingsOnly) {
+    return settings ? (
+      <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
+        context={context} onLogout={onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
+    ) : null;
+  }
+
   return (
     <>
       <div className="topbar">
@@ -223,7 +233,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin,
         </div>
       </div>
       {settings && (
-        <SettingsPanel dark={dark} setDark={setDark} onClose={() => setSettings(false)}
+        <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
           context={context} onLogout={onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
       )}
     </>
