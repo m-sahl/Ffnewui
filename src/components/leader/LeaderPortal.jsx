@@ -44,9 +44,15 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [editTarget, setEditTarget]       = useState(null);
   const [delConfirm, setDelConfirm]       = useState(null);
 
-  const groupStudents = students[group.id] || [];
-  const groupRegs     = registrations.filter(r => r.groupId === group.id);
-  const locked        = isLocked(group.id, session);
+  const groupStudents = students[group.id] || students[group._id] || [];
+  const groupRegs     = registrations.filter(r => r.groupId === group.id || r.groupId === group._id);
+  const locked        = isLocked(group.id || group._id, session);
+
+  const getProgId = p => p._id || p.id;
+  const getStudId = s => s._id || s.id;
+
+  const [catMenuOpen, setCatMenuOpen]     = useState(false);
+  const [selectedCat, setSelectedCat]     = useState("All");
 
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
   const border  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
@@ -54,7 +60,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const initBg  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
   const initCol = dark ? "#9ca3af" : "#6b7280";
 
-  const unreadCount = messages.filter(m => m.from === "admin" && m.to === group.id && !m.read).length;
+  const unreadCount = messages.filter(m => m.from === "admin" && (m.to === group.id || m.to === group._id) && !m.read).length;
 
   const filtStudents = (catFilter === "All" ? [...groupStudents] : groupStudents.filter(s => s.category === catFilter))
     .filter(s => !memSearch.trim() || s.name.toLowerCase().includes(memSearch.toLowerCase()))
@@ -64,7 +70,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     });
 
   const filtRegs = groupRegs.filter(r => {
-    const p = programs.find(pg => pg.id === r.programId);
+    const p = programs.find(pg => getProgId(pg) === r.programId);
     if (!p) return false;
     if (p?.session !== session) return false;
     if (catFilter !== "All" && p.category !== catFilter) return false;
@@ -72,46 +78,58 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   });
 
   // ── Registration ops ──────────────────────────────────────────────────────
+  const selectCategoryForReg = (cat) => {
+    setSelectedCat(cat);
+    setEditTarget(null);
+    setRegForm({ programId: "", participantIds: [] });
+    setCatMenuOpen(false);
+    setRegModal(true);
+  };
+
   const openReg = (existing = null) => {
     if (existing) {
-      setEditTarget(existing._id);
+      const exId = existing._id || existing.id;
+      setEditTarget(exId);
+      const p = programs.find(pg => getProgId(pg) === existing.programId);
+      if (p?.category) setSelectedCat(p.category);
       setRegForm({ programId: existing.programId, participantIds: [...existing.participantIds] });
+      setRegModal(true);
     } else {
-      setEditTarget(null);
-      setRegForm({ programId: "", participantIds: [] });
+      setCatMenuOpen(true);
     }
-    setRegModal(true);
   };
 
   const saveReg = async () => {
     if (!regForm.programId) return;
     const alreadyExists = !editTarget && groupRegs.some(r => r.programId === regForm.programId);
     if (alreadyExists) return;
-    const p = programs.find(pg => pg._id === regForm.programId);
+    const p = programs.find(pg => getProgId(pg) === regForm.programId);
     if (editTarget) {
       await editRegMut(editTarget, regForm.participantIds);
       logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
     } else {
-      await addRegMut(group.id, regForm.programId, regForm.participantIds);
+      await addRegMut(group.id || group._id, regForm.programId, regForm.participantIds);
       logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
     }
     setRegModal(false);
   };
 
   const confirmDelete = async () => {
-    const r  = registrations.find(x => x._id === delConfirm);
-    const p  = programs.find(pg => pg._id === r?.programId);
+    const r  = registrations.find(x => (x._id || x.id) === delConfirm);
+    const p  = programs.find(pg => getProgId(pg) === r?.programId);
     await deleteRegMut(delConfirm);
     logActivity(user.name, "Cancelled registration", `${p?.name} for ${group.name}`);
     setDelConfirm(null);
   };
 
-  const selectedProg = programs.find(p => p.id === regForm.programId);
+  const selectedProg = programs.find(p => getProgId(p) === regForm.programId);
   const max          = selectedProg?.maxParticipants || 1;
   const atMax        = regForm.participantIds.length >= max;
 
   const alreadyRegistered = new Set(
-    registrations.filter(r => r.programId === regForm.programId && r.id !== editTarget).flatMap(r => r.participantIds)
+    registrations
+      .filter(r => r.programId === regForm.programId && (r._id || r.id) !== editTarget)
+      .flatMap(r => r.participantIds)
   );
 
   const togglePart = id => {
@@ -126,15 +144,16 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const sessionPrograms = programs.filter(p => {
     if (p?.session !== session) return false;
+    if (selectedCat && selectedCat !== "All" && p.category !== selectedCat) return false;
     if (editTarget) return true;
-    return !groupRegs.some(r => r.programId === p._id);
+    return !groupRegs.some(r => r.programId === getProgId(p));
   });
 
   // ── HOME TAB ───────────────────────────────────────────────────────────────
   const renderHome = () => {
     const totalRegs = groupRegs.length;
-    const sessionsStatus = ["Stage", "Off-Stage", "General"].map(s => ({ session: s, locked: isLocked(group.id, s) }));
-    const lastMsg = [...messages].filter(m => (m.from === "admin" && m.to === group.id) || (m.from === group.id && m.to === "admin")).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+    const sessionsStatus = ["Stage", "Off-Stage", "General"].map(s => ({ session: s, locked: isLocked(group.id || group._id, s) }));
+    const lastMsg = [...messages].filter(m => (m.from === "admin" && (m.to === group.id || m.to === group._id)) || ((m.from === group.id || m.from === group._id) && m.to === "admin")).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
     return (
       <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
@@ -172,7 +191,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         {/* Last message preview */}
         <div style={{ marginBottom: 20 }}>
           <div className="label" style={{ marginBottom: 8 }}>Latest from Admin</div>
-          <button onClick={() => { setTab("messages"); markRead(group.id); }} style={{
+          <button onClick={() => { setTab("messages"); markRead(group.id || group._id); }} style={{
             width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 14,
             border: `1px solid ${border}`, background: cardBg, cursor: "pointer", fontFamily: "inherit",
             display: "flex", alignItems: "center", gap: 12,
@@ -180,7 +199,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 15, color: "#0a0b12", flexShrink: 0 }}>A</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {lastMsg ? (lastMsg.from === group.id ? `You: ${lastMsg.text}` : lastMsg.text) : "No messages yet"}
+                {lastMsg ? ((lastMsg.from === group.id || lastMsg.from === group._id) ? `You: ${lastMsg.text}` : lastMsg.text) : "No messages yet"}
               </div>
               {unreadCount > 0 && <div style={{ fontSize: 11, color: ACCENT, fontWeight: 700, marginTop: 2 }}>{unreadCount} unread</div>}
             </div>
@@ -189,7 +208,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
 
         {/* Quick action */}
-        <button onClick={() => { setTab("events"); }} style={{
+        <button onClick={() => { setTab("events"); setCatMenuOpen(true); }} style={{
           width: "100%", padding: "16px", borderRadius: 14, border: "none", cursor: "pointer",
           background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#0a0b12",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -238,7 +257,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       ) : (
         <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
           {filtStudents.map((s, i) => (
-            <div key={s._id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
+            <div key={getStudId(s)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
               <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13, minWidth: 36 }}>{s.chestNo}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
@@ -303,16 +322,17 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
           <div style={{ fontSize: 13 }}>
-            {sessionPrograms.length === 0 ? `No ${session} programs added yet. Contact admin.` : "Tap + to register for an event"}
+            {sessionPrograms.length === 0 ? `No ${session} programs added yet. Contact admin.` : "Tap + to select category & register"}
           </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtRegs.map(r => {
-            const p     = programs.find(pg => pg.id === r.programId);
-            const parts = r.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
+            const rId   = r._id || r.id;
+            const p     = programs.find(pg => getProgId(pg) === r.programId);
+            const parts = r.participantIds.map(id => groupStudents.find(s => getStudId(s) === id)).filter(Boolean);
             return (
-              <div key={r._id} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
+              <div key={rId} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
@@ -327,14 +347,14 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   {!locked && (
                     <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r._id)}><Ic name="trash" size={13} /></button>
+                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(rId)}><Ic name="trash" size={13} /></button>
                     </div>
                   )}
                 </div>
                 <div style={{ height: 1, background: border, marginBottom: 10 }} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {parts.map(s => (
-                    <div key={s._id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div key={getStudId(s)} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
                       <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
                     </div>
@@ -346,8 +366,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
       )}
 
+      {/* Floating Action Button */}
       {!locked && (
-        <button onClick={() => openReg()} style={{
+        <button onClick={handlePlusClick} style={{
           position: "fixed", bottom: 80, right: 20, width: 52, height: 52, borderRadius: "50%",
           background: "linear-gradient(135deg,#f59e0b,#d97706)", border: "none",
           color: "#0a0b12", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -358,6 +379,98 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         >
           <Ic name="plus" size={22} />
         </button>
+      )}
+
+      {/* ── Category Select Mini Menu Popover ── */}
+      {catMenuOpen && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 190, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(3px)" }}
+            onClick={() => setCatMenuOpen(false)}
+          />
+          <div style={{
+            position: "fixed",
+            bottom: 140,
+            right: 20,
+            width: 290,
+            borderRadius: 20,
+            background: dark ? "#121422" : "#ffffff",
+            border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}`,
+            boxShadow: dark ? "0 20px 50px rgba(0,0,0,0.6)" : "0 20px 50px rgba(0,0,0,0.18)",
+            padding: "16px 18px",
+            zIndex: 200,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 14, fontFamily: "'Plus Jakarta Sans',sans-serif", color: dark ? "#e8e8f5" : "#111" }}>Select Category</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>Choose category for registration</div>
+              </div>
+              <button
+                onClick={() => setCatMenuOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4 }}
+              >
+                <Ic name="x" size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {CATS.map(cat => {
+                const catStudents = groupStudents.filter(s => s.category === cat);
+                const catProgs = sessionPrograms.filter(p => p.category === cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => selectCategoryForReg(cat)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justify: "space-between",
+                      padding: "12px 14px",
+                      borderRadius: 14,
+                      border: `1px solid ${dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
+                      background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontFamily: "inherit",
+                      transition: "all 0.18s ease",
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = dark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.08)";
+                      e.currentTarget.style.borderColor = ACCENT;
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)";
+                      e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)";
+                      e.currentTarget.style.transform = "";
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 10,
+                        background: "rgba(245,158,11,0.15)", color: ACCENT,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontWeight: 800, fontSize: 13
+                      }}>
+                        {cat.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: dark ? "#f3f4f6" : "#111827" }}>{cat}</div>
+                        <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
+                          {catStudents.length} members · {catProgs.length} programs
+                        </div>
+                      </div>
+                    </div>
+                    <Ic name="chevronRight" size={14} color={ACCENT} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -400,13 +513,29 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       {regModal && (
         <Modal title={editTarget ? "Edit Registration" : "Register for Event"} onClose={() => setRegModal(false)} wide>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Category Indicator Banner */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", padding: "10px 14px", borderRadius: 12, border: `1px solid ${border}` }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: mutedTx }}>
+                Category: <span style={{ color: ACCENT, fontWeight: 800 }}>{selectedCat}</span> <span style={{ opacity: 0.6 }}>({session})</span>
+              </div>
+              <button 
+                onClick={() => { setRegModal(false); setCatMenuOpen(true); }}
+                style={{ background: "none", border: "none", color: ACCENT, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
+              >
+                Change Category
+              </button>
+            </div>
+
             <div>
               <label className="label">Program</label>
               <select className="input select" value={regForm.programId} onChange={e => setRegForm({ programId: e.target.value, participantIds: [] })}>
                 <option value="">Choose a program…</option>
-                {sessionPrograms.map(p => (
-                  <option key={p._id} value={p.id}>{p.order ? `#${p.order} ` : ""}{p.name} · {p.category}</option>
-                ))}
+                {sessionPrograms.map(p => {
+                  const pId = getProgId(p);
+                  return (
+                    <option key={pId} value={pId}>{p.order ? `#${p.order} ` : ""}{p.name} · {p.type}</option>
+                  );
+                })}
               </select>
             </div>
 
@@ -421,11 +550,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: mutedTx }}>No students in {selectedProg?.category} category</div>
                   ) : (
                     groupStudents.filter(s => s.category === selectedProg?.category).map((s, i) => {
-                      const active     = regForm.participantIds.includes(s.id);
-                      const registered = alreadyRegistered.has(s.id);
+                      const sId        = getStudId(s);
+                      const active     = regForm.participantIds.includes(sId);
+                      const registered = alreadyRegistered.has(sId);
                       const disabled   = registered || (!active && atMax);
                       return (
-                        <div key={s._id} onClick={() => !disabled && togglePart(s.id)} style={{
+                        <div key={sId} onClick={() => !disabled && togglePart(sId)} style={{
                           padding: "12px 14px", display: "flex", alignItems: "center", gap: 12,
                           cursor: disabled ? "not-allowed" : "pointer",
                           opacity: registered ? 0.35 : (!active && atMax) ? 0.45 : 1,
