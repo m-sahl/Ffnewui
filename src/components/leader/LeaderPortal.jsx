@@ -420,10 +420,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   {atMax && <span style={{ fontSize: 10, fontWeight: 700, color: mutedTx, letterSpacing: 0.5 }}>MAX REACHED</span>}
                 </label>
                 <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"}`, maxHeight: 280, overflowY: "auto" }}>
-                  {groupStudents.filter(s => s.category === selectedProg?.category).length === 0 ? (
-                    <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: mutedTx }}>No students in {selectedProg?.category} category</div>
+                  {groupStudents.filter(s => selectedProg?.category === "General" || s.category === selectedProg?.category).length === 0 ? (
+                    <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: mutedTx }}>No students available in {selectedProg?.category} category</div>
                   ) : (
-                    groupStudents.filter(s => s.category === selectedProg?.category).map((s, i) => {
+                    groupStudents.filter(s => selectedProg?.category === "General" || s.category === selectedProg?.category).map((s, i) => {
                       const active     = regForm.participantIds.includes(s.id);
                       const registered = alreadyRegistered.has(s.id);
                       const disabled   = registered || (!active && atMax);
