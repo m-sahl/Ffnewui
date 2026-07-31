@@ -31,11 +31,14 @@ const AppContent = () => {
   const handleLogin      = useCallback((u) => setUser(u), []);
   const handleLogout     = useCallback(() => { setUser(null); safeRemove("ff_user"); }, []);
 
-  if (loading) return <SplashScreen onDone={handleSplashDone} />;
+  if (loading) {
+    // Show splash screen as an overlay on top of LandingPage to ensure a seamless transition
+  }
 
   return (
     <ToastProvider>
       <GlobalStyles dark={dark} />
+      {loading && <SplashScreen onDone={handleSplashDone} />}
       {!user ? (
         <LandingPage dark={dark} onLeaderLogin={handleLogin} onAdminClick={handleLogin} />
       ) : user.role === "group" ? (

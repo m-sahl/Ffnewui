@@ -152,8 +152,11 @@ const PrintSection = ({ dark }) => {
     const selected = sheets.filter(s => selectedPages[s.id]);
     if (!selProg || selected.length === 0) return;
 
-    const html = selected.map(s => buildSheet(s.id)).join("");
     const win  = window.open("", "_blank");
+    if (!win) {
+      alert("Popup blocked! Please allow popups in your browser to print sheets.");
+      return;
+    }
 
     win.document.write(`<!DOCTYPE html>
 <html>
@@ -422,7 +425,7 @@ const PrintSection = ({ dark }) => {
         <div style={{ textAlign: "center", padding: "32px 0", color: mutedTx }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>🖨️</div>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>No programs</div>
-          <div style={{ fontSize: 12 }}>No {category === "All" ? "" : category} programs in {session}</div>
+          <div style={{ fontSize: 12 }}>No {category === "All" ? "" : category} programs in {progType}</div>
         </div>
       )}
     </div>

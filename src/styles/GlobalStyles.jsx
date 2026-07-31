@@ -10,11 +10,8 @@ const GlobalStyles = ({ dark }) => (
     body {
       font-family: 'Inter', sans-serif;
       background-color: ${dark ? "#080912" : "#fdfaf9"};
-      background-image: 
-        linear-gradient(to right, ${dark ? "rgba(241, 77, 77, 0.05)" : "rgba(241, 77, 77, 0.04)"} 1px, transparent 1px),
-        linear-gradient(to bottom, ${dark ? "rgba(241, 77, 77, 0.05)" : "rgba(241, 77, 77, 0.04)"} 1px, transparent 1px),
-        radial-gradient(circle at 50% 0%, ${dark ? "rgba(241, 77, 77, 0.08)" : "rgba(241, 77, 77, 0.05)"}, transparent 70%);
-      background-size: 24px 24px, 24px 24px, 100% 100%;
+      background-image: radial-gradient(circle at 50% 0%, ${dark ? "rgba(241, 77, 77, 0.08)" : "rgba(241, 77, 77, 0.04)"}, transparent 70%);
+      background-size: 100% 100%;
       background-attachment: fixed;
       color: ${dark ? "#e8e8f5" : "#0f172a"};
       min-height: 100vh;
@@ -28,13 +25,13 @@ const GlobalStyles = ({ dark }) => (
 
     /* ── Keyframes ────────────────────────────────────── */
     @keyframes splashFadeIn { from { opacity:0; transform:scale(0.85) translateY(24px); } to { opacity:1; transform:scale(1) translateY(0); } }
-    @keyframes fadeUp        { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp        { from { opacity:0; transform:translateY(28px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }
     @keyframes fadeIn        { from { opacity:0; } to { opacity:1; } }
     @keyframes slideDown     { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
     @keyframes slideRight    { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
     @keyframes scaleIn       { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
     @keyframes modalIn       { from { opacity:0; transform:scale(0.90) translateY(24px); } to { opacity:1; transform:scale(1) translateY(0); } }
-    @keyframes floatY        { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+    @keyframes floatY        { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-7px);} }
     @keyframes glowPulse     { 0%,100%{box-shadow:0 0 24px rgba(241, 77, 77,0.3);} 50%{box-shadow:0 0 48px rgba(241, 77, 77,0.65);} }
     @keyframes orbitSpin     { from{transform:rotate(0deg) translateX(64px) rotate(0deg);} to{transform:rotate(360deg) translateX(64px) rotate(-360deg);} }
     @keyframes dotPulse      { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.3;transform:scale(0.6);} }
@@ -46,7 +43,7 @@ const GlobalStyles = ({ dark }) => (
     @keyframes toastOut      { from{opacity:1;transform:translateY(0);} to{opacity:0;transform:translateY(10px);} }
 
     /* ── Animation helpers ───────────────────────────── */
-    .anim-fadeUp    { animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+    .anim-fadeUp    { animation: fadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) both; }
     .anim-fadeIn    { animation: fadeIn 0.35s ease both; }
     .anim-scaleIn   { animation: scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
     .anim-slideDown { animation: slideDown 0.3s cubic-bezier(0.22,1,0.36,1) both; }

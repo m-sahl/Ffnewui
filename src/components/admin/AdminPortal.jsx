@@ -475,12 +475,6 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: ACCENT, color: "#ffffff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
           </button>
           <SettingsBtn dark={dark} setDark={setDark} userPin={user.pin} onLogout={onBack} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 4px 4px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent" }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(241,77,77,0.12)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 12 }}>
-              {user.name.charAt(0)}
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? "#e8e8f5" : "#12121e" }}>{user.name}</span>
-          </div>
         </div>
       </div>
 
