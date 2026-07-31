@@ -34,18 +34,24 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           : "radial-gradient(rgba(241, 77, 77, 0.08) 1.2px, transparent 1.2px)",
         backgroundSize: "20px 20px",
       }}>
-        {/* Minimal Professional Ambient Red Glows */}
-        {/* Top Ambient Accent */}
+        {/* Soft Red Ambient Splashes (Visible on Mobile & Desktop) */}
+        {/* Top-Right Mobile Accent */}
         <div style={{
-          position: "absolute", width: 280, height: 280, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.08) 0%, transparent 70%)",
-          top: "-10%", right: "5%", filter: "blur(60px)",
+          position: "absolute", width: 240, height: 240, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.15) 0%, transparent 70%)",
+          top: "2%", right: "-5%", filter: "blur(40px)",
         }} />
-        {/* Bottom Ambient Accent */}
+        {/* Middle-Left Mobile Accent */}
         <div style={{
-          position: "absolute", width: 260, height: 260, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.06) 0%, transparent 70%)",
-          bottom: "-8%", left: "-5%", filter: "blur(60px)",
+          position: "absolute", width: 220, height: 220, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.13) 0%, transparent 70%)",
+          top: "45%", left: "-6%", filter: "blur(38px)",
+        }} />
+        {/* Bottom-Right Mobile Accent */}
+        <div style={{
+          position: "absolute", width: 250, height: 250, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.14) 0%, transparent 70%)",
+          bottom: "3%", right: "-5%", filter: "blur(42px)",
         }} />
       </div>
 

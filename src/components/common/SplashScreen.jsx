@@ -15,11 +15,10 @@ const SplashScreen = ({ onDone }) => {
       alignItems: "center", justifyContent: "center",
       backgroundColor: "#fdfaf9",
       backgroundImage: `
-        linear-gradient(to right, rgba(241, 77, 77, 0.04) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(241, 77, 77, 0.04) 1px, transparent 1px),
+        radial-gradient(rgba(241, 77, 77, 0.08) 1.2px, transparent 1.2px),
         radial-gradient(circle at 50% 0%, rgba(241, 77, 77, 0.06), transparent 70%)
       `,
-      backgroundSize: "24px 24px, 24px 24px, 100% 100%",
+      backgroundSize: "20px 20px, 100% 100%",
       zIndex: 999, transition: "opacity 0.5s ease", opacity: phase === 2 ? 0 : 1,
     }}>
       <style>{`
