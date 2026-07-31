@@ -34,36 +34,36 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           : "radial-gradient(rgba(241, 77, 77, 0.08) 1.2px, transparent 1.2px)",
         backgroundSize: "20px 20px",
       }}>
-        {/* Mobile & Desktop Vibrant Red Splash Orbs */}
+        {/* Soft Balanced Red Splash Orbs */}
         {/* Top-Left Splash */}
         <div style={{
-          position: "absolute", width: 300, height: 300, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.28) 0%, transparent 70%)",
-          top: "-5%", left: "-12%", filter: "blur(45px)",
+          position: "absolute", width: 250, height: 250, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.18) 0%, transparent 70%)",
+          top: "-4%", left: "-10%", filter: "blur(55px)",
         }} />
         {/* Top-Right Splash */}
         <div style={{
-          position: "absolute", width: 320, height: 320, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.26) 0%, transparent 70%)",
-          top: "2%", right: "-12%", filter: "blur(45px)",
+          position: "absolute", width: 260, height: 260, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.17) 0%, transparent 70%)",
+          top: "2%", right: "-10%", filter: "blur(55px)",
         }} />
         {/* Middle-Right Splash */}
         <div style={{
-          position: "absolute", width: 280, height: 280, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.22) 0%, transparent 70%)",
-          top: "35%", right: "-8%", filter: "blur(40px)",
+          position: "absolute", width: 220, height: 220, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.14) 0%, transparent 70%)",
+          top: "38%", right: "-6%", filter: "blur(50px)",
         }} />
         {/* Middle-Left Splash */}
         <div style={{
-          position: "absolute", width: 270, height: 270, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.24) 0%, transparent 70%)",
-          top: "55%", left: "-10%", filter: "blur(40px)",
+          position: "absolute", width: 210, height: 210, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.15) 0%, transparent 70%)",
+          top: "58%", left: "-8%", filter: "blur(50px)",
         }} />
         {/* Bottom-Center Splash */}
         <div style={{
-          position: "absolute", width: 360, height: 360, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(241, 77, 77, 0.26) 0%, transparent 70%)",
-          bottom: "-6%", left: "10%", filter: "blur(50px)",
+          position: "absolute", width: 280, height: 280, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(241, 77, 77, 0.16) 0%, transparent 70%)",
+          bottom: "-5%", left: "15%", filter: "blur(55px)",
         }} />
       </div>
 
