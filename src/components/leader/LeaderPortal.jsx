@@ -40,6 +40,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [memSearch, setMemSearch]         = useState("");
   const [memSearchOpen, setMemSearchOpen] = useState(false);
   const [regModal, setRegModal]           = useState(false);
+  const [generalModal, setGeneralModal]   = useState(false);
+  const [genCatFilter, setGenCatFilter]   = useState("All");
   const [regForm, setRegForm]             = useState({ programId: "", participantIds: [] });
   const [editTarget, setEditTarget]       = useState(null);
   const [delConfirm, setDelConfirm]       = useState(null);
@@ -253,115 +255,142 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   );
 
   // ── EVENTS TAB ─────────────────────────────────────────────────────────────
-  const renderEvents = () => (
-    <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
-      <div className="section-header">
-        <div>
-          <div className="section-title">Registrations</div>
-          <div className="section-sub">{filtRegs.length} in {session}</div>
-        </div>
-      </div>
+  const renderEvents = () => {
+    const genRegsCount = groupRegs.filter(r => {
+      const p = programs.find(pg => pg.id === r.programId);
+      return p?.session === "General";
+    }).length;
 
-      {/* Session toggle */}
-      <div style={{ display: "flex", gap: 0, borderRadius: 12, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 4, marginBottom: 14 }}>
-        {["Stage", "Off-Stage", "General"].map(s => (
-          <button key={s} onClick={() => { setSession(s); setCatFilter("All"); }}
-            style={{
-              flex: 1, padding: "9px", border: "none", cursor: "pointer", borderRadius: 9,
-              fontFamily: "inherit", fontSize: 13, fontWeight: 700,
-              background: session === s ? (dark ? "rgba(255,255,255,0.08)" : "white") : "transparent",
-              color: session === s ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
-              boxShadow: session === s ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
-              transition: "all 0.18s ease",
-            }}>
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {/* Category filter */}
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
-        {["All", ...CATS].map(cat => (
-          <button key={cat} onClick={() => setCatFilter(cat)} className="btn btn-sm"
-            style={{ flexShrink: 0, fontWeight: 700, background: catFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: catFilter === cat ? "#0a0b12" : mutedTx }}>
-            {cat === "Sub-Junior" ? "Sub" : cat}
-          </button>
-        ))}
-      </div>
-
-      {locked && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)", marginBottom: 14 }}>
-          <span style={{ fontSize: 16 }}>🔒</span>
+    return (
+      <div className="anim-fadeIn" style={{ padding: "20px 16px 100px" }}>
+        <div className="section-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#e11d48" }}>{session} registrations are locked</div>
-            <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>Contact admin to unlock</div>
+            <div className="section-title">Stage & Off-Stage Events</div>
+            <div className="section-sub">{filtRegs.length} registered in {session}</div>
           </div>
+          <button
+            onClick={() => setGeneralModal(true)}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "8px 14px", borderRadius: 12,
+              background: dark ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.08)",
+              border: `1px solid ${ACCENT}`,
+              color: ACCENT, cursor: "pointer",
+              fontFamily: "inherit", fontWeight: 700, fontSize: 13,
+              boxShadow: "0 2px 10px rgba(245,158,11,0.15)",
+              transition: "all 0.18s ease"
+            }}
+          >
+            <Ic name="book" size={14} /> General Events
+            {genRegsCount > 0 && (
+              <span style={{ padding: "1px 7px", borderRadius: 10, background: ACCENT, color: "#0a0b12", fontSize: 11, fontWeight: 900 }}>
+                {genRegsCount}
+              </span>
+            )}
+          </button>
         </div>
-      )}
 
-      {filtRegs.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
-          <div style={{ fontSize: 13 }}>
-            {sessionPrograms.length === 0 ? `No ${session} programs added yet. Contact admin.` : "Tap + to register for an event"}
-          </div>
+        {/* Stage & Off-Stage Sub-Toggle */}
+        <div style={{ display: "flex", gap: 0, borderRadius: 12, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 4, marginBottom: 14 }}>
+          {["Stage", "Off-Stage"].map(s => (
+            <button key={s} onClick={() => { setSession(s); setCatFilter("All"); }}
+              style={{
+                flex: 1, padding: "9px", border: "none", cursor: "pointer", borderRadius: 9,
+                fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                background: session === s ? (dark ? "rgba(255,255,255,0.08)" : "white") : "transparent",
+                color: session === s ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
+                boxShadow: session === s ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
+                transition: "all 0.18s ease",
+              }}>
+              {s === "Stage" ? "🎭 Stage Events" : "🎨 Off-Stage Events"}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filtRegs.map(r => {
-            const p     = programs.find(pg => pg.id === r.programId);
-            const parts = r.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
-            return (
-              <div key={r.id} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
-                      <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
-                      <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p?.name}</div>
+
+        {/* Category filter */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
+          {["All", ...CATS].map(cat => (
+            <button key={cat} onClick={() => setCatFilter(cat)} className="btn btn-sm"
+              style={{ flexShrink: 0, fontWeight: 700, background: catFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: catFilter === cat ? "#0a0b12" : mutedTx }}>
+              {cat === "Sub-Junior" ? "Sub" : cat}
+            </button>
+          ))}
+        </div>
+
+        {locked && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)", marginBottom: 14 }}>
+            <span style={{ fontSize: 16 }}>🔒</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#e11d48" }}>{session} registrations are locked</div>
+              <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>Contact admin to unlock</div>
+            </div>
+          </div>
+        )}
+
+        {filtRegs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
+            <div style={{ fontSize: 13 }}>
+              {sessionPrograms.length === 0 ? `No ${session} programs added yet. Contact admin.` : "Tap + to register for an event"}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {filtRegs.map(r => {
+              const p     = programs.find(pg => pg.id === r.programId);
+              const parts = r.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
+              return (
+                <div key={r.id} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
+                        <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p?.name}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <Tag label={p?.category} dark={dark} />
+                        <Tag label={p?.type} dark={dark} />
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 5 }}>
-                      <Tag label={p?.category} dark={dark} />
-                      <Tag label={p?.type} dark={dark} />
-                    </div>
+                    {!locked && (
+                      <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r.id)}><Ic name="trash" size={13} /></button>
+                      </div>
+                    )}
                   </div>
-                  {!locked && (
-                    <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r.id)}><Ic name="trash" size={13} /></button>
-                    </div>
-                  )}
+                  <div style={{ height: 1, background: border, marginBottom: 10 }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {parts.map(s => (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ height: 1, background: border, marginBottom: 10 }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {parts.map(s => (
-                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
-                      <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
-      {!locked && (
-        <button onClick={() => openReg()} style={{
-          position: "fixed", bottom: 80, right: 20, width: 52, height: 52, borderRadius: "50%",
-          background: "linear-gradient(135deg,#f59e0b,#d97706)", border: "none",
-          color: "#0a0b12", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 6px 24px rgba(245,158,11,0.45)", zIndex: 100, transition: "transform 0.18s",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
-        >
-          <Ic name="plus" size={22} />
-        </button>
-      )}
-    </div>
-  );
+        {!locked && (
+          <button onClick={() => openReg()} style={{
+            position: "fixed", bottom: 80, right: 20, width: 52, height: 52, borderRadius: "50%",
+            background: "linear-gradient(135deg,#f59e0b,#d97706)", border: "none",
+            color: "#0a0b12", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 6px 24px rgba(245,158,11,0.45)", zIndex: 100, transition: "transform 0.18s",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
+          >
+            <Ic name="plus" size={22} />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   // ── MESSAGES TAB (embedded, not overlay) ─────────────────────────────────
   const renderMessages = () => (
@@ -453,6 +482,127 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveReg} disabled={!regForm.programId || regForm.participantIds.length === 0}>
                 {editTarget ? "Save Changes" : "Register"}
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── General Events Modal ── */}
+      {generalModal && (
+        <Modal title="General Events & Registrations" onClose={() => setGeneralModal(false)} wide>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Category Tabs inside General Modal */}
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
+              {["All", ...CATS].map(cat => (
+                <button key={cat} onClick={() => setGenCatFilter(cat)} className="btn btn-sm"
+                  style={{
+                    flexShrink: 0, fontWeight: 700, borderRadius: 8,
+                    background: genCatFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"),
+                    color: genCatFilter === cat ? "#0a0b12" : mutedTx,
+                    transition: "all 0.15s ease",
+                  }}>
+                  {cat === "Sub-Junior" ? "Sub-Junior" : cat}
+                </button>
+              ))}
+            </div>
+
+            {isLocked(group.id, "General") && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)" }}>
+                <span style={{ fontSize: 15 }}>🔒</span>
+                <div style={{ fontWeight: 700, fontSize: 12.5, color: "#e11d48" }}>General registrations are locked</div>
+              </div>
+            )}
+
+            {/* General Programs & Registrations List */}
+            {(() => {
+              const generalPrograms = programs.filter(p => p.session === "General" && (genCatFilter === "All" || p.category === genCatFilter));
+              const genLocked = isLocked(group.id, "General");
+
+              if (generalPrograms.length === 0) {
+                return (
+                  <div style={{ textAlign: "center", padding: "32px 0", color: mutedTx }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>🌐</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>No General Programs</div>
+                    <div style={{ fontSize: 12, marginTop: 2 }}>
+                      {genCatFilter === "All" ? "No General events created by admin" : `No General events in ${genCatFilter} category`}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 360, overflowY: "auto", paddingRight: 2 }}>
+                  {generalPrograms.map(p => {
+                    const reg = groupRegs.find(r => r.programId === p.id);
+                    const parts = reg ? reg.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean) : [];
+
+                    return (
+                      <div key={p.id} style={{
+                        padding: "14px 16px", borderRadius: 14,
+                        background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)",
+                        border: `1px solid ${border}`
+                      }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                              <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>#{p.order}</span>
+                              <div style={{ fontWeight: 800, fontSize: 14.5, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p.name}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 5 }}>
+                              <Tag label={p.category} dark={dark} />
+                              <Tag label={p.type} dark={dark} />
+                              <Tag label={`Max: ${p.maxParticipants}`} dark={dark} />
+                            </div>
+                          </div>
+
+                          {!genLocked && (
+                            reg ? (
+                              <div style={{ display: "flex", gap: 4 }}>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { setGeneralModal(false); openReg(reg); }}><Ic name="edit" size={13} /></button>
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(reg.id)}><Ic name="trash" size={13} /></button>
+                              </div>
+                            ) : (
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => {
+                                  setGeneralModal(false);
+                                  setEditTarget(null);
+                                  setRegForm({ programId: p.id, participantIds: [] });
+                                  setRegModal(true);
+                                }}
+                                style={{ flexShrink: 0, padding: "5px 12px", fontSize: 12 }}
+                              >
+                                + Register
+                              </button>
+                            )
+                          )}
+                        </div>
+
+                        {parts.length > 0 ? (
+                          <>
+                            <div style={{ height: 1, background: border, margin: "8px 0" }} />
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {parts.map(s => (
+                                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+                                  <span style={{ color: ACCENT, fontWeight: 800, minWidth: 28 }}>{s.chestNo}</span>
+                                  <span>{s.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 11.5, color: mutedTx, fontStyle: "italic", marginTop: 4 }}>Not registered yet</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+              <button className="btn btn-ghost" onClick={() => setGeneralModal(false)}>Close</button>
             </div>
           </div>
         </Modal>
