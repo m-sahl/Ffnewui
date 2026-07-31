@@ -3,7 +3,7 @@ import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
-import { CATS, ACCENT } from "../../styles/DesignTokens";
+import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
 
 const Tag = ({ label, dark }) => (
   <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: dark ? "#6b7280" : "#9ca3af" }}>{label}</span>
@@ -224,7 +224,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       )}
 
       <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 16 }}>
-        {["All", ...CATS].map(cat => (
+        {["All", ...STUDENT_CATS].map(cat => (
           <button key={cat} onClick={() => setCatFilter(cat)} className="btn btn-sm"
             style={{ flexShrink: 0, fontWeight: 700, background: catFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: catFilter === cat ? "#0a0b12" : mutedTx }}>
             {cat === "Sub-Junior" ? "Sub" : cat}

@@ -5,6 +5,7 @@ export const ACCENT3 = "#0ea5e9";          // Sapphire — info/teal
 export const ACCENT4 = "#10b981";          // Emerald — success
 
 export const CATS = ["Sub-Junior", "Junior", "Senior", "General"];
+export const STUDENT_CATS = ["Sub-Junior", "Junior", "Senior"];
 
 // Jewel-tone category colors
 export const catColor = {

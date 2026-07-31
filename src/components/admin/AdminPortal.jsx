@@ -5,7 +5,7 @@ import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
 import PrintSection from "./PrintSection";
 import MessagesPanel from "./MessagesPanel";
-import { CATS, ACCENT } from "../../styles/DesignTokens";
+import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
 
 const NAV = [
   { id: "students",      icon: "users",   label: "Students"  },
@@ -67,7 +67,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [editProg, setEditProg]       = useState(null);
   const [progForm, setProgForm]       = useState({ name: "", type: "Stage", category: "General", maxParticipants: 1, criteria: ["", ""] });
   const [stuModal, setStuModal]       = useState(false);
-  const [stuForm, setStuForm]         = useState({ name: "", category: "General" });
+  const [stuForm, setStuForm]         = useState({ name: "", category: "Senior" });
   const [userModal, setUserModal]         = useState(false);
   const [userForm, setUserForm]           = useState({ name: "", pin: "" });
   const [editUserModal, setEditUserModal] = useState(false);
@@ -98,7 +98,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const newStudent = { id: sId, ...stuForm, chestNo: nextChestNo(stuForm.category) };
     setStudents(prev => ({ ...prev, [activeGroup]: [...(prev[activeGroup] || []), newStudent] }));
     logActivity(user.name, "Added student", `${newStudent.name} (${newStudent.chestNo}) to ${groups.find(g => g.id === activeGroup)?.name}`);
-    setStuModal(false); setStuForm({ name: "", category: "General" });
+    setStuModal(false); setStuForm({ name: "", category: "Senior" });
   };
   const deleteStudent = (gId, sId, name) => {
     if (registrations.some(r => r.groupId === gId && r.participantIds.includes(sId))) {
@@ -541,7 +541,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div><label className="label">Group</label><select className="input select" value={activeGroup} onChange={e => setActiveGroup(e.target.value)}>{groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
             <div><label className="label">Name</label><input type="text" className="input" placeholder="Full name" value={stuForm.name} onChange={e => setStuForm({ ...stuForm, name: e.target.value })} autoFocus /></div>
-            <div><label className="label">Category</label><select className="input select" value={stuForm.category} onChange={e => setStuForm({ ...stuForm, category: e.target.value })}>{CATS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+            <div><label className="label">Category</label><select className="input select" value={stuForm.category} onChange={e => setStuForm({ ...stuForm, category: e.target.value })}>{STUDENT_CATS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setStuModal(false)}>Cancel</button>
               <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveStudent} disabled={!stuForm.name.trim()}>Add Student</button>
