@@ -92,7 +92,7 @@ export const AppProvider = ({ children }) => {
 
   // Chest number: finds the max used in this category across ALL groups and increments
   const nextChestNo = (category) => {
-    const base    = { "Sub-Junior": 100, "Junior": 200, "Senior": 300 };
+    const base    = { "Sub-Junior": 100, "Junior": 200, "Senior": 300, "General": 400 };
     const allInCat = Object.values(students).flat().filter(s => s.category === category);
     const maxUsed  = allInCat.reduce((max, s) => Math.max(max, parseInt(s.chestNo) || 0), base[category]);
     return (maxUsed + 1).toString();

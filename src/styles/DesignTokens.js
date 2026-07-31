@@ -4,13 +4,14 @@ export const ACCENT2 = "#e11d48";          // Ruby  — danger/highlight
 export const ACCENT3 = "#0ea5e9";          // Sapphire — info/teal
 export const ACCENT4 = "#10b981";          // Emerald — success
 
-export const CATS = ["Sub-Junior", "Junior", "Senior"];
+export const CATS = ["Sub-Junior", "Junior", "Senior", "General"];
 
 // Jewel-tone category colors
 export const catColor = {
   "Sub-Junior": "#e11d48",   // Ruby
   "Junior": "#0ea5e9",       // Sapphire
   "Senior": "#f59e0b",       // Gold
+  "General": "#10b981",      // Emerald
 };
 
 export const GROUP_COLORS = [

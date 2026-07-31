@@ -56,7 +56,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
-  const [session, setSession]         = useState("Stage");
+  const [progType, setProgType]       = useState("Stage");
   const [catFilter, setCatFilter]     = useState("All");
   const [search, setSearch]           = useState("");
   const [showSearch, setShowSearch]   = useState(false);
@@ -65,9 +65,9 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [stuSearchOpen, setStuSearchOpen] = useState(false);
   const [progModal, setProgModal]     = useState(false);
   const [editProg, setEditProg]       = useState(null);
-  const [progForm, setProgForm]       = useState({ name: "", session: "Stage", category: "Senior", type: "Single", maxParticipants: 1, criteria: ["", ""] });
+  const [progForm, setProgForm]       = useState({ name: "", type: "Stage", category: "General", maxParticipants: 1, criteria: ["", ""] });
   const [stuModal, setStuModal]       = useState(false);
-  const [stuForm, setStuForm]         = useState({ name: "", category: "Senior" });
+  const [stuForm, setStuForm]         = useState({ name: "", category: "General" });
   const [userModal, setUserModal]         = useState(false);
   const [userForm, setUserForm]           = useState({ name: "", pin: "" });
   const [editUserModal, setEditUserModal] = useState(false);
@@ -98,7 +98,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const newStudent = { id: sId, ...stuForm, chestNo: nextChestNo(stuForm.category) };
     setStudents(prev => ({ ...prev, [activeGroup]: [...(prev[activeGroup] || []), newStudent] }));
     logActivity(user.name, "Added student", `${newStudent.name} (${newStudent.chestNo}) to ${groups.find(g => g.id === activeGroup)?.name}`);
-    setStuModal(false); setStuForm({ name: "", category: "Senior" });
+    setStuModal(false); setStuForm({ name: "", category: "General" });
   };
   const deleteStudent = (gId, sId, name) => {
     if (registrations.some(r => r.groupId === gId && r.participantIds.includes(sId))) {
@@ -126,16 +126,17 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   };
 
   // ── Program ops ─────────────────────────────────────────────────────────
-  const openAddProg  = () => { setEditProg(null); setProgForm({ name: "", session, category: catFilter === "All" ? "Senior" : catFilter, type: "Single", maxParticipants: 1, criteria: ["", ""] }); setProgModal(true); };
-  const openEditProg = (p) => { setEditProg(p.id); setProgForm(p); setProgModal(true); };
+  const openAddProg  = () => { setEditProg(null); setProgForm({ name: "", type: progType, category: catFilter === "All" ? "General" : catFilter, maxParticipants: 1, criteria: ["", ""] }); setProgModal(true); };
+  const openEditProg = (p) => { setEditProg(p.id); setProgForm({ ...p, type: p.type || p.session || "Stage" }); setProgModal(true); };
   const saveProg = () => {
     if (!progForm.name.trim()) return;
+    const pData = { ...progForm, session: progForm.type || "Stage" };
     if (editProg) {
-      setPrograms(prev => prev.map(p => p.id === editProg ? { ...p, ...progForm } : p));
+      setPrograms(prev => prev.map(p => p.id === editProg ? { ...p, ...pData } : p));
       logActivity(user.name, "Updated program", progForm.name);
     } else {
-      setPrograms(prev => [...prev, { id: "p-" + Math.random().toString(36).substr(2, 5), order: prev.length + 1, ...progForm }]);
-      logActivity(user.name, "Added program", `${progForm.name} (${progForm.session})`);
+      setPrograms(prev => [...prev, { id: "p-" + Math.random().toString(36).substr(2, 5), order: prev.length + 1, ...pData }]);
+      logActivity(user.name, "Added program", `${progForm.name} (${progForm.type})`);
     }
     setProgModal(false);
   };
@@ -239,7 +240,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   // ── RENDER: Programs ─────────────────────────────────────────────────────
   const renderPrograms = () => {
     const filtered = programs.filter(p => {
-      if (p.session !== session) return false;
+      const pType = p.type || p.session || "Stage";
+      if (pType !== progType) return false;
       if (catFilter !== "All" && p.category !== catFilter) return false;
       if (search.trim() && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
@@ -249,23 +251,23 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 22 }}>Programs</div>
-            <div style={{ fontSize: 13, color: mutedTx, marginTop: 2 }}>{filtered.length} {session} programs</div>
+            <div style={{ fontSize: 13, color: mutedTx, marginTop: 2 }}>{filtered.length} {progType} programs</div>
           </div>
           <button className="btn btn-primary" onClick={openAddProg}><Ic name="plus" size={13} /> Add Program</button>
         </div>
 
-        {/* Session + Category + Search in one toolbar */}
+        {/* Program Type + Category + Search in one toolbar */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 0, borderRadius: 10, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 3 }}>
-            {["Stage", "Off-Stage", "General"].map(s => (
-              <button key={s} onClick={() => { setSession(s); setCatFilter("All"); setSearch(""); }} style={{
+            {["Stage", "Off-Stage"].map(t => (
+              <button key={t} onClick={() => { setProgType(t); setCatFilter("All"); setSearch(""); }} style={{
                 padding: "7px 14px", border: "none", cursor: "pointer", borderRadius: 7,
                 fontFamily: "inherit", fontSize: 13, fontWeight: 700,
-                background: session === s ? (dark ? "rgba(255,255,255,0.09)" : "white") : "transparent",
-                color: session === s ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
-                boxShadow: session === s ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
+                background: progType === t ? (dark ? "rgba(255,255,255,0.09)" : "white") : "transparent",
+                color: progType === t ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
+                boxShadow: progType === t ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
                 transition: "all 0.15s",
-              }}>{s}</button>
+              }}>{t}</button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 6, flex: 1 }}>
@@ -284,7 +286,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         {filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: mutedTx }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🎭</div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>No {session} programs</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>No {progType} programs</div>
             <div style={{ fontSize: 13 }}>Click "Add Program" to create one</div>
           </div>
         ) : (
@@ -300,7 +302,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    <Tag label={p.category} dark={dark} /><Tag label={p.type} dark={dark} /><Tag label={`Max ${p.maxParticipants}`} dark={dark} />
+                    <Tag label={p.category} dark={dark} /><Tag label={p.type || p.session} dark={dark} /><Tag label={`Max ${p.maxParticipants}`} dark={dark} />
                     {p.criteria?.filter(Boolean).map(c => <Tag key={c} label={c} dark={dark} />)}
                   </div>
                 </div>
@@ -347,17 +349,17 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                {["Stage", "Off-Stage", "General"].map(s => {
-                  const locked = locks[u.id]?.[s];
+                {["Stage", "Off-Stage"].map(t => {
+                  const locked = locks[u.id]?.[t];
                   return (
-                    <button key={s} onClick={() => toggleLock(u.id, s)} style={{
+                    <button key={t} onClick={() => toggleLock(u.id, t)} style={{
                       flex: 1, padding: "7px 0", borderRadius: 8,
                       border: `1px solid ${locked ? "rgba(225,29,72,0.2)" : "rgba(16,185,129,0.2)"}`,
                       background: locked ? "rgba(225,29,72,0.07)" : "rgba(16,185,129,0.07)",
                       color: locked ? "#e11d48" : "#10b981",
                       fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}>
-                      {locked ? "🔒" : "🔓"} {s}
+                      {locked ? "🔒" : "🔓"} {t}
                     </button>
                   );
                 })}
@@ -553,13 +555,12 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           <div style={{ display: "grid", gap: 16 }}>
             <div className="form-row">
               <div><label className="label">Name</label><input type="text" className="input" value={progForm.name} onChange={e => setProgForm({ ...progForm, name: e.target.value })} placeholder="Program name" autoFocus /></div>
-              <div><label className="label">Session</label><select className="input select" value={progForm.session} onChange={e => setProgForm({ ...progForm, session: e.target.value })}><option value="Stage">Stage</option><option value="Off-Stage">Off-Stage</option><option value="General">General</option></select></div>
+              <div><label className="label">Type</label><select className="input select" value={progForm.type || progForm.session || "Stage"} onChange={e => setProgForm({ ...progForm, type: e.target.value, session: e.target.value })}><option value="Stage">Stage</option><option value="Off-Stage">Off-Stage</option></select></div>
             </div>
             <div className="form-row">
               <div><label className="label">Category</label><select className="input select" value={progForm.category} onChange={e => setProgForm({ ...progForm, category: e.target.value })}>{CATS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-              <div><label className="label">Type</label><select className="input select" value={progForm.type} onChange={e => setProgForm({ ...progForm, type: e.target.value })}><option value="Single">Single</option><option value="Group">Group</option></select></div>
+              <div><label className="label">Max Participants</label><input type="number" className="input" min={1} value={progForm.maxParticipants} onChange={e => setProgForm({ ...progForm, maxParticipants: parseInt(e.target.value) || 1 })} /></div>
             </div>
-            <div><label className="label">Max Participants</label><input type="number" className="input" min={1} value={progForm.maxParticipants} onChange={e => setProgForm({ ...progForm, maxParticipants: parseInt(e.target.value) || 1 })} /></div>
             <div><label className="label">Criteria</label><div className="grid-2"><input type="text" className="input" placeholder="Criteria 1" value={progForm.criteria[0]} onChange={e => setProgForm({ ...progForm, criteria: [e.target.value, progForm.criteria[1]] })} /><input type="text" className="input" placeholder="Criteria 2" value={progForm.criteria[1]} onChange={e => setProgForm({ ...progForm, criteria: [progForm.criteria[0], e.target.value] })} /></div></div>
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setProgModal(false)}>Cancel</button>

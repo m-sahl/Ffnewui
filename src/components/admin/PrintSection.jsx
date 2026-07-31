@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useApp } from "../../context/AppContext";
-import { ACCENT } from "../../styles/DesignTokens";
+import { ACCENT, CATS } from "../../styles/DesignTokens";
 import Ic from "../common/Ic";
 
 const PrintSection = ({ dark }) => {
   const { programs, students, registrations, groups } = useApp();
-  const [session,  setSession]  = useState("Stage");
+  const [progType, setProgType] = useState("Stage");
   const [category, setCategory] = useState("All");
   const [selProg,  setSelProg]  = useState("");
   const [selectedPages, setSelectedPages] = useState({ call: true, code: true, valuation: true });
@@ -13,12 +13,13 @@ const PrintSection = ({ dark }) => {
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
   const border  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
-  const sessions   = ["Stage", "Off-Stage", "General"];
-  const categories = ["All", "Sub-Junior", "Junior", "Senior"];
+  const progTypes  = ["Stage", "Off-Stage"];
+  const categories = ["All", ...CATS];
 
-  const filteredPrograms = programs.filter(p =>
-    p.session === session && (category === "All" || p.category === category)
-  );
+  const filteredPrograms = programs.filter(p => {
+    const pType = p.type || p.session || "Stage";
+    return pType === progType && (category === "All" || p.category === category);
+  });
 
   const prog = programs.find(p => p.id === selProg);
 
@@ -329,19 +330,19 @@ const PrintSection = ({ dark }) => {
   return (
     <div className="anim-fadeUp" style={{ padding: "4px 0 100px" }}>
 
-      {/* Session toggle */}
+      {/* Program Type toggle */}
       <div style={{ marginBottom: 14 }}>
-        <div className="label" style={{ marginBottom: 8 }}>Session</div>
+        <div className="label" style={{ marginBottom: 8 }}>Program Type</div>
         <div style={{ display: "flex", gap: 0, borderRadius: 10, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 4 }}>
-          {sessions.map(s => (
-            <button key={s} onClick={() => { setSession(s); setSelProg(""); }} style={{
+          {progTypes.map(t => (
+            <button key={t} onClick={() => { setProgType(t); setSelProg(""); }} style={{
               flex: 1, padding: "8px 4px", border: "none", cursor: "pointer", borderRadius: 7,
               fontFamily: "inherit", fontSize: 12, fontWeight: 700,
-              background: session === s ? (dark ? "rgba(255,255,255,0.08)" : "white") : "transparent",
-              color: session === s ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
-              boxShadow: session === s ? "0 2px 6px rgba(0,0,0,0.1)" : "none",
+              background: progType === t ? (dark ? "rgba(255,255,255,0.08)" : "white") : "transparent",
+              color: progType === t ? (dark ? "#e8e8f5" : "#12121e") : mutedTx,
+              boxShadow: progType === t ? "0 2px 6px rgba(0,0,0,0.1)" : "none",
               transition: "all 0.15s",
-            }}>{s}</button>
+            }}>{t}</button>
           ))}
         </div>
       </div>
