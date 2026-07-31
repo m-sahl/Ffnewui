@@ -16,7 +16,7 @@ const AppContent = () => {
 
   const [user, setUser]       = useState(() => safeGet("ff_user"));
   const [loading, setLoading] = useState(() => !safeGet("ff_user"));
-  const [dark, setDark]       = useState(() => localStorage.getItem("ff_dark") !== "false");
+  const [dark, setDark]       = useState(false);
 
   useEffect(() => {
     if (!user || !users.length) return;
@@ -41,7 +41,7 @@ const AppContent = () => {
       ) : user.role === "group" ? (
         <LeaderPortal
           user={user}
-          group={groups.find(g => g.id === user.groupId) || { id: user.groupId, name: user.name, color: "#f59e0b" }}
+          group={groups.find(g => g.id === user.groupId) || { id: user.groupId, name: user.name, color: "#f14d4d" }}
           dark={dark} setDark={setDark} onBack={handleLogout}
         />
       ) : (

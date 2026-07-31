@@ -8,8 +8,8 @@ const Modal = ({ title, subtitle, icon, iconColor, onClose, children, wide }) =>
           {icon && (
             <div style={{
               width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-              background: `${iconColor || "#f59e0b"}18`,
-              color: iconColor || "#f59e0b",
+              background: `${iconColor || "#f14d4d"}18`,
+              color: iconColor || "#f14d4d",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <Ic name={icon} size={18} />

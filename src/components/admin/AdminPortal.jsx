@@ -31,7 +31,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
         background: "transparent", color: mutedTx, cursor: "pointer",
         display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
       }}
-        onMouseEnter={e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.35)"; }}
+        onMouseEnter={e => { e.currentTarget.style.color = "#f14d4d"; e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)"; }}
         onMouseLeave={e => { e.currentTarget.style.color = mutedTx; e.currentTarget.style.borderColor = border; }}
       >
         <Ic name="settings" size={15} />
@@ -457,7 +457,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100, flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 13, color: "#0a0b12" }}>FF</div>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 13, color: "#ffffff" }}>FF</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 16, color: dark ? "#e8e8f5" : "#12121e" }}>FestFlow</div>
           <div style={{ width: 1, height: 20, background: border, marginLeft: 4 }} />
           <div style={{ fontSize: 13, color: mutedTx, fontWeight: 500 }}>Admin Portal</div>
@@ -468,15 +468,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             background: "transparent", color: mutedTx, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
             transition: "all 0.15s",
           }}
-            onMouseEnter={e => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = "rgba(245,158,11,0.35)"; }}
+            onMouseEnter={e => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)"; }}
             onMouseLeave={e => { e.currentTarget.style.color = mutedTx; e.currentTarget.style.borderColor = border; }}
           >
             <Ic name="message" size={15} />
-            {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: ACCENT, color: "#0a0b12", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
+            {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: ACCENT, color: "#ffffff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
           </button>
           <SettingsBtn dark={dark} setDark={setDark} userPin={user.pin} onLogout={onBack} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 4px 4px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent" }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(245,158,11,0.12)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(241,77,77,0.12)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 12 }}>
               {user.name.charAt(0)}
             </div>
             <span style={{ fontSize: 13, fontWeight: 600, color: dark ? "#e8e8f5" : "#12121e" }}>{user.name}</span>

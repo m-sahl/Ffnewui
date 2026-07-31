@@ -37,28 +37,30 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
           <button className="btn btn-ghost btn-icon" onClick={onClose}><Ic name="x" size={14} /></button>
         </div>
 
-        {/* Appearance */}
-        <div style={{ marginBottom: 18 }}>
-          <div className="label" style={{ paddingLeft: 4 }}>Appearance</div>
-          <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 16px", background: rowBg }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(245,158,11,0.1)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Ic name={dark ? "sun" : "moon"} size={16} />
+        {/* Appearance (Admin only) */}
+        {isAdmin && (
+          <div style={{ marginBottom: 18 }}>
+            <div className="label" style={{ paddingLeft: 4 }}>Appearance</div>
+            <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 16px", background: rowBg }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(241,77,77,0.1)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Ic name={dark ? "sun" : "moon"} size={16} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Theme</div>
+                  <div className="text-muted" style={{ fontSize: 12 }}>{dark ? "Dark mode" : "Light mode"}</div>
+                </div>
+                <button onClick={() => setDark(d => !d)} style={{
+                  width: 50, height: 28, borderRadius: 14, position: "relative", cursor: "pointer",
+                  border: "none", background: dark ? "linear-gradient(135deg,#f14d4d,#dc2626)" : "rgba(0,0,0,0.13)",
+                  transition: "background 0.3s", flexShrink: 0,
+                }}>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "white", position: "absolute", top: 3, transition: "left 0.3s cubic-bezier(0.34,1.56,0.64,1)", left: dark ? 25 : 3, boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }} />
+                </button>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>Theme</div>
-                <div className="text-muted" style={{ fontSize: 12 }}>{dark ? "Dark mode" : "Light mode"}</div>
-              </div>
-              <button onClick={() => setDark(d => !d)} style={{
-                width: 50, height: 28, borderRadius: 14, position: "relative", cursor: "pointer",
-                border: "none", background: dark ? "linear-gradient(135deg,#f59e0b,#d97706)" : "rgba(0,0,0,0.13)",
-                transition: "background 0.3s", flexShrink: 0,
-              }}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "white", position: "absolute", top: 3, transition: "left 0.3s cubic-bezier(0.34,1.56,0.64,1)", left: dark ? 25 : 3, boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }} />
-              </button>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Admin password change */}
         {isAdmin && (

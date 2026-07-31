@@ -49,8 +49,8 @@ class ErrorBoundary extends Component {
           )}
           <button onClick={this.clearAndReload} style={{
             padding: "11px 28px", borderRadius: 12, border: "none",
-            background: "linear-gradient(135deg,#f59e0b,#d97706)",
-            color: "#0a0b12", fontWeight: 700, fontSize: 14,
+            background: "linear-gradient(135deg,#f14d4d,#dc2626)",
+            color: "#ffffff", fontWeight: 700, fontSize: 14,
             cursor: "pointer", fontFamily: "inherit",
           }}>
             Clear & Reload

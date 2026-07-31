@@ -177,7 +177,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                   onTouchEnd={e => e.currentTarget.style.background = "transparent"}
                 >
                   {/* Avatar */}
-                  <div style={{ width: 50, height: 50, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20, color: "#0a0b12" }}>
+                  <div style={{ width: 50, height: 50, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20, color: "#ffffff" }}>
                     {g.name.charAt(0)}
                   </div>
                   {/* Info */}
@@ -190,7 +190,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                       <span style={{ fontSize: 13, color: mutedTx, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 8 }}>
                         {last ? (last.from === "admin" ? `You: ${last.text}` : last.text) : "No messages yet"}
                       </span>
-                      {unread > 0 && <div style={{ width: 20, height: 20, borderRadius: "50%", background: ACCENT, color: "#0a0b12", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{unread}</div>}
+                      {unread > 0 && <div style={{ width: 20, height: 20, borderRadius: "50%", background: ACCENT, color: "#ffffff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{unread}</div>}
                     </div>
                   </div>
                 </button>
@@ -214,7 +214,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
 
               {/* Avatar + name — tappable for info */}
               <button onClick={() => setShowInfo(true)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "4px 0" }}>
-                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 17, color: "#0a0b12", flexShrink: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 17, color: "#ffffff", flexShrink: 0 }}>
                   {selectedGroupObj?.name.charAt(0)}
                 </div>
                 <div>
@@ -296,8 +296,8 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                   <div style={{
                     maxWidth: "78%", padding: "8px 10px 6px 12px",
                     borderRadius: isAdmin ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-                    background: isAdmin ? "linear-gradient(145deg,#f59e0b,#d97706)" : bubbleBg,
-                    color: isAdmin ? "#0a0b12" : (dark ? "#e8e8f5" : "#111"),
+                    background: isAdmin ? "linear-gradient(145deg,#f14d4d,#dc2626)" : bubbleBg,
+                    color: isAdmin ? "#ffffff" : (dark ? "#e8e8f5" : "#111"),
                     boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
                     position: "relative",
                   }}>
@@ -310,7 +310,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                       borderStyle: "solid",
                       borderWidth: isAdmin ? "0 0 8px 8px" : "0 8px 8px 0",
                       borderColor: isAdmin
-                        ? `transparent transparent transparent #d97706`
+                        ? `transparent transparent transparent #dc2626`
                         : `transparent ${bubbleBg} transparent transparent`,
                     }} />
 
@@ -319,7 +319,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                       <span style={{ fontSize: 10, opacity: 0.65 }}>{fmtTime(m.timestamp)}</span>
                       {isAdmin && (
                         <span style={{ opacity: 0.8, marginLeft: 1 }}>
-                          {isRead ? <DblCheckIcon color="#0a0b12" /> : <CheckIcon />}
+                          {isRead ? <DblCheckIcon color="#ffffff" /> : <CheckIcon />}
                         </span>
                       )}
                     </div>
@@ -346,10 +346,10 @@ const MessagesPanel = ({ user, dark, onClose }) => {
             </div>
             <button onClick={send} style={{
               width: 46, height: 46, borderRadius: "50%", flexShrink: 0, border: "none",
-              background: text.trim() ? "linear-gradient(135deg,#f59e0b,#d97706)" : (dark ? "#1a1b2e" : "#ccc"),
-              color: text.trim() ? "#0a0b12" : (dark ? "#4b5563" : "#888"),
+              background: text.trim() ? "linear-gradient(135deg,#f14d4d,#dc2626)" : (dark ? "#1a1b2e" : "#ccc"),
+              color: text.trim() ? "#ffffff" : (dark ? "#4b5563" : "#888"),
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s", boxShadow: text.trim() ? "0 4px 14px rgba(245,158,11,0.4)" : "none",
+              transition: "all 0.15s", boxShadow: text.trim() ? "0 4px 14px rgba(241,77,77,0.4)" : "none",
             }}>
               <SendIcon s={18} />
             </button>
@@ -381,7 +381,7 @@ const MessagesPanel = ({ user, dark, onClose }) => {
           <div style={{ width: "100%", background: dark ? "#0e0f1f" : "#fff", borderRadius: "22px 22px 0 0", padding: "20px 20px 40px", animation: "modalIn 0.25s ease" }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 40, height: 4, borderRadius: 2, background: dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)", margin: "0 auto 20px" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 28, color: "#0a0b12" }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 28, color: "#ffffff" }}>
                 {selectedGroupObj.name.charAt(0)}
               </div>
               <div>

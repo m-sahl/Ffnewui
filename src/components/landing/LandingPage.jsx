@@ -40,11 +40,11 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
         <div className="anim-fadeUp" style={{ textAlign: "center", marginBottom: 44 }}>
           <div style={{
             width: 72, height: 72, borderRadius: 22, margin: "0 auto 18px",
-            background: "linear-gradient(145deg, #f59e0b, #d97706)",
+            background: "linear-gradient(145deg, #f14d4d, #dc2626)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 8px 32px rgba(245,158,11,0.35)",
+            boxShadow: "0 8px 32px rgba(241,77,77,0.35)",
             fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900,
-            fontSize: 28, color: "#0a0b12", letterSpacing: -1,
+            fontSize: 28, color: "#ffffff", letterSpacing: -1,
           }}>FF</div>
 
           <div style={{
@@ -134,7 +134,7 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
             color: mutedTx,
             transition: "all 0.18s ease",
           }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.35)"; e.currentTarget.style.background = "rgba(245,158,11,0.06)"; }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#f14d4d"; e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)"; e.currentTarget.style.background = "rgba(241,77,77,0.06)"; }}
             onMouseLeave={e => { e.currentTarget.style.color = mutedTx; e.currentTarget.style.borderColor = border; e.currentTarget.style.background = "transparent"; }}
           >
             <Ic name="shield" size={12} /> Admin Portal

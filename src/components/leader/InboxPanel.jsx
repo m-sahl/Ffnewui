@@ -97,7 +97,7 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
           <button onClick={onClose} style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: "#e8e8f5", borderRadius: 12 }}>
             <BackIcon s={20} />
           </button>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 17, color: "#0a0b12", flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 17, color: "#ffffff", flexShrink: 0 }}>
             A
           </div>
           <div style={{ flex: 1 }}>
@@ -145,11 +145,11 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
               <div style={{
                 maxWidth: "78%", padding: "8px 10px 6px 12px",
                 borderRadius: isOwn ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-                background: isOwn ? "linear-gradient(145deg,#f59e0b,#d97706)" : bubbleBg,
-                color: isOwn ? "#0a0b12" : (dark ? "#e8e8f5" : "#111"),
+                background: isOwn ? "linear-gradient(145deg,#f14d4d,#dc2626)" : bubbleBg,
+                color: isOwn ? "#ffffff" : (dark ? "#e8e8f5" : "#111"),
                 boxShadow: "0 1px 3px rgba(0,0,0,0.18)", position: "relative",
               }}>
-                <div style={{ position: "absolute", top: 0, [isOwn ? "right" : "left"]: -6, width: 0, height: 0, borderStyle: "solid", borderWidth: isOwn ? "0 0 8px 8px" : "0 8px 8px 0", borderColor: isOwn ? `transparent transparent transparent #d97706` : `transparent ${bubbleBg} transparent transparent` }} />
+                <div style={{ position: "absolute", top: 0, [isOwn ? "right" : "left"]: -6, width: 0, height: 0, borderStyle: "solid", borderWidth: isOwn ? "0 0 8px 8px" : "0 8px 8px 0", borderColor: isOwn ? `transparent transparent transparent #dc2626` : `transparent ${bubbleBg} transparent transparent` }} />
                 {!isOwn && <div style={{ fontSize: 11, fontWeight: 700, color: ACCENT, marginBottom: 3 }}>Admin</div>}
                 <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>{m.text}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3, marginTop: 3 }}>
@@ -174,10 +174,10 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
         </div>
         <button onClick={send} style={{
           width: 46, height: 46, borderRadius: "50%", flexShrink: 0, border: "none",
-          background: text.trim() ? "linear-gradient(135deg,#f59e0b,#d97706)" : (dark ? "#1a1b2e" : "#ccc"),
-          color: text.trim() ? "#0a0b12" : (dark ? "#4b5563" : "#888"),
+          background: text.trim() ? "linear-gradient(135deg,#f14d4d,#dc2626)" : (dark ? "#1a1b2e" : "#ccc"),
+          color: text.trim() ? "#ffffff" : (dark ? "#4b5563" : "#888"),
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "all 0.15s", boxShadow: text.trim() ? "0 4px 14px rgba(245,158,11,0.4)" : "none",
+          transition: "all 0.15s", boxShadow: text.trim() ? "0 4px 14px rgba(241,77,77,0.4)" : "none",
         }}>
           <SendIcon s={18} />
         </button>

@@ -24,7 +24,7 @@ const BottomNav = ({ tab, setTab, unread }) => (
         <Ic name={n.icon} size={18} />
         <span>{n.label}</span>
         {n.id === "messages" && unread > 0 && (
-          <span style={{ position: "absolute", top: 2, right: "28%", width: 16, height: 16, borderRadius: "50%", background: "#f59e0b", color: "#0a0b12", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>
+          <span style={{ position: "absolute", top: 2, right: "28%", width: 16, height: 16, borderRadius: "50%", background: "#f14d4d", color: "#ffffff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>
         )}
       </button>
     ))}
@@ -180,7 +180,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             border: `1px solid ${border}`, background: cardBg, cursor: "pointer", fontFamily: "inherit",
             display: "flex", alignItems: "center", gap: 12,
           }}>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg,#f59e0b,#d97706)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 15, color: "#0a0b12", flexShrink: 0 }}>A</div>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 15, color: "#ffffff", flexShrink: 0 }}>A</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {lastMsg ? (lastMsg.from === group.id ? `You: ${lastMsg.text}` : lastMsg.text) : "No messages yet"}
@@ -194,9 +194,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         {/* Quick action */}
         <button onClick={() => { setTab("events"); }} style={{
           width: "100%", padding: "16px", borderRadius: 14, border: "none", cursor: "pointer",
-          background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#0a0b12",
+          background: "linear-gradient(135deg,#f14d4d,#dc2626)", color: "#ffffff",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           fontFamily: "inherit", fontWeight: 700, fontSize: 14,
+          boxShadow: "0 4px 16px rgba(241, 77, 77, 0.3)",
         }}>
           <Ic name="plus" size={16} /> Register for an Event
         </button>
@@ -352,9 +353,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       {!locked && (
         <button onClick={() => openReg()} style={{
           position: "fixed", bottom: 80, right: 20, width: 52, height: 52, borderRadius: "50%",
-          background: "linear-gradient(135deg,#f59e0b,#d97706)", border: "none",
-          color: "#0a0b12", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 6px 24px rgba(245,158,11,0.45)", zIndex: 100, transition: "transform 0.18s",
+          background: "linear-gradient(135deg,#f14d4d,#dc2626)", border: "none",
+          color: "#ffffff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 6px 24px rgba(241,77,77,0.45)", zIndex: 100, transition: "transform 0.18s",
         }}
           onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
@@ -568,8 +569,8 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
               <div style={{
                 maxWidth: "78%", padding: "8px 10px 6px 12px",
                 borderRadius: isOwn ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-                background: isOwn ? "linear-gradient(145deg,#f59e0b,#d97706)" : bubbleBg,
-                color: isOwn ? "#0a0b12" : (dark ? "#e8e8f5" : "#111"),
+                background: isOwn ? "linear-gradient(145deg,#f14d4d,#dc2626)" : bubbleBg,
+                color: isOwn ? "#ffffff" : (dark ? "#e8e8f5" : "#111"),
                 boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
               }}>
                 {!isOwn && <div style={{ fontSize: 11, fontWeight: 700, color: ACCENT, marginBottom: 3 }}>Admin</div>}
@@ -592,8 +593,8 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
         </div>
         <button onClick={send} style={{
           width: 42, height: 42, borderRadius: "50%", flexShrink: 0, border: "none",
-          background: text.trim() ? "linear-gradient(135deg,#f59e0b,#d97706)" : (dark ? "#1a1b2e" : "#ccc"),
-          color: text.trim() ? "#0a0b12" : (dark ? "#4b5563" : "#888"),
+          background: text.trim() ? "linear-gradient(135deg,#f14d4d,#dc2626)" : (dark ? "#1a1b2e" : "#ccc"),
+          color: text.trim() ? "#ffffff" : (dark ? "#4b5563" : "#888"),
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>

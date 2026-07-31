@@ -45,11 +45,11 @@ export const NumPinModal = ({ title, subtitle, onSuccess, onClose, dark, verify,
         />
         <div style={{
           width: 60, height: 60, borderRadius: 18, margin: "0 auto 18px",
-          background: "linear-gradient(145deg, #f59e0b, #d97706)",
+          background: "linear-gradient(145deg, #f14d4d, #dc2626)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 8px 28px rgba(245,158,11,0.4)",
+          boxShadow: "0 8px 28px rgba(241,77,77,0.4)",
         }}>
-          <Ic name="lock" size={24} color="#0a0b12" />
+          <Ic name="lock" size={24} color="#ffffff" />
         </div>
         <div className="ff-display fw-800" style={{ fontSize: 19, marginBottom: 6 }}>{title}</div>
         <div className="text-muted" style={{ fontSize: 13, marginBottom: 4 }}>{subtitle}</div>
@@ -91,11 +91,11 @@ export const TextPinModal = ({ title, subtitle, onSuccess, onClose, dark, verify
       <div className="modal" style={{ maxWidth: 370, textAlign: "center" }}>
         <div style={{
           width: 60, height: 60, borderRadius: 18, margin: "0 auto 18px",
-          background: "linear-gradient(145deg, #f59e0b, #d97706)",
+          background: "linear-gradient(145deg, #f14d4d, #dc2626)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 8px 28px rgba(245,158,11,0.4)",
+          boxShadow: "0 8px 28px rgba(241,77,77,0.4)",
         }}>
-          <Ic name="shield" size={24} color="#0a0b12" />
+          <Ic name="shield" size={24} color="#ffffff" />
         </div>
         <div className="ff-display fw-800" style={{ fontSize: 19, marginBottom: 6 }}>{title}</div>
         <div className="text-muted" style={{ fontSize: 13, marginBottom: 24 }}>{subtitle}</div>
