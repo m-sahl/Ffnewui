@@ -580,16 +580,18 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             const parts = viewTarget.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Header Info */}
-                <div style={{ padding: "14px 16px", borderRadius: 14, background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: `1px solid ${border}` }}>
+                {/* Simplified Header Card */}
+                <div style={{ padding: "14px 16px", borderRadius: 14, background: dark ? "rgba(255,255,255,0.035)" : "rgba(0,0,0,0.03)", border: `1px solid ${border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: ACCENT }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 14, color: ACCENT }}>{p?.order ? `#${p.order}` : ""}</span>
                     <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "'Plus Jakarta Sans',sans-serif", color: dark ? "#f8fafc" : "#0f172a" }}>{p?.name}</div>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <Tag label={p?.category} dark={dark} />
-                    <Tag label={p?.type || p?.session} dark={dark} />
-                    <Tag label={`Registered (${parts.length}/${p?.maxParticipants || 1})`} dark={dark} variant="accent" />
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: mutedTx, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span>{p?.category}</span>
+                    <span>•</span>
+                    <span>{p?.type || p?.session || "Stage"}</span>
+                    <span>•</span>
+                    <span style={{ color: "#10b981", fontWeight: 800 }}>{parts.length}/{p?.maxParticipants || 1} Registered</span>
                   </div>
                 </div>
 
@@ -613,22 +615,25 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   </div>
                 </div>
 
-                {/* Action buttons inside modal */}
-                <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 8, flexWrap: "wrap" }}>
-                  {!locked && (
-                    <button className="btn btn-ghost" onClick={() => { setDelConfirm(viewTarget.id); setViewTarget(null); }} style={{ borderRadius: 12, fontSize: 13, color: "#f43f5e" }}>
+                {/* 50/50 Action buttons inside modal */}
+                {!locked ? (
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button className="btn btn-ghost" onClick={() => { setDelConfirm(viewTarget.id); setViewTarget(null); }}
+                      style={{ flex: 1, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "#f43f5e", border: "1px solid rgba(244,63,94,0.2)", height: 44 }}>
                       Cancel Registration
                     </button>
-                  )}
-                  <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-                    <button className="btn btn-ghost" onClick={() => setViewTarget(null)} style={{ borderRadius: 12 }}>Close</button>
-                    {!locked && (
-                      <button className="btn btn-primary" onClick={() => { openReg(viewTarget); setViewTarget(null); }} style={{ borderRadius: 12, fontWeight: 800 }}>
-                        Edit Registration
-                      </button>
-                    )}
+                    <button className="btn btn-primary" onClick={() => { openReg(viewTarget); setViewTarget(null); }}
+                      style={{ flex: 1, borderRadius: 12, fontSize: 13, fontWeight: 800, height: 44 }}>
+                      Edit Registration
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div style={{ marginTop: 12 }}>
+                    <button className="btn btn-ghost" onClick={() => setViewTarget(null)} style={{ width: "100%", borderRadius: 12, height: 44 }}>
+                      Close
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })()}
