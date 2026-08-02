@@ -13,6 +13,41 @@ export const get = query({
   },
 });
 
+export const add = mutation({
+  args: { user: v.any() },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("users", cleanDoc(args.user));
+  },
+});
+
+export const update = mutation({
+  args: { id: v.string(), user: v.any() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("id"), args.id))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, cleanDoc(args.user));
+    } else {
+      await ctx.db.insert("users", cleanDoc(args.user));
+    }
+  },
+});
+
+export const remove = mutation({
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("id"), args.id))
+      .first();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    }
+  },
+});
+
 export const setAll = mutation({
   args: { users: v.array(v.any()) },
   handler: async (ctx, args) => {

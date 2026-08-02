@@ -28,7 +28,12 @@ export const AppProvider = ({ children }) => {
 
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
   const setAllConvexRegistrations = useMutation(api.registrations.setAll);
+
   const setAllConvexUsers         = useMutation(api.users.setAll);
+  const addConvexUser             = useMutation(api.users.add);
+  const updateConvexUser          = useMutation(api.users.update);
+  const removeConvexUser          = useMutation(api.users.remove);
+
   const setConvexLock             = useMutation(api.locks.setLock);
   const sendConvexMessage         = useMutation(api.messages.send);
   const markConvexMessageRead     = useMutation(api.messages.markRead);
@@ -41,7 +46,7 @@ export const AppProvider = ({ children }) => {
     try {
       const s = localStorage.getItem("ff_programs");
       const parsed = s ? JSON.parse(s) : INITIAL_PROGRAMS;
-      return parsed.map((p, i) => p.order ? p : { ...p, order: i + 1 });
+      return parsed.map((p, i) => (p.order !== undefined && p.order !== null) ? p : { ...p, order: i + 1 });
     } catch { return INITIAL_PROGRAMS; }
   });
 
@@ -210,6 +215,21 @@ export const AppProvider = ({ children }) => {
     });
   };
 
+  const addUser = (newUser) => {
+    setUsersState(prev => [...prev, newUser]);
+    addConvexUser({ user: newUser }).catch(err => console.error("Convex addUser error:", err));
+  };
+
+  const updateUser = (id, updatedUser) => {
+    setUsersState(prev => prev.map(u => u.id === id ? { ...u, ...updatedUser } : u));
+    updateConvexUser({ id, user: updatedUser }).catch(err => console.error("Convex updateUser error:", err));
+  };
+
+  const deleteUser = (id) => {
+    setUsersState(prev => prev.filter(u => u.id !== id));
+    removeConvexUser({ id }).catch(err => console.error("Convex deleteUser error:", err));
+  };
+
   const logActivity = (userName, action, details) => {
     const newLog = { id: "log-" + Date.now() + Math.random().toString(36).substr(2, 4), timestamp: Date.now(), user: userName, action, details };
     setActivityLogsState(prev => [newLog, ...prev].slice(0, 500));
@@ -265,7 +285,7 @@ export const AppProvider = ({ children }) => {
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
       students, setStudents,
       registrations, setRegistrations,
-      users, setUsers,
+      users, setUsers, addUser, updateUser, deleteUser,
       activityLogs, setActivityLogs: setActivityLogsState, logActivity, clearLogs,
       messages, setMessages: setMessagesState, sendMessage, markRead, deleteMessage,
       locks, toggleLock, isLocked,

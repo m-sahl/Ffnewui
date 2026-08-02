@@ -20,8 +20,15 @@ const AppContent = () => {
 
   useEffect(() => {
     if (!user || !users.length) return;
-    const valid = users.find(u => u.id === user.id && u.pin === user.pin);
-    if (!valid) { setUser(null); safeRemove("ff_user"); }
+    const match = users.find(u => u.id === user.id);
+    if (match) {
+      if (match.pin !== user.pin || match.name !== user.name) {
+        setUser(match);
+      }
+    } else {
+      setUser(null);
+      safeRemove("ff_user");
+    }
   }, [users]);
 
   useEffect(() => { try { localStorage.setItem("ff_dark", dark); } catch {} }, [dark]);

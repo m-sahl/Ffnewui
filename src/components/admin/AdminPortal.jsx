@@ -52,7 +52,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, registrations, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -151,22 +151,22 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const saveUser = () => {
     if (!userForm.name.trim() || !userForm.pin.trim()) return;
     const id = "u-" + Math.random().toString(36).substr(2, 5);
-    setUsers(prev => [...prev, { id, name: userForm.name.trim(), pin: userForm.pin.trim(), role: "group", groupId: id }]);
+    addUser({ id, name: userForm.name.trim(), pin: userForm.pin.trim(), role: "group", groupId: id });
     logActivity(user.name, "Added group", userForm.name);
     setUserModal(false); setUserForm({ name: "", pin: "" });
   };
   const openEditUser  = (u) => { setEditingUser(u); setEditUserForm({ name: u.name, pin: u.pin }); setEditUserModal(true); };
   const saveEditUser  = () => {
     if (!editUserForm.name.trim() || !editUserForm.pin.trim()) return;
-    setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, name: editUserForm.name.trim(), pin: editUserForm.pin.trim() } : u));
+    updateUser(editingUser.id, { name: editUserForm.name.trim(), pin: editUserForm.pin.trim() });
     logActivity(user.name, "Edited group", editUserForm.name);
     setEditUserModal(false); setEditingUser(null);
   };
-  const deleteUser = (id, name) => {
+  const deleteUserConfirm = (id, name) => {
     if (id === user.id) { setDelConfirm({ type: "blocked", label: "You cannot delete your own account." }); return; }
     setDelConfirm({ type: "user", id, label: name });
   };
-  const confirmDeleteUser  = () => { setUsers(prev => prev.filter(u => u.id !== delConfirm.id)); logActivity(user.name, "Deleted group", delConfirm.label); setDelConfirm(null); };
+  const confirmDeleteUser  = () => { deleteUser(delConfirm.id); logActivity(user.name, "Deleted group", delConfirm.label); setDelConfirm(null); };
   const confirmClearLogs   = () => { clearLogs(); setDelConfirm(null); };
 
   // ── RENDER: Students ─────────────────────────────────────────────────────
