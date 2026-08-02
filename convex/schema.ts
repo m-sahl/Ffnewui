@@ -11,6 +11,10 @@ export default defineSchema({
     maxParticipants: v.number(),
     minParticipants: v.optional(v.number()),
     criteria: v.optional(v.array(v.string())),
+    date: v.optional(v.string()),
+    status: v.optional(v.string()),
+    sortOrder: v.optional(v.number()),
+    order: v.optional(v.number()),
   }),
 
   students: defineTable({
@@ -34,6 +38,7 @@ export default defineSchema({
     role: v.string(),
     pin: v.string(),
     groupId: v.optional(v.string()),
+    color: v.optional(v.string()),
   }),
 
   locks: defineTable({

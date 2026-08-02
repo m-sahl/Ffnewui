@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -22,28 +22,17 @@ export const AppProvider = ({ children }) => {
 
   // Convex Live Mutations
   const setAllConvexPrograms      = useMutation(api.programs.setAll);
-  const addConvexProgram          = useMutation(api.programs.add);
-  const removeConvexProgram       = useMutation(api.programs.remove);
-
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
-  const addConvexStudent          = useMutation(api.students.add);
-  const removeConvexStudent       = useMutation(api.students.remove);
-
   const setAllConvexRegistrations = useMutation(api.registrations.setAll);
-  const addConvexRegistration     = useMutation(api.registrations.add);
-  const removeConvexRegistration  = useMutation(api.registrations.remove);
-
   const setAllConvexUsers         = useMutation(api.users.setAll);
   const setConvexLock             = useMutation(api.locks.setLock);
-
   const sendConvexMessage         = useMutation(api.messages.send);
   const markConvexMessageRead     = useMutation(api.messages.markRead);
   const deleteConvexMessage       = useMutation(api.messages.deleteMsg);
-
   const addConvexLog              = useMutation(api.logs.add);
   const clearConvexLogs           = useMutation(api.logs.clear);
 
-  // Local State Fallback & Mirror
+  // Local State
   const [programs, setProgramsState] = useState(() => {
     try {
       const s = localStorage.getItem("ff_programs");
@@ -82,58 +71,94 @@ export const AppProvider = ({ children }) => {
     try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
   });
 
+  // Track initial sync so local data gets uploaded to Convex if Convex is empty
+  const initialSynced = useRef(false);
+
   // Sync Convex Real-Time Queries into Local State when available
   useEffect(() => {
-    if (convexPrograms && Array.isArray(convexPrograms) && convexPrograms.length > 0) {
-      setProgramsState(convexPrograms.map((p, i) => p.order ? p : { ...p, order: i + 1 }));
+    if (convexPrograms !== undefined) {
+      if (Array.isArray(convexPrograms) && convexPrograms.length > 0) {
+        setProgramsState(convexPrograms.map((p, i) => p.order ? p : { ...p, order: i + 1 }));
+      } else if (!initialSynced.current && programs.length > 0) {
+        // Seed existing programs into Convex
+        setAllConvexPrograms({ programs }).catch(console.error);
+      }
     }
   }, [convexPrograms]);
 
   useEffect(() => {
-    if (convexStudents && Array.isArray(convexStudents) && convexStudents.length > 0) {
-      const grouped = {};
-      for (const st of convexStudents) {
-        if (!grouped[st.groupId]) grouped[st.groupId] = [];
-        grouped[st.groupId].push(st);
+    if (convexStudents !== undefined) {
+      if (Array.isArray(convexStudents) && convexStudents.length > 0) {
+        const grouped = {};
+        for (const st of convexStudents) {
+          if (!grouped[st.groupId]) grouped[st.groupId] = [];
+          grouped[st.groupId].push(st);
+        }
+        setStudentsState(grouped);
+      } else if (!initialSynced.current && Object.keys(students).length > 0) {
+        for (const [gId, stList] of Object.entries(students)) {
+          if (stList && stList.length > 0) {
+            setGroupConvexStudents({ groupId: gId, students: stList }).catch(console.error);
+          }
+        }
       }
-      setStudentsState(grouped);
     }
   }, [convexStudents]);
 
   useEffect(() => {
-    if (convexRegistrations && Array.isArray(convexRegistrations) && convexRegistrations.length > 0) {
-      setRegistrationsState(convexRegistrations);
+    if (convexRegistrations !== undefined) {
+      if (Array.isArray(convexRegistrations) && convexRegistrations.length > 0) {
+        setRegistrationsState(convexRegistrations);
+      } else if (!initialSynced.current && registrations.length > 0) {
+        setAllConvexRegistrations({ registrations }).catch(console.error);
+      }
     }
   }, [convexRegistrations]);
 
   useEffect(() => {
-    if (convexUsers && Array.isArray(convexUsers) && convexUsers.length > 0) {
-      const hasAdmin = convexUsers.some(u => u.role === "admin");
-      setUsersState(hasAdmin ? convexUsers : [INITIAL_USERS[0], ...convexUsers]);
+    if (convexUsers !== undefined) {
+      if (Array.isArray(convexUsers) && convexUsers.length > 0) {
+        const hasAdmin = convexUsers.some(u => u.role === "admin");
+        setUsersState(hasAdmin ? convexUsers : [INITIAL_USERS[0], ...convexUsers]);
+      } else if (!initialSynced.current && users.length > 0) {
+        setAllConvexUsers({ users }).catch(console.error);
+      }
     }
   }, [convexUsers]);
 
   useEffect(() => {
-    if (convexLocks && Array.isArray(convexLocks) && convexLocks.length > 0) {
-      const lockMap = {};
-      for (const l of convexLocks) {
-        if (!lockMap[l.type]) lockMap[l.type] = true;
+    if (convexLocks !== undefined) {
+      if (Array.isArray(convexLocks) && convexLocks.length > 0) {
+        const lockMap = {};
+        for (const l of convexLocks) {
+          if (!lockMap[l.type]) lockMap[l.type] = true;
+        }
+        setLocksState(lockMap);
       }
-      setLocksState(lockMap);
     }
   }, [convexLocks]);
 
   useEffect(() => {
-    if (convexMessages && Array.isArray(convexMessages) && convexMessages.length > 0) {
-      setMessagesState(convexMessages);
+    if (convexMessages !== undefined) {
+      if (Array.isArray(convexMessages) && convexMessages.length > 0) {
+        setMessagesState(convexMessages);
+      }
     }
   }, [convexMessages]);
 
   useEffect(() => {
-    if (convexLogs && Array.isArray(convexLogs) && convexLogs.length > 0) {
-      setActivityLogsState(convexLogs);
+    if (convexLogs !== undefined) {
+      if (Array.isArray(convexLogs) && convexLogs.length > 0) {
+        setActivityLogsState(convexLogs);
+      }
     }
   }, [convexLogs]);
+
+  useEffect(() => {
+    if (convexPrograms !== undefined && convexStudents !== undefined && convexUsers !== undefined) {
+      initialSynced.current = true;
+    }
+  }, [convexPrograms, convexStudents, convexUsers]);
 
   // Persist Local Storage Cache
   useEffect(() => { localStorage.setItem("ff_programs",      JSON.stringify(programs));      }, [programs]);
@@ -150,69 +175,79 @@ export const AppProvider = ({ children }) => {
     .filter(u => u.role === "group")
     .map((u, i) => ({ id: u.id, name: u.name, color: u.color || GROUP_COLORS[i % GROUP_COLORS.length] }));
 
-  // Wrapped Setters that update both Convex & Local State
+  // Helper Setters (Updates both Local State & Convex Cloud)
   const setPrograms = (action) => {
+    let next;
     setProgramsState(prev => {
-      const next = typeof action === "function" ? action(prev) : action;
-      try { setAllConvexPrograms({ programs: next }); } catch {}
+      next = typeof action === "function" ? action(prev) : action;
       return next;
     });
+    if (next) {
+      setAllConvexPrograms({ programs: next }).catch(err => console.error("Convex setPrograms error:", err));
+    }
   };
 
   const setStudents = (action) => {
+    let next;
     setStudentsState(prev => {
-      const next = typeof action === "function" ? action(prev) : action;
-      try {
-        for (const [gId, stList] of Object.entries(next)) {
-          setGroupConvexStudents({ groupId: gId, students: stList });
-        }
-      } catch {}
+      next = typeof action === "function" ? action(prev) : action;
       return next;
     });
+    if (next) {
+      for (const [gId, stList] of Object.entries(next)) {
+        setGroupConvexStudents({ groupId: gId, students: stList || [] }).catch(err => console.error("Convex setStudents error:", err));
+      }
+    }
   };
 
   const setRegistrations = (action) => {
+    let next;
     setRegistrationsState(prev => {
-      const next = typeof action === "function" ? action(prev) : action;
-      try { setAllConvexRegistrations({ registrations: next }); } catch {}
+      next = typeof action === "function" ? action(prev) : action;
       return next;
     });
+    if (next) {
+      setAllConvexRegistrations({ registrations: next }).catch(err => console.error("Convex setRegistrations error:", err));
+    }
   };
 
   const setUsers = (action) => {
+    let next;
     setUsersState(prev => {
-      const next = typeof action === "function" ? action(prev) : action;
-      try { setAllConvexUsers({ users: next }); } catch {}
+      next = typeof action === "function" ? action(prev) : action;
       return next;
     });
+    if (next) {
+      setAllConvexUsers({ users: next }).catch(err => console.error("Convex setUsers error:", err));
+    }
   };
 
   const logActivity = (userName, action, details) => {
-    const newLog = { id: "log-" + Date.now() + Math.random().toString(36).substr(2, 4), timestamp: Date.now(), userName, user: userName, action, details };
+    const newLog = { id: "log-" + Date.now() + Math.random().toString(36).substr(2, 4), timestamp: Date.now(), user: userName, action, details };
     setActivityLogsState(prev => [newLog, ...prev].slice(0, 500));
-    try { addConvexLog(newLog); } catch {}
+    addConvexLog(newLog).catch(err => console.error("Convex log error:", err));
   };
 
   const clearLogs = () => {
     setActivityLogsState([]);
-    try { clearConvexLogs(); } catch {}
+    clearConvexLogs().catch(err => console.error("Convex clearLogs error:", err));
   };
 
   const toggleLock = (groupId, session) => {
+    let newLocked = false;
     setLocksState(prev => {
-      const newLocked = !(prev[groupId]?.[session]);
-      const next = { ...prev, [groupId]: { ...(prev[groupId] || {}), [session]: newLocked } };
-      try { setConvexLock({ type: `${groupId}_${session}`, locked: newLocked }); } catch {}
-      return next;
+      newLocked = !(prev[groupId]?.[session]);
+      return { ...prev, [groupId]: { ...(prev[groupId] || {}), [session]: newLocked } };
     });
+    setConvexLock({ type: `${groupId}_${session}`, locked: newLocked }).catch(err => console.error("Convex toggleLock error:", err));
   };
 
   const isLocked = (groupId, session) => !!(locks[groupId]?.[session]);
 
   const sendMessage = (from, fromName, to, text) => {
-    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName, to, text, timestamp: Date.now(), read: false, deletedFor: [] };
+    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName: fromName || from, to: to || "", text, timestamp: Date.now(), read: false };
     setMessagesState(prev => [...prev, msg]);
-    try { sendConvexMessage(msg); } catch {}
+    sendConvexMessage(msg).catch(err => console.error("Convex sendMessage error:", err));
   };
 
   const deleteMessage = (id, mode, userId) => {
@@ -221,16 +256,15 @@ export const AppProvider = ({ children }) => {
       .filter(Boolean)
     );
     if (mode === "everyone") {
-      try { deleteConvexMessage({ id }); } catch {}
+      deleteConvexMessage({ id }).catch(err => console.error("Convex deleteMessage error:", err));
     }
   };
 
   const markRead = (toId) => {
     setMessagesState(prev => prev.map(m => m.to === toId && !m.read ? { ...m, read: true } : m));
-    try { markConvexMessageRead({ groupId: toId }); } catch {}
+    markConvexMessageRead({ groupId: toId }).catch(err => console.error("Convex markRead error:", err));
   };
 
-  // Chest number: finds the max used in this category across ALL groups and increments
   const nextChestNo = (category) => {
     const base    = { "Sub-Junior": 100, "Junior": 200, "Senior": 300 };
     const allInCat = Object.values(students).flat().filter(s => s.category === category);

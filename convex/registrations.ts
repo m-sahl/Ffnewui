@@ -1,6 +1,12 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+const cleanDoc = (obj: any) => {
+  if (!obj || typeof obj !== "object") return obj;
+  const { _id, _creationTime, ...rest } = obj;
+  return rest;
+};
+
 export const get = query({
   handler: async (ctx) => {
     return await ctx.db.query("registrations").collect();
@@ -8,14 +14,9 @@ export const get = query({
 });
 
 export const add = mutation({
-  args: {
-    id: v.string(),
-    programId: v.string(),
-    groupId: v.string(),
-    participantIds: v.array(v.string()),
-  },
+  args: { registration: v.any() },
   handler: async (ctx, args) => {
-    await ctx.db.insert("registrations", args);
+    await ctx.db.insert("registrations", cleanDoc(args.registration));
   },
 });
 
@@ -33,23 +34,16 @@ export const remove = mutation({
 });
 
 export const setAll = mutation({
-  args: {
-    registrations: v.array(
-      v.object({
-        id: v.string(),
-        programId: v.string(),
-        groupId: v.string(),
-        participantIds: v.array(v.string()),
-      })
-    ),
-  },
+  args: { registrations: v.array(v.any()) },
   handler: async (ctx, args) => {
     const all = await ctx.db.query("registrations").collect();
     for (const item of all) {
       await ctx.db.delete(item._id);
     }
     for (const r of args.registrations) {
-      await ctx.db.insert("registrations", r);
+      if (r && r.id) {
+        await ctx.db.insert("registrations", cleanDoc(r));
+      }
     }
   },
 });
