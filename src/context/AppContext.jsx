@@ -80,7 +80,7 @@ export const AppProvider = ({ children }) => {
   // Sync Convex Real-Time Queries into Local State when available
   useEffect(() => {
     if (convexPrograms !== undefined && Array.isArray(convexPrograms)) {
-      setProgramsState(convexPrograms.map((p, i) => p.order ? p : { ...p, order: i + 1 }));
+      setProgramsState(convexPrograms.map((p, i) => (p.order !== undefined && p.order !== null) ? p : { ...p, order: i + 1 }));
     }
   }, [convexPrograms]);
 

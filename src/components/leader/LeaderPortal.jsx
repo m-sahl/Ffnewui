@@ -65,18 +65,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     });
 
   const filtProgs = programs.filter(p => {
-    const pType = p.type || p.session || "Stage";
-    if (pType !== progType) return false;
-    if (catFilter !== "All" && p.category !== catFilter && p.category !== "General") return false;
+    const pType = (p.type || p.session || "Stage").toLowerCase();
+    const targetType = progType.toLowerCase();
+    if (pType !== targetType) return false;
+    if (catFilter !== "All" && p.category?.toLowerCase() !== catFilter.toLowerCase() && p.category?.toLowerCase() !== "general") return false;
     return true;
   });
 
   const filtRegs = groupRegs.filter(r => {
     const p = programs.find(pg => pg.id === r.programId);
     if (!p) return false;
-    const pType = p.type || p.session || "Stage";
-    if (pType !== progType) return false;
-    if (catFilter !== "All" && p.category !== catFilter) return false;
+    const pType = (p.type || p.session || "Stage").toLowerCase();
+    const targetType = progType.toLowerCase();
+    if (pType !== targetType) return false;
+    if (catFilter !== "All" && p.category?.toLowerCase() !== catFilter.toLowerCase() && p.category?.toLowerCase() !== "general") return false;
     return true;
   });
 
@@ -474,8 +476,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               <label className="label">Program</label>
               <select className="input select" value={regForm.programId} onChange={e => setRegForm({ programId: e.target.value, participantIds: [] })}>
                 <option value="">Choose a program…</option>
-                {typePrograms.map(p => (
-                  <option key={p.id} value={p.id}>{p.order ? `#${p.order} ` : ""}{p.name} · {p.category}</option>
+                {programs.map(p => (
+                  <option key={p.id} value={p.id}>{p.order ? `#${p.order} ` : ""}{p.name} · {p.category} ({p.type || p.session || "Stage"})</option>
                 ))}
               </select>
             </div>
@@ -487,10 +489,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   {atMax && <span style={{ fontSize: 10, fontWeight: 700, color: mutedTx, letterSpacing: 0.5 }}>MAX REACHED</span>}
                 </label>
                 <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"}`, maxHeight: 280, overflowY: "auto" }}>
-                  {groupStudents.filter(s => selectedProg?.category === "General" || s.category === selectedProg?.category).length === 0 ? (
-                    <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: mutedTx }}>No students available in {selectedProg?.category} category</div>
+                  {groupStudents.filter(s => !selectedProg?.category || selectedProg.category === "General" || s.category?.toLowerCase() === selectedProg.category?.toLowerCase()).length === 0 ? (
+                    <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: mutedTx }}>No students available in {selectedProg?.category || "General"} category</div>
                   ) : (
-                    groupStudents.filter(s => selectedProg?.category === "General" || s.category === selectedProg?.category).map((s, i) => {
+                    groupStudents.filter(s => !selectedProg?.category || selectedProg.category === "General" || s.category?.toLowerCase() === selectedProg.category?.toLowerCase()).map((s, i) => {
                       const active     = regForm.participantIds.includes(s.id);
                       const registered = alreadyRegistered.has(s.id);
                       const disabled   = registered || (!active && atMax);
