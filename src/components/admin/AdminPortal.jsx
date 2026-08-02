@@ -130,7 +130,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const openEditProg = (p) => { setEditProg(p.id); setProgForm({ ...p, type: p.type || p.session || "Stage" }); setProgModal(true); };
   const saveProg = () => {
     if (!progForm.name.trim()) return;
-    const pData = { ...progForm, session: progForm.type || "Stage" };
+    const pData = { ...progForm, type: progForm.type || "Stage", session: progForm.type || "Stage" };
     if (editProg) {
       setPrograms(prev => prev.map(p => p.id === editProg ? { ...p, ...pData } : p));
       logActivity(user.name, "Updated program", progForm.name);

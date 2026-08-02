@@ -76,81 +76,54 @@ export const AppProvider = ({ children }) => {
 
   // Sync Convex Real-Time Queries into Local State when available
   useEffect(() => {
-    if (convexPrograms !== undefined) {
-      if (Array.isArray(convexPrograms) && convexPrograms.length > 0) {
-        setProgramsState(convexPrograms.map((p, i) => p.order ? p : { ...p, order: i + 1 }));
-      } else if (!initialSynced.current && programs.length > 0) {
-        // Seed existing programs into Convex
-        setAllConvexPrograms({ programs }).catch(console.error);
-      }
+    if (convexPrograms !== undefined && Array.isArray(convexPrograms)) {
+      setProgramsState(convexPrograms.map((p, i) => p.order ? p : { ...p, order: i + 1 }));
     }
   }, [convexPrograms]);
 
   useEffect(() => {
-    if (convexStudents !== undefined) {
-      if (Array.isArray(convexStudents) && convexStudents.length > 0) {
-        const grouped = {};
-        for (const st of convexStudents) {
-          if (!grouped[st.groupId]) grouped[st.groupId] = [];
-          grouped[st.groupId].push(st);
-        }
-        setStudentsState(grouped);
-      } else if (!initialSynced.current && Object.keys(students).length > 0) {
-        for (const [gId, stList] of Object.entries(students)) {
-          if (stList && stList.length > 0) {
-            setGroupConvexStudents({ groupId: gId, students: stList }).catch(console.error);
-          }
-        }
+    if (convexStudents !== undefined && Array.isArray(convexStudents)) {
+      const grouped = {};
+      for (const st of convexStudents) {
+        if (!grouped[st.groupId]) grouped[st.groupId] = [];
+        grouped[st.groupId].push(st);
       }
+      setStudentsState(grouped);
     }
   }, [convexStudents]);
 
   useEffect(() => {
-    if (convexRegistrations !== undefined) {
-      if (Array.isArray(convexRegistrations) && convexRegistrations.length > 0) {
-        setRegistrationsState(convexRegistrations);
-      } else if (!initialSynced.current && registrations.length > 0) {
-        setAllConvexRegistrations({ registrations }).catch(console.error);
-      }
+    if (convexRegistrations !== undefined && Array.isArray(convexRegistrations)) {
+      setRegistrationsState(convexRegistrations);
     }
   }, [convexRegistrations]);
 
   useEffect(() => {
-    if (convexUsers !== undefined) {
-      if (Array.isArray(convexUsers) && convexUsers.length > 0) {
-        const hasAdmin = convexUsers.some(u => u.role === "admin");
-        setUsersState(hasAdmin ? convexUsers : [INITIAL_USERS[0], ...convexUsers]);
-      } else if (!initialSynced.current && users.length > 0) {
-        setAllConvexUsers({ users }).catch(console.error);
-      }
+    if (convexUsers !== undefined && Array.isArray(convexUsers)) {
+      const hasAdmin = convexUsers.some(u => u.role === "admin");
+      setUsersState(hasAdmin ? convexUsers : [INITIAL_USERS[0], ...convexUsers]);
     }
   }, [convexUsers]);
 
   useEffect(() => {
-    if (convexLocks !== undefined) {
-      if (Array.isArray(convexLocks) && convexLocks.length > 0) {
-        const lockMap = {};
-        for (const l of convexLocks) {
-          if (!lockMap[l.type]) lockMap[l.type] = true;
-        }
-        setLocksState(lockMap);
+    if (convexLocks !== undefined && Array.isArray(convexLocks)) {
+      const lockMap = {};
+      for (const l of convexLocks) {
+        if (!lockMap[l.type]) lockMap[l.type] = true;
       }
+      setLocksState(lockMap);
     }
   }, [convexLocks]);
 
   useEffect(() => {
-    if (convexMessages !== undefined) {
-      if (Array.isArray(convexMessages) && convexMessages.length > 0) {
-        setMessagesState(convexMessages);
-      }
+    if (convexMessages !== undefined && Array.isArray(convexMessages)) {
+      setMessagesState(convexMessages);
     }
   }, [convexMessages]);
 
   useEffect(() => {
-    if (convexLogs !== undefined) {
-      if (Array.isArray(convexLogs) && convexLogs.length > 0) {
-        setActivityLogsState(convexLogs);
-      }
+    if (convexLogs !== undefined && Array.isArray(convexLogs)) {
+      setActivityLogsState(convexLogs);
     }
   }, [convexLogs]);
 
