@@ -150,50 +150,46 @@ export const AppProvider = ({ children }) => {
 
   // Helper Setters (Updates both Local State & Convex Cloud)
   const setPrograms = (action) => {
-    let next;
     setProgramsState(prev => {
-      next = typeof action === "function" ? action(prev) : action;
+      const next = typeof action === "function" ? action(prev) : action;
+      if (next) {
+        setAllConvexPrograms({ programs: next }).catch(err => console.error("Convex setPrograms error:", err));
+      }
       return next;
     });
-    if (next) {
-      setAllConvexPrograms({ programs: next }).catch(err => console.error("Convex setPrograms error:", err));
-    }
   };
 
   const setStudents = (action) => {
-    let next;
     setStudentsState(prev => {
-      next = typeof action === "function" ? action(prev) : action;
+      const next = typeof action === "function" ? action(prev) : action;
+      if (next) {
+        for (const [gId, stList] of Object.entries(next)) {
+          const cleanList = (stList || []).map(s => ({ ...s, groupId: s.groupId || gId }));
+          setGroupConvexStudents({ groupId: gId, students: cleanList }).catch(err => console.error("Convex setStudents error:", err));
+        }
+      }
       return next;
     });
-    if (next) {
-      for (const [gId, stList] of Object.entries(next)) {
-        const cleanList = (stList || []).map(s => ({ ...s, groupId: s.groupId || gId }));
-        setGroupConvexStudents({ groupId: gId, students: cleanList }).catch(err => console.error("Convex setStudents error:", err));
-      }
-    }
   };
 
   const setRegistrations = (action) => {
-    let next;
     setRegistrationsState(prev => {
-      next = typeof action === "function" ? action(prev) : action;
+      const next = typeof action === "function" ? action(prev) : action;
+      if (next) {
+        setAllConvexRegistrations({ registrations: next }).catch(err => console.error("Convex setRegistrations error:", err));
+      }
       return next;
     });
-    if (next) {
-      setAllConvexRegistrations({ registrations: next }).catch(err => console.error("Convex setRegistrations error:", err));
-    }
   };
 
   const setUsers = (action) => {
-    let next;
     setUsersState(prev => {
-      next = typeof action === "function" ? action(prev) : action;
+      const next = typeof action === "function" ? action(prev) : action;
+      if (next) {
+        setAllConvexUsers({ users: next }).catch(err => console.error("Convex setUsers error:", err));
+      }
       return next;
     });
-    if (next) {
-      setAllConvexUsers({ users: next }).catch(err => console.error("Convex setUsers error:", err));
-    }
   };
 
   const logActivity = (userName, action, details) => {
