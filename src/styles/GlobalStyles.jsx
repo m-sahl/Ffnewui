@@ -4,8 +4,20 @@ const GlobalStyles = ({ dark }) => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800;900&display=swap');
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html { scroll-behavior: smooth; }
+
+    button, .btn, .tab-item, .card, [role="button"] {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    button:active, .btn:active, .tab-item:active {
+      transform: scale(0.95) !important;
+      transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      opacity: 0.9;
+    }
 
     body {
       font-family: 'Inter', sans-serif;

@@ -4,6 +4,7 @@ import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
 import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
+import { triggerHaptic } from "../../utils/haptics";
 
 const Tag = ({ label, dark, variant = "default" }) => {
   const isAccent = variant === "accent";
@@ -66,7 +67,7 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
       return (
         <button
           key={n.id}
-          onClick={() => setTab(n.id)}
+          onClick={() => { triggerHaptic("light"); setTab(n.id); }}
           style={{
             flex: 1,
             height: "100%",
