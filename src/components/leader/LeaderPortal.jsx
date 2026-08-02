@@ -37,6 +37,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [tab, setTab]                     = useState("home");
   const [progType, setProgType]           = useState("Stage");
   const [catFilter, setCatFilter]         = useState("All");
+  const [eventSubTab, setEventSubTab]     = useState("all");
   const [memSearch, setMemSearch]         = useState("");
   const [memSearchOpen, setMemSearchOpen] = useState(false);
   const [regModal, setRegModal]           = useState(false);
@@ -62,6 +63,13 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       const ord = { Leader: 0, "Asst. Leader": 1, Member: 2 };
       return (ord[a.groupRole || "Member"] ?? 2) - (ord[b.groupRole || "Member"] ?? 2);
     });
+
+  const filtProgs = programs.filter(p => {
+    const pType = p.type || p.session || "Stage";
+    if (pType !== progType) return false;
+    if (catFilter !== "All" && p.category !== catFilter && p.category !== "General") return false;
+    return true;
+  });
 
   const filtRegs = groupRegs.filter(r => {
     const p = programs.find(pg => pg.id === r.programId);
@@ -292,6 +300,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         ))}
       </div>
 
+      {/* Sub-tab switcher */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${border}`, marginBottom: 16 }}>
+        <button onClick={() => setEventSubTab("all")} style={{
+          padding: "8px 16px", border: "none", background: "none", cursor: "pointer",
+          fontWeight: 700, fontSize: 13, color: eventSubTab === "all" ? ACCENT : mutedTx,
+          borderBottom: eventSubTab === "all" ? `2px solid ${ACCENT}` : "none",
+        }}>All Programs ({filtProgs.length})</button>
+        <button onClick={() => setEventSubTab("mine")} style={{
+          padding: "8px 16px", border: "none", background: "none", cursor: "pointer",
+          fontWeight: 700, fontSize: 13, color: eventSubTab === "mine" ? ACCENT : mutedTx,
+          borderBottom: eventSubTab === "mine" ? `2px solid ${ACCENT}` : "none",
+        }}>My Registrations ({filtRegs.length})</button>
+      </div>
+
       {locked && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.15)", marginBottom: 14 }}>
           <span style={{ fontSize: 16 }}>🔒</span>
@@ -302,52 +324,96 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
       )}
 
-      {filtRegs.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
-          <div style={{ fontSize: 13 }}>
-            {typePrograms.length === 0 ? `No ${progType} programs added yet. Contact admin.` : "Tap + to register for an event"}
+      {eventSubTab === "all" ? (
+        filtProgs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>📖</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No programs found</div>
+            <div style={{ fontSize: 13 }}>No {progType} programs in {catFilter} category</div>
           </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filtRegs.map(r => {
-            const p     = programs.find(pg => pg.id === r.programId);
-            const parts = r.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
-            return (
-              <div key={r.id} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
-                      <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
-                      <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p?.name}</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {filtProgs.map(p => {
+              const reg = groupRegs.find(r => r.programId === p.id);
+              return (
+                <div key={p.id} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
+                        <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p?.name}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        <Tag label={p?.category} dark={dark} />
+                        <Tag label={p?.type || p?.session} dark={dark} />
+                        <Tag label={`Max ${p?.maxParticipants}`} dark={dark} />
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 5 }}>
-                      <Tag label={p?.category} dark={dark} />
-                      <Tag label={p?.type || p?.session} dark={dark} />
+                    <div>
+                      {reg ? (
+                        <button className="btn btn-sm" onClick={() => openReg(reg)} style={{ background: "rgba(29,209,131,0.12)", color: "#1dd183", fontWeight: 700, border: "none" }}>
+                          ✓ Registered
+                        </button>
+                      ) : locked ? (
+                        <span style={{ fontSize: 12, color: "#e11d48", fontWeight: 700 }}>🔒 Locked</span>
+                      ) : (
+                        <button className="btn btn-sm btn-primary" onClick={() => { setEditTarget(null); setRegForm({ programId: p.id, participantIds: [] }); setRegModal(true); }}>
+                          + Register
+                        </button>
+                      )}
                     </div>
                   </div>
-                  {!locked && (
-                    <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r.id)}><Ic name="trash" size={13} /></button>
-                    </div>
-                  )}
                 </div>
-                <div style={{ height: 1, background: border, marginBottom: 10 }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {parts.map(s => (
-                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
-                      <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        filtRegs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🎭</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No registrations</div>
+            <div style={{ fontSize: 13 }}>Tap + or switch to All Programs to register</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {filtRegs.map(r => {
+              const p     = programs.find(pg => pg.id === r.programId);
+              const parts = r.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
+              return (
+                <div key={r.id} style={{ padding: "16px 18px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
+                        <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{p?.name}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <Tag label={p?.category} dark={dark} />
+                        <Tag label={p?.type || p?.session} dark={dark} />
+                      </div>
                     </div>
-                  ))}
+                    {!locked && (
+                      <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openReg(r)}><Ic name="edit" size={13} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDelConfirm(r.id)}><Ic name="trash" size={13} /></button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ height: 1, background: border, marginBottom: 10 }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {parts.map(s => (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, minWidth: 30 }}>{s.chestNo}</span>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {!locked && (
@@ -408,7 +474,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               <label className="label">Program</label>
               <select className="input select" value={regForm.programId} onChange={e => setRegForm({ programId: e.target.value, participantIds: [] })}>
                 <option value="">Choose a program…</option>
-                {sessionPrograms.map(p => (
+                {typePrograms.map(p => (
                   <option key={p.id} value={p.id}>{p.order ? `#${p.order} ` : ""}{p.name} · {p.category}</option>
                 ))}
               </select>
