@@ -1,10 +1,14 @@
 import { useState } from "react";
 import Ic from "./Ic";
 import { ACCENT } from "../../styles/DesignTokens";
-import { NumPinModal, TextPinModal } from "./AuthModals";
 import { useApp } from "../../context/AppContext";
 
-const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength }) => {
+const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, onBack, isAdmin, verify, pinLength }) => {
+  const handleSignOut = () => {
+    const doLogout = onLogout || onBack;
+    if (typeof doLogout === "function") doLogout();
+    onClose();
+  };
   const { users, setUsers, activityLogs, clearLogs } = useApp();
   const [confirming, setConfirming]         = useState(false);
   const [changingPwd, setChangingPwd]       = useState(false);
@@ -147,11 +151,20 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
         </div>
 
         {confirming && (
-          isAdmin ? (
-            <TextPinModal title="Confirm Sign Out" subtitle="Enter your admin password" verify={verify || (() => true)} dark={dark} onSuccess={() => { onLogout(); onClose(); }} onClose={() => setConfirming(false)} />
-          ) : (
-            <NumPinModal title="Confirm Sign Out" subtitle="Enter your group PIN" verify={verify || (() => true)} dark={dark} pinLength={pinLength} onSuccess={() => { onLogout(); onClose(); }} onClose={() => setConfirming(false)} />
-          )
+          <div className="modal-bg" onClick={() => setConfirming(false)}>
+            <div className="modal" style={{ maxWidth: 320, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(225,29,72,0.1)", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                <Ic name="logout" size={20} />
+              </div>
+              <div className="ff-display fw-800" style={{ fontSize: 17, marginBottom: 6, color: dark ? "#f8fafc" : "#0f172a" }}>Sign Out?</div>
+              <div style={{ fontSize: 13, color: dark ? "#94a3b8" : "#64748b", marginBottom: 20 }}>Are you sure you want to log out of your account?</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 12, height: 42 }} onClick={() => setConfirming(false)}>Cancel</button>
+                <button className="btn" style={{ flex: 1, borderRadius: 12, height: 42, background: "#f43f5e", color: "white", fontWeight: 800, border: "none" }}
+                  onClick={handleSignOut}>Sign Out</button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -211,7 +224,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   );
 };
 
-export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose }) => {
+export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose }) => {
   const [settings, setSettings] = useState(_forceOpen || false);
   const handleClose = () => { setSettings(false); onSettingsClose?.(); };
 
@@ -219,7 +232,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin,
   if (_settingsOnly) {
     return settings ? (
       <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
-        context={context} onLogout={onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
+        context={context} onLogout={onLogout || onBack} onBack={onBack || onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
     ) : null;
   }
 
@@ -236,7 +249,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, isAdmin,
       </div>
       {settings && (
         <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
-          context={context} onLogout={onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
+          context={context} onLogout={onLogout || onBack} onBack={onBack || onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
       )}
     </>
   );

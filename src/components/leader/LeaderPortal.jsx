@@ -241,18 +241,13 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const renderHome = () => {
     const totalRegs = groupRegs.length;
     const typeStatus = ["Stage", "Off-Stage"].map(t => ({ type: t, locked: isLocked(group.id, t) }));
-    const lastMsg = [...messages].filter(m => (m.from === "admin" && m.to === group.id) || (m.from === group.id && m.to === "admin")).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
     return (
       <div className="anim-fadeIn" style={{ padding: "20px 16px 110px", maxWidth: 600, margin: "0 auto" }}>
-        {/* Minimal Greeting Header */}
-        <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: ACCENT, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 2 }}>{group.name}</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 24, letterSpacing: "-0.4px" }}>Welcome, {user.name}</div>
-          </div>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: initBg, color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18, border: `1px solid rgba(241,77,77,0.2)` }}>
-            {group.name.charAt(0)}
+        {/* Group Name Header */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.5px", color: dark ? "#f8fafc" : "#0f172a" }}>
+            {group.name}
           </div>
         </div>
 
@@ -288,27 +283,6 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Latest Broadcast Card */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: mutedTx, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 10 }}>Admin Broadcast</div>
-          <button onClick={() => { setTab("messages"); markRead(group.id); }} style={{
-            width: "100%", textAlign: "left", padding: "16px 18px", borderRadius: 16,
-            border: `1px solid ${border}`, background: cardBg, cursor: "pointer", fontFamily: "inherit",
-            display: "flex", alignItems: "center", gap: 14, transition: "all 0.15s ease",
-          }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, color: "#ffffff", flexShrink: 0, boxShadow: "0 4px 12px rgba(241,77,77,0.3)" }}>
-              A
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {lastMsg ? (lastMsg.from === group.id ? `You: ${lastMsg.text}` : lastMsg.text) : "No messages from admin yet"}
-              </div>
-              {unreadCount > 0 && <div style={{ fontSize: 11, color: ACCENT, fontWeight: 800, marginTop: 2 }}>● {unreadCount} new notification</div>}
-            </div>
-            <Ic name="chevronRight" size={16} color={mutedTx} />
-          </button>
         </div>
 
         {/* Primary Action Button */}
@@ -379,23 +353,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     </div>
   );
 
-  // ── EVENTS TAB (Ultra-Simple Minimalist Redesign) ──────────────────────────────────
+  // ── EVENTS TAB ─────────────────────────────────────────────────────────────
   const renderEvents = () => (
-    <div className="anim-fadeIn" style={{ padding: "20px 16px 110px", maxWidth: 540, margin: "0 auto" }}>
-      {/* Title & Stage Toggle Row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.3px" }}>Events</div>
-          <div style={{ fontSize: 12, color: mutedTx, marginTop: 1 }}>{filtProgs.length} programs available</div>
-        </div>
+    <div className="anim-fadeIn" style={{ padding: "16px 14px 100px", maxWidth: 540, margin: "0 auto" }}>
+      {/* Top Header Row with Stage Toggle */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.4px" }}>Events</div>
 
-        {/* Minimal Stage Toggle Pill */}
-        <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", borderRadius: 10, padding: 3 }}>
+        {/* Stage / Off-Stage Toggle */}
+        <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", borderRadius: 10, padding: 2 }}>
           {["Stage", "Off-Stage"].map(t => (
             <button key={t} onClick={() => { setProgType(t); setCatFilter("Sub-Junior"); }}
               style={{
-                padding: "6px 12px", border: "none", cursor: "pointer", borderRadius: 8,
-                fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                padding: "5px 11px", border: "none", cursor: "pointer", borderRadius: 8,
+                fontFamily: "inherit", fontSize: 11.5, fontWeight: 800,
                 background: progType === t ? (dark ? "rgba(255,255,255,0.12)" : "#ffffff") : "transparent",
                 color: progType === t ? (dark ? "#f8fafc" : "#0f172a") : mutedTx,
                 transition: "all 0.15s ease",
@@ -406,34 +377,32 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
       </div>
 
-      {/* Primary Sub-tab pills */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      {/* Segmented Sub-tab switcher */}
+      <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)", borderRadius: 12, padding: 3, marginBottom: 12, border: `1px solid ${border}` }}>
         <button onClick={() => setEventSubTab("all")} style={{
-          flex: 1, padding: "10px", cursor: "pointer", borderRadius: 12,
-          fontWeight: 800, fontSize: 13, textAlign: "center",
-          background: eventSubTab === "all" ? (dark ? "rgba(241,77,77,0.14)" : "rgba(241,77,77,0.08)") : cardBg,
-          color: eventSubTab === "all" ? ACCENT : mutedTx,
-          border: eventSubTab === "all" ? "1px solid rgba(241,77,77,0.25)" : `1px solid ${border}`,
+          flex: 1, padding: "8px 10px", cursor: "pointer", borderRadius: 9, border: "none",
+          fontWeight: 800, fontSize: 12, textAlign: "center",
+          background: eventSubTab === "all" ? ACCENT : "transparent",
+          color: eventSubTab === "all" ? "#ffffff" : mutedTx,
           transition: "all 0.15s ease",
-        }}>All Programs ({filtProgs.length})</button>
+        }}>All ({filtProgs.length})</button>
 
         <button onClick={() => setEventSubTab("mine")} style={{
-          flex: 1, padding: "10px", cursor: "pointer", borderRadius: 12,
-          fontWeight: 800, fontSize: 13, textAlign: "center",
-          background: eventSubTab === "mine" ? (dark ? "rgba(241,77,77,0.14)" : "rgba(241,77,77,0.08)") : cardBg,
-          color: eventSubTab === "mine" ? ACCENT : mutedTx,
-          border: eventSubTab === "mine" ? "1px solid rgba(241,77,77,0.25)" : `1px solid ${border}`,
+          flex: 1, padding: "8px 10px", cursor: "pointer", borderRadius: 9, border: "none",
+          fontWeight: 800, fontSize: 12, textAlign: "center",
+          background: eventSubTab === "mine" ? ACCENT : "transparent",
+          color: eventSubTab === "mine" ? "#ffffff" : mutedTx,
           transition: "all 0.15s ease",
-        }}>My Registrations ({filtRegs.length})</button>
+        }}>Registered ({filtRegs.length})</button>
       </div>
 
-      {/* Category Pills */}
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 18 }}>
+      {/* Category Pills Bar */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 14 }}>
         {CATS.map(cat => (
           <button key={cat} onClick={() => setCatFilter(cat)}
             style={{
-              padding: "5px 12px", borderRadius: 9, fontSize: 11, fontWeight: 700, flexShrink: 0, border: "none", cursor: "pointer",
-              background: catFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
+              padding: "4px 11px", borderRadius: 8, fontSize: 11, fontWeight: 800, flexShrink: 0, border: "none", cursor: "pointer",
+              background: catFilter === cat ? (dark ? "rgba(255,255,255,0.12)" : "#0f172a") : (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
               color: catFilter === cat ? "#ffffff" : mutedTx, transition: "all 0.15s ease"
             }}>
             {cat === "Sub-Junior" ? "Sub" : cat}
@@ -442,40 +411,41 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       </div>
 
       {locked && (
-        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.18)", marginBottom: 16, fontSize: 12, fontWeight: 700, color: "#f43f5e", display: "flex", alignItems: "center", gap: 8 }}>
-          <span>🔒</span> {progType} registrations are currently locked by system administrator.
+        <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.18)", marginBottom: 12, fontSize: 11.5, fontWeight: 700, color: "#f43f5e", display: "flex", alignItems: "center", gap: 6 }}>
+          <span>🔒</span> {progType} registrations locked by admin.
         </div>
       )}
 
+      {/* Compact Event Cards List */}
       {eventSubTab === "all" ? (
         filtProgs.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>No programs found</div>
-            <div style={{ fontSize: 12 }}>No {progType} programs in {catFilter} category</div>
+          <div style={{ textAlign: "center", padding: "40px 0", color: mutedTx }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>No programs found</div>
+            <div style={{ fontSize: 11 }}>No {progType} programs in {catFilter}</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {filtProgs.map(p => {
               const reg = groupRegs.find(r => r.programId === p.id);
               return (
                 <div key={p.id} onClick={() => reg ? setViewTarget(reg) : null} style={{
-                  padding: "14px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                  padding: "11px 14px", borderRadius: 12, background: cardBg, border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
                   cursor: reg ? "pointer" : "default"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT }}>{p?.order ? `#${p.order}` : ""}</span>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</div>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11.5, color: ACCENT, minWidth: 22 }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</div>
                   </div>
                   <div style={{ flexShrink: 0 }}>
                     {reg ? (
-                      <span style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 800, border: "1px solid rgba(16,185,129,0.25)", borderRadius: 10, fontSize: 12, padding: "5px 12px", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        ✓ Registered <Ic name="chevronRight" size={13} color="#10b981" />
+                      <span style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 800, border: "1px solid rgba(16,185,129,0.22)", borderRadius: 9, fontSize: 11, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        ✓ Registered <Ic name="chevronRight" size={12} color="#10b981" />
                       </span>
                     ) : locked ? (
-                      <span style={{ fontSize: 12, color: "#f43f5e", fontWeight: 800 }}>Locked</span>
+                      <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 800 }}>Locked</span>
                     ) : (
-                      <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setEditTarget(null); setRegForm({ programId: p.id, participantIds: [] }); setRegModal(true); }} style={{ borderRadius: 10, fontWeight: 800, fontSize: 12, padding: "6px 14px" }}>
+                      <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setEditTarget(null); setRegForm({ programId: p.id, participantIds: [] }); setRegModal(true); }} style={{ borderRadius: 9, fontWeight: 800, fontSize: 11.5, padding: "5px 12px" }}>
                         + Register
                       </button>
                     )}
@@ -487,26 +457,26 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         )
       ) : (
         filtRegs.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>No registrations yet</div>
-            <div style={{ fontSize: 12 }}>Tap "All Programs" above to register your team</div>
+          <div style={{ textAlign: "center", padding: "40px 0", color: mutedTx }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>No registrations yet</div>
+            <div style={{ fontSize: 11 }}>Tap "All" above to register your team</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {filtRegs.map(r => {
               const p = programs.find(pg => pg.id === r.programId);
               return (
                 <div key={r.id} onClick={() => setViewTarget(r)} style={{
-                  padding: "14px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer"
+                  padding: "11px 14px", borderRadius: 12, background: cardBg, border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, cursor: "pointer"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT }}>{p?.order ? `#${p.order}` : ""}</span>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11.5, color: ACCENT, minWidth: 22 }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</span>
                   </div>
                   <div style={{ flexShrink: 0 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#10b981", background: "rgba(16,185,129,0.12)", padding: "5px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,0.25)", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      View Details <Ic name="chevronRight" size={13} color="#10b981" />
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 9, border: "1px solid rgba(16,185,129,0.22)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                      Details <Ic name="chevronRight" size={12} color="#10b981" />
                     </span>
                   </div>
                 </div>
@@ -529,14 +499,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     <div className="anim-fadeIn" style={{ minHeight: "100vh" }}>
       <Topbar
         left={
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: initBg, color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 15, flexShrink: 0, border: `1px solid rgba(241,77,77,0.2)` }}>
-              {group.name.charAt(0)}
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 14, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>{group.name}</div>
-              <div style={{ fontSize: 11, color: mutedTx }}>Leader Portal</div>
-            </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif", color: dark ? "#f8fafc" : "#0f172a" }}>{group.name}</div>
+            <div style={{ fontSize: 11, color: mutedTx }}>Leader Portal</div>
           </div>
         }
         dark={dark} setDark={setDark} onBack={onBack}
