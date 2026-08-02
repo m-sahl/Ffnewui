@@ -20,6 +20,21 @@ export const add = mutation({
   },
 });
 
+export const update = mutation({
+  args: { id: v.string(), program: v.any() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("programs")
+      .filter((q) => q.eq(q.field("id"), args.id))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, cleanDoc(args.program));
+    } else {
+      await ctx.db.insert("programs", cleanDoc(args.program));
+    }
+  },
+});
+
 export const remove = mutation({
   args: { id: v.string() },
   handler: async (ctx, args) => {

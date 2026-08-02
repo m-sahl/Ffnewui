@@ -22,6 +22,10 @@ export const AppProvider = ({ children }) => {
 
   // Convex Live Mutations
   const setAllConvexPrograms      = useMutation(api.programs.setAll);
+  const addConvexProgram          = useMutation(api.programs.add);
+  const updateConvexProgram       = useMutation(api.programs.update);
+  const removeConvexProgram       = useMutation(api.programs.remove);
+
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
   const setAllConvexRegistrations = useMutation(api.registrations.setAll);
   const setAllConvexUsers         = useMutation(api.users.setAll);
@@ -71,7 +75,6 @@ export const AppProvider = ({ children }) => {
     try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
   });
 
-  // Track initial sync so local data gets uploaded to Convex if Convex is empty
   const initialSynced = useRef(false);
 
   // Sync Convex Real-Time Queries into Local State when available
@@ -159,6 +162,21 @@ export const AppProvider = ({ children }) => {
     });
   };
 
+  const addProgram = (newProg) => {
+    setProgramsState(prev => [...prev, newProg]);
+    addConvexProgram({ program: newProg }).catch(err => console.error("Convex addProgram error:", err));
+  };
+
+  const updateProgram = (id, updatedProg) => {
+    setProgramsState(prev => prev.map(p => p.id === id ? { ...p, ...updatedProg } : p));
+    updateConvexProgram({ id, program: updatedProg }).catch(err => console.error("Convex updateProgram error:", err));
+  };
+
+  const deleteProgram = (id) => {
+    setProgramsState(prev => prev.filter(p => p.id !== id));
+    removeConvexProgram({ id }).catch(err => console.error("Convex deleteProgram error:", err));
+  };
+
   const setStudents = (action) => {
     setStudentsState(prev => {
       const next = typeof action === "function" ? action(prev) : action;
@@ -244,7 +262,7 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      groups, programs, setPrograms,
+      groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
       students, setStudents,
       registrations, setRegistrations,
       users, setUsers,

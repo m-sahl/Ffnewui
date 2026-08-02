@@ -52,7 +52,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, registrations, users, setUsers, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -132,10 +132,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     if (!progForm.name.trim()) return;
     const pData = { ...progForm, type: progForm.type || "Stage", session: progForm.type || "Stage" };
     if (editProg) {
-      setPrograms(prev => prev.map(p => p.id === editProg ? { ...p, ...pData } : p));
+      updateProgram(editProg, pData);
       logActivity(user.name, "Updated program", progForm.name);
     } else {
-      setPrograms(prev => [...prev, { id: "p-" + Math.random().toString(36).substr(2, 5), order: prev.length + 1, ...pData }]);
+      const newProg = { id: "p-" + Math.random().toString(36).substr(2, 5), order: programs.length + 1, ...pData };
+      addProgram(newProg);
       logActivity(user.name, "Added program", `${progForm.name} (${progForm.type})`);
     }
     setProgModal(false);
@@ -144,7 +145,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     if (registrations.some(r => r.programId === id)) { setDelConfirm({ type: "blocked", label: "This program has active registrations and cannot be deleted." }); return; }
     setDelConfirm({ type: "program", id, label: name });
   };
-  const confirmDeleteProg = () => { setPrograms(prev => prev.filter(p => p.id !== delConfirm.id)); logActivity(user.name, "Deleted program", delConfirm.label); setDelConfirm(null); };
+  const confirmDeleteProg = () => { deleteProgram(delConfirm.id); logActivity(user.name, "Deleted program", delConfirm.label); setDelConfirm(null); };
 
   // ── Group ops ────────────────────────────────────────────────────────────
   const saveUser = () => {
