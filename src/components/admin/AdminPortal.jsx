@@ -52,7 +52,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, registrations, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, nextChestNo } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -114,15 +114,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setDelConfirm(null);
   };
   const updateStudentRole = (gId, sId, role) => {
-    setStudents(prev => {
-      const updated = (prev[gId] || []).map(s => {
-        if (s.id === sId) return { ...s, groupRole: role };
-        if (role === "Leader" && s.groupRole === "Leader") return { ...s, groupRole: "Member" };
-        if (role === "Asst. Leader" && s.groupRole === "Asst. Leader") return { ...s, groupRole: "Member" };
-        return s;
-      });
-      return { ...prev, [gId]: updated };
-    });
+    updateStudent(gId, sId, { groupRole: role });
   };
 
   // ── Program ops ─────────────────────────────────────────────────────────

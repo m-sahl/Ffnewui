@@ -27,6 +27,10 @@ export const AppProvider = ({ children }) => {
   const removeConvexProgram       = useMutation(api.programs.remove);
 
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
+  const addConvexStudent          = useMutation(api.students.add);
+  const updateConvexStudent       = useMutation(api.students.update);
+  const removeConvexStudent       = useMutation(api.students.remove);
+
   const setAllConvexRegistrations = useMutation(api.registrations.setAll);
 
   const setAllConvexUsers         = useMutation(api.users.setAll);
@@ -195,6 +199,40 @@ export const AppProvider = ({ children }) => {
     });
   };
 
+  const updateStudent = (groupId, studentId, patch) => {
+    let targetStudent = null;
+    let demotedStudent = null;
+
+    setStudentsState(prev => {
+      const list = prev[groupId] || [];
+      const updatedList = list.map(s => {
+        if (s.id === studentId) {
+          targetStudent = { ...s, ...patch };
+          return targetStudent;
+        }
+        if (patch.groupRole === "Leader" && s.groupRole === "Leader") {
+          demotedStudent = { ...s, groupRole: "Member" };
+          return demotedStudent;
+        }
+        if (patch.groupRole === "Asst. Leader" && s.groupRole === "Asst. Leader") {
+          demotedStudent = { ...s, groupRole: "Member" };
+          return demotedStudent;
+        }
+        return s;
+      });
+      return { ...prev, [groupId]: updatedList };
+    });
+
+    if (targetStudent) {
+      updateConvexStudent({ id: studentId, student: { ...targetStudent, groupId } })
+        .catch(err => console.error("Convex updateStudent error:", err));
+    }
+    if (demotedStudent) {
+      updateConvexStudent({ id: demotedStudent.id, student: { ...demotedStudent, groupId } })
+        .catch(err => console.error("Convex demotedStudent update error:", err));
+    }
+  };
+
   const setRegistrations = (action) => {
     setRegistrationsState(prev => {
       const next = typeof action === "function" ? action(prev) : action;
@@ -283,7 +321,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
-      students, setStudents,
+      students, setStudents, updateStudent,
       registrations, setRegistrations,
       users, setUsers, addUser, updateUser, deleteUser,
       activityLogs, setActivityLogs: setActivityLogsState, logActivity, clearLogs,

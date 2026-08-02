@@ -340,15 +340,29 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtStudents.map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
-              <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 14, minWidth: 36 }}>{s.chestNo}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>{s.name}</div>
-                <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>{s.category} {s.groupRole && s.groupRole !== "Member" ? `· ${s.groupRole}` : ""}</div>
+          {filtStudents.map(s => {
+            const isLeader = s.groupRole === "Leader";
+            const isAsst   = s.groupRole === "Asst. Leader";
+            return (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
+                <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13.5, minWidth: 36 }}>#{s.chestNo}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>{s.name}</div>
+                  <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>{s.category}</div>
+                </div>
+                {isLeader && (
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#f14d4d", background: "rgba(241,77,77,0.12)", padding: "3px 9px", borderRadius: 8, border: "1px solid rgba(241,77,77,0.22)", flexShrink: 0 }}>
+                    Leader
+                  </span>
+                )}
+                {isAsst && (
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#3b82f6", background: "rgba(59,130,246,0.12)", padding: "3px 9px", borderRadius: 8, border: "1px solid rgba(59,130,246,0.22)", flexShrink: 0 }}>
+                    Asst.
+                  </span>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
