@@ -597,19 +597,22 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
                 {/* Student details list */}
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: mutedTx, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: mutedTx, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 6 }}>
                     Registered Students ({parts.length})
                   </div>
-                  <div style={{ borderRadius: 14, border: `1px solid ${border}`, overflow: "hidden" }}>
+                  <div>
                     {parts.length === 0 ? (
-                      <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: mutedTx }}>No students attached</div>
+                      <div style={{ padding: "12px 0", fontSize: 13, color: mutedTx }}>No students attached</div>
                     ) : parts.map((s, i) => (
-                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderTop: i > 0 ? `1px solid ${border}` : "none" }}>
-                        <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, minWidth: 32 }}>{s.chestNo}</span>
+                      <div key={s.id} style={{
+                        display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
+                        borderBottom: i < parts.length - 1 ? `1px solid ${border}` : "none"
+                      }}>
+                        <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, minWidth: 36 }}>#{s.chestNo}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>{s.name}</div>
-                          <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{s.category}</div>
                         </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: mutedTx }}>{s.category}</span>
                       </div>
                     ))}
                   </div>
