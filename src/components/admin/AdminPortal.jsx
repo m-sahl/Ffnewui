@@ -95,7 +95,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const saveStudent = () => {
     if (!stuForm.name.trim()) return;
     const sId = "s-" + Math.random().toString(36).substr(2, 5);
-    const newStudent = { id: sId, ...stuForm, chestNo: nextChestNo(stuForm.category) };
+    const newStudent = { id: sId, ...stuForm, groupId: activeGroup, chestNo: nextChestNo(stuForm.category) };
     setStudents(prev => ({ ...prev, [activeGroup]: [...(prev[activeGroup] || []), newStudent] }));
     logActivity(user.name, "Added student", `${newStudent.name} (${newStudent.chestNo}) to ${groups.find(g => g.id === activeGroup)?.name}`);
     setStuModal(false); setStuForm({ name: "", category: "Senior" });

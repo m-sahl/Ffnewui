@@ -45,7 +45,8 @@ export const setGroupStudents = mutation({
     }
     for (const s of args.students) {
       if (s && s.id) {
-        await ctx.db.insert("students", cleanDoc(s));
+        const studentDoc = cleanDoc({ ...s, groupId: s.groupId || args.groupId });
+        await ctx.db.insert("students", studentDoc);
       }
     }
   },

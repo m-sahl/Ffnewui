@@ -195,7 +195,8 @@ export const AppProvider = ({ children }) => {
     });
     if (next) {
       for (const [gId, stList] of Object.entries(next)) {
-        setGroupConvexStudents({ groupId: gId, students: stList || [] }).catch(err => console.error("Convex setStudents error:", err));
+        const cleanList = (stList || []).map(s => ({ ...s, groupId: s.groupId || gId }));
+        setGroupConvexStudents({ groupId: gId, students: cleanList }).catch(err => console.error("Convex setStudents error:", err));
       }
     }
   };
