@@ -912,7 +912,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               const stats = getCatStats(cat, progType);
               const isCurrent = catFilter === cat;
               return (
-                <div key={cat} onClick={() => { setCatFilter(cat); setShowCatStatsModal(false); }} style={{
+                <div key={cat} onClick={() => { setCatFilter(cat); setEventSubTab("all"); setShowCatStatsModal(false); triggerHaptic("light"); }} style={{
                   padding: "13px 15px", borderRadius: 14,
                   background: isCurrent ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.06)") : (dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"),
                   border: `1px solid ${isCurrent ? "rgba(241,77,77,0.25)" : border}`,
