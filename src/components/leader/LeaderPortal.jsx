@@ -615,6 +615,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         <Modal title="Registration Details" onClose={() => setViewTarget(null)}>
           {(() => {
             const p = programs.find(pg => pg.id === viewTarget.programId);
+            const pSession = p?.type || p?.session || progType || "Stage";
+            const isTargetLocked = isLocked(group.id, pSession);
             const parts = viewTarget.participantIds.map(id => groupStudents.find(s => s.id === id)).filter(Boolean);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -657,7 +659,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 </div>
 
                 {/* 50/50 Action buttons inside modal */}
-                {!locked ? (
+                {!isTargetLocked ? (
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button className="btn btn-ghost" onClick={() => { setDelConfirm(viewTarget.id); setViewTarget(null); }}
                       style={{ flex: 1, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "#f43f5e", border: "1px solid rgba(244,63,94,0.2)", height: 44 }}>
@@ -669,10 +671,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 12 }}>
-                    <button className="btn btn-ghost" onClick={() => setViewTarget(null)} style={{ width: "100%", borderRadius: 12, height: 44 }}>
-                      Close
-                    </button>
+                  <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.18)", textAlign: "center", color: "#f43f5e", fontWeight: 800, fontSize: 12.5 }}>
+                    🔒 Registration for this program is locked by Admin
                   </div>
                 )}
               </div>

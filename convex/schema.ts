@@ -23,6 +23,7 @@ export default defineSchema({
     chestNo: v.string(),
     category: v.string(),
     groupId: v.string(),
+    groupRole: v.optional(v.string()),
   }),
 
   registrations: defineTable({
@@ -44,6 +45,8 @@ export default defineSchema({
   locks: defineTable({
     type: v.string(),
     locked: v.boolean(),
+    groupId: v.optional(v.string()),
+    session: v.optional(v.string()),
   }),
 
   messages: defineTable({

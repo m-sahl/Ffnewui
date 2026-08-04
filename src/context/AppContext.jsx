@@ -121,19 +121,10 @@ export const AppProvider = ({ children }) => {
     if (convexLocks !== undefined && Array.isArray(convexLocks)) {
       const lockMap = {};
       for (const l of convexLocks) {
-        if (!l || !l.type) continue;
-        let gId = l.groupId;
-        let sess = l.session;
-        if (!gId || !sess) {
-          const idx = l.type.lastIndexOf("_");
-          if (idx !== -1) {
-            gId = l.type.substring(0, idx);
-            sess = l.type.substring(idx + 1);
-          }
-        }
-        if (gId && sess) {
-          if (!lockMap[gId]) lockMap[gId] = {};
-          lockMap[gId][sess] = !!l.locked;
+        if (!l) continue;
+        const key = (l.type || `${l.groupId}_${l.session}`).toLowerCase();
+        if (key) {
+          lockMap[key] = !!l.locked;
         }
       }
       setLocksState(lockMap);
@@ -293,29 +284,24 @@ export const AppProvider = ({ children }) => {
   };
 
   const toggleLock = (groupId, session) => {
-    const current = isLocked(groupId, session);
+    if (!groupId || !session) return;
+    const key = `${groupId}_${session}`.toLowerCase();
+    const current = !!locks[key];
     const newLocked = !current;
+
     setLocksState(prev => ({
       ...prev,
-      [groupId]: {
-        ...(prev[groupId] || {}),
-        [session]: newLocked
-      }
+      [key]: newLocked
     }));
-    const lockType = `${groupId}_${session}`;
-    setConvexLock({ type: lockType, locked: newLocked, groupId, session })
+
+    setConvexLock({ groupId, session, locked: newLocked, type: key })
       .catch(err => console.error("Convex toggleLock error:", err));
   };
 
   const isLocked = (groupId, session) => {
     if (!groupId || !session) return false;
-    const groupLocks = locks[groupId];
-    if (!groupLocks) return false;
-    const sLower = session.toLowerCase();
-    for (const [sKey, val] of Object.entries(groupLocks)) {
-      if (sKey.toLowerCase() === sLower) return !!val;
-    }
-    return false;
+    const key = `${groupId}_${session}`.toLowerCase();
+    return !!locks[key];
   };
 
   const sendMessage = (from, fromName, to, text) => {

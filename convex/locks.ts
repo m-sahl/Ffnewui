@@ -9,26 +9,29 @@ export const get = query({
 
 export const setLock = mutation({
   args: {
-    type: v.string(),
+    groupId: v.string(),
+    session: v.string(),
     locked: v.boolean(),
-    groupId: v.optional(v.string()),
-    session: v.optional(v.string()),
+    type: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existingList = await ctx.db
-      .query("locks")
-      .filter((q) => q.eq(q.field("type"), args.type))
-      .collect();
+    const lockType = (args.type || `${args.groupId}_${args.session}`).toLowerCase();
 
-    for (const doc of existingList) {
-      await ctx.db.delete(doc._id);
+    // Query all lock records and delete any matching existing entries for this group & session
+    const existing = await ctx.db.query("locks").collect();
+    for (const doc of existing) {
+      const docType = (doc.type || `${doc.groupId}_${doc.session}`).toLowerCase();
+      if (docType === lockType || (doc.groupId === args.groupId && doc.session === args.session)) {
+        await ctx.db.delete(doc._id);
+      }
     }
 
+    // Insert fresh record
     await ctx.db.insert("locks", {
-      type: args.type,
-      locked: args.locked,
       groupId: args.groupId,
       session: args.session,
+      type: lockType,
+      locked: args.locked,
     });
   },
 });
