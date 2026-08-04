@@ -402,6 +402,19 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
       </div>
 
+      {/* Real-Time Lock Status Warning Banner */}
+      {locked && (
+        <div style={{
+          marginBottom: 12, padding: "10px 14px", borderRadius: 12,
+          background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.25)",
+          color: "#f43f5e", fontSize: 12.5, fontWeight: 700,
+          display: "flex", alignItems: "center", gap: 8
+        }}>
+          <span style={{ fontSize: 14 }}>🔒</span>
+          <span>{progType} Registration is currently locked by Admin</span>
+        </div>
+      )}
+
       {/* Segmented Sub-tab switcher */}
       <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)", borderRadius: 12, padding: 3, marginBottom: 12, border: `1px solid ${border}` }}>
         <button onClick={() => setEventSubTab("all")} style={{

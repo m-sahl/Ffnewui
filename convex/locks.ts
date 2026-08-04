@@ -20,18 +20,15 @@ export const setLock = mutation({
       .filter((q) => q.eq(q.field("type"), args.type))
       .collect();
 
-    if (existingList.length > 0) {
-      // Patch the first matched record and clean up any duplicate legacy documents
-      await ctx.db.patch(existingList[0]._id, {
-        locked: args.locked,
-        groupId: args.groupId,
-        session: args.session,
-      });
-      for (let i = 1; i < existingList.length; i++) {
-        await ctx.db.delete(existingList[i]._id);
-      }
-    } else {
-      await ctx.db.insert("locks", args);
+    for (const doc of existingList) {
+      await ctx.db.delete(doc._id);
     }
+
+    await ctx.db.insert("locks", {
+      type: args.type,
+      locked: args.locked,
+      groupId: args.groupId,
+      session: args.session,
+    });
   },
 });

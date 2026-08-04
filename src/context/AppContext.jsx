@@ -120,8 +120,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (convexLocks !== undefined && Array.isArray(convexLocks)) {
       const lockMap = {};
-      const sorted = [...convexLocks].sort((a, b) => (a._creationTime || 0) - (b._creationTime || 0));
-      for (const l of sorted) {
+      for (const l of convexLocks) {
         if (!l || !l.type) continue;
         let gId = l.groupId;
         let sess = l.session;
@@ -294,18 +293,15 @@ export const AppProvider = ({ children }) => {
   };
 
   const toggleLock = (groupId, session) => {
-    let newLocked = false;
-    setLocksState(prev => {
-      const current = isLocked(groupId, session);
-      newLocked = !current;
-      return {
-        ...prev,
-        [groupId]: {
-          ...(prev[groupId] || {}),
-          [session]: newLocked
-        }
-      };
-    });
+    const current = isLocked(groupId, session);
+    const newLocked = !current;
+    setLocksState(prev => ({
+      ...prev,
+      [groupId]: {
+        ...(prev[groupId] || {}),
+        [session]: newLocked
+      }
+    }));
     const lockType = `${groupId}_${session}`;
     setConvexLock({ type: lockType, locked: newLocked, groupId, session })
       .catch(err => console.error("Convex toggleLock error:", err));
