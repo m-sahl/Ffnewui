@@ -121,7 +121,20 @@ export const AppProvider = ({ children }) => {
     if (convexLocks !== undefined && Array.isArray(convexLocks)) {
       const lockMap = {};
       for (const l of convexLocks) {
-        if (!lockMap[l.type]) lockMap[l.type] = true;
+        if (!l || !l.type) continue;
+        let gId = l.groupId;
+        let sess = l.session;
+        if (!gId || !sess) {
+          const idx = l.type.lastIndexOf("_");
+          if (idx !== -1) {
+            gId = l.type.substring(0, idx);
+            sess = l.type.substring(idx + 1);
+          }
+        }
+        if (gId && sess) {
+          if (!lockMap[gId]) lockMap[gId] = {};
+          lockMap[gId][sess] = !!l.locked;
+        }
       }
       setLocksState(lockMap);
     }
@@ -282,13 +295,31 @@ export const AppProvider = ({ children }) => {
   const toggleLock = (groupId, session) => {
     let newLocked = false;
     setLocksState(prev => {
-      newLocked = !(prev[groupId]?.[session]);
-      return { ...prev, [groupId]: { ...(prev[groupId] || {}), [session]: newLocked } };
+      const current = isLocked(groupId, session);
+      newLocked = !current;
+      return {
+        ...prev,
+        [groupId]: {
+          ...(prev[groupId] || {}),
+          [session]: newLocked
+        }
+      };
     });
-    setConvexLock({ type: `${groupId}_${session}`, locked: newLocked }).catch(err => console.error("Convex toggleLock error:", err));
+    const lockType = `${groupId}_${session}`;
+    setConvexLock({ type: lockType, locked: newLocked, groupId, session })
+      .catch(err => console.error("Convex toggleLock error:", err));
   };
 
-  const isLocked = (groupId, session) => !!(locks[groupId]?.[session]);
+  const isLocked = (groupId, session) => {
+    if (!groupId || !session) return false;
+    const groupLocks = locks[groupId];
+    if (!groupLocks) return false;
+    const sLower = session.toLowerCase();
+    for (const [sKey, val] of Object.entries(groupLocks)) {
+      if (sKey.toLowerCase() === sLower) return !!val;
+    }
+    return false;
+  };
 
   const sendMessage = (from, fromName, to, text) => {
     const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName: fromName || from, to: to || "", text, timestamp: Date.now(), read: false };

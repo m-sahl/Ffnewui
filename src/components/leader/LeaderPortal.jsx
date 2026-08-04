@@ -185,9 +185,13 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   // ── Registration ops ──────────────────────────────────────────────────────
   const openReg = (existing = null) => {
     if (existing) {
+      const p = programs.find(pg => pg.id === existing.programId);
+      const pType = (p?.type || p?.session || "Stage").toLowerCase();
+      if (isLocked(group.id, pType)) return;
       setEditTarget(existing.id);
       setRegForm({ programId: existing.programId, participantIds: [...existing.participantIds] });
     } else {
+      if (isLocked(group.id, progType)) return;
       setEditTarget(null);
       setRegForm({ programId: "", participantIds: [] });
     }
@@ -196,9 +200,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const saveReg = () => {
     if (!regForm.programId) return;
+    const p = programs.find(pg => pg.id === regForm.programId);
+    const pType = (p?.type || p?.session || "Stage").toLowerCase();
+    if (isLocked(group.id, pType)) return;
+
     const alreadyExists = !editTarget && groupRegs.some(r => r.programId === regForm.programId);
     if (alreadyExists) return;
-    const p = programs.find(pg => pg.id === regForm.programId);
     if (editTarget) {
       setRegistrations(prev => prev.map(r => r.id === editTarget ? { ...r, ...regForm } : r));
       logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
@@ -213,6 +220,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const confirmDeleteReg = () => {
     const reg = groupRegs.find(r => r.id === delConfirm);
     const p   = programs.find(pg => pg.id === reg?.programId);
+    const pType = (p?.type || p?.session || "Stage").toLowerCase();
+    if (isLocked(group.id, pType)) return;
+
     setRegistrations(prev => prev.filter(r => r.id !== delConfirm));
     logActivity(user.name, "Deleted registration", `${p?.name || "Program"} for ${group.name}`);
     setDelConfirm(null);
