@@ -397,7 +397,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           </div>
         </div>
 
-        {/* Solid Borderless Session Status Card */}
+        {/* Solid Borderless Session Status Card (Mobile Friendly) */}
         <div style={{
           padding: "18px 20px", borderRadius: 18, border: "none",
           background: solidBg, boxShadow: solidCardShadow, marginBottom: 20
@@ -405,40 +405,50 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
             Session Status
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {/* Stage Session */}
-            <div style={{
-              padding: "12px 14px", borderRadius: 14,
+            <div onClick={() => { triggerHaptic("light"); setProgType("Stage"); setTab("events"); }} style={{
+              padding: "12px 14px", borderRadius: 14, cursor: "pointer",
               background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
-              display: "flex", alignItems: "center", justifyContent: "space-between"
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              border: `1px solid ${border}`
             }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage</div>
-                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Events</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>🎭</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered</div>
+                </div>
               </div>
               <span style={{
-                fontSize: 10.5, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
-                background: isStageLocked ? "rgba(244,63,94,0.1)" : "rgba(16,185,129,0.1)",
-                color: isStageLocked ? "#f43f5e" : "#10b981"
+                fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
+                background: isStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
+                color: isStageLocked ? "#f43f5e" : "#10b981",
+                border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
               }}>
                 {isStageLocked ? "🔒 Locked" : "🟢 Open"}
               </span>
             </div>
 
             {/* Off-Stage Session */}
-            <div style={{
-              padding: "12px 14px", borderRadius: 14,
+            <div onClick={() => { triggerHaptic("light"); setProgType("Off-Stage"); setTab("events"); }} style={{
+              padding: "12px 14px", borderRadius: 14, cursor: "pointer",
               background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
-              display: "flex", alignItems: "center", justifyContent: "space-between"
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              border: `1px solid ${border}`
             }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage</div>
-                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Events</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>🎨</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered</div>
+                </div>
               </div>
               <span style={{
-                fontSize: 10.5, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
-                background: isOffStageLocked ? "rgba(244,63,94,0.1)" : "rgba(16,185,129,0.1)",
-                color: isOffStageLocked ? "#f43f5e" : "#10b981"
+                fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
+                background: isOffStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
+                color: isOffStageLocked ? "#f43f5e" : "#10b981",
+                border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
               }}>
                 {isOffStageLocked ? "🔒 Locked" : "🟢 Open"}
               </span>

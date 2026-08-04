@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "../../context/AppContext";
 import { ACCENT } from "../../styles/DesignTokens";
+import Ic from "../common/Ic";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, fill = "none", stroke = "currentColor", sw = 2, vb = "0 0 24 24", children }) => (
@@ -546,11 +547,11 @@ const MessagesPanel = ({ user, dark, onClose }) => {
               </div>
             ) : (
               <>
-                <button onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: "6px 8px", fontSize: 16 }}>
-                  📷
+                <button onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 6 }}>
+                  <Ic name="image" size={18} />
                 </button>
-                <button onClick={startRecording} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: "6px 8px", fontSize: 16 }}>
-                  🎙️
+                <button onClick={startRecording} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 6 }}>
+                  <Ic name="mic" size={18} />
                 </button>
 
                 <div style={{ flex: 1, display: "flex", alignItems: "center", background: dark ? "#1a1b2e" : "#fff", borderRadius: 26, padding: "4px 14px", minHeight: 46 }}>
