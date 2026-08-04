@@ -1232,9 +1232,9 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
         gap: 8,
         position: "relative",
         background: dark
-          ? "radial-gradient(circle at 1.5px 1.5px, rgba(255, 255, 255, 0.04) 1.5px, transparent 0), #090a12"
-          : "radial-gradient(circle at 1.5px 1.5px, rgba(15, 23, 42, 0.035) 1.5px, transparent 0), #f8fafc",
-        backgroundSize: "28px 28px"
+          ? "radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(37, 99, 235, 0.09) 0%, transparent 55%), radial-gradient(circle at 1.5px 1.5px, rgba(96, 165, 250, 0.05) 1.5px, transparent 0), #080914"
+          : "radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.09) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(37, 99, 235, 0.06) 0%, transparent 55%), radial-gradient(circle at 1.5px 1.5px, rgba(37, 99, 235, 0.04) 1.5px, transparent 0), #f0f4f8",
+        backgroundSize: "100% 100%, 100% 100%, 28px 28px, 100% 100%"
       }}>
         {threadWithDates.length === 0 ? (
           <div style={{ textAlign: "center", margin: "auto" }}>

@@ -16,6 +16,105 @@ const CloseIcon   = ({ s }) => <Icon size={s}><line x1="18" y1="6" x2="6" y2="18
 const CheckIcon   = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l3.5 3.5L13 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const DblCheckIcon = ({ color }) => <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><path d="M1 5l3.5 3.5L10 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 5l3.5 3.5L16 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
+// ── WhatsApp Voice Note Component ──────────────────────────────────────────
+const WhatsAppVoiceNote = ({ mediaUrl, isOwn }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef(null);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      document.querySelectorAll("audio").forEach(a => a.pause());
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+      setDuration(audioRef.current.duration || 0);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+
+  const pct = duration > 0 ? (currentTime / duration) : 0;
+  const waveformHeights = [30, 45, 65, 35, 80, 50, 90, 40, 70, 30, 60, 85, 45, 75, 50, 90, 60, 40, 70, 35];
+
+  const fmtDur = (secs) => {
+    if (!secs || isNaN(secs)) return "0:05";
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 200, padding: "4px 0" }}>
+      <audio
+        ref={audioRef}
+        src={mediaUrl}
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleEnded}
+        onLoadedMetadata={handleTimeUpdate}
+        style={{ display: "none" }}
+      />
+
+      <button onClick={togglePlay} style={{
+        width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer",
+        background: isOwn ? "#ffffff" : "#f14d4d",
+        color: isOwn ? "#dc2626" : "#ffffff",
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.15)", fontSize: 13, fontWeight: 900
+      }}>
+        {isPlaying ? "❚❚" : "▶"}
+      </button>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, height: 20, cursor: "pointer" }}
+          onClick={(e) => {
+            if (!audioRef.current || !duration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+            audioRef.current.currentTime = ratio * duration;
+            setCurrentTime(ratio * duration);
+          }}
+        >
+          {waveformHeights.map((h, idx) => {
+            const barPct = idx / waveformHeights.length;
+            const isPlayed = barPct <= pct;
+            return (
+              <span key={idx} style={{
+                flex: 1,
+                height: `${h}%`,
+                borderRadius: 2,
+                background: isOwn
+                  ? (isPlayed ? "#ffffff" : "rgba(255,255,255,0.4)")
+                  : (isPlayed ? "#f14d4d" : "rgba(0,0,0,0.2)"),
+                transition: "all 0.1s ease"
+              }} />
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10, opacity: 0.85, fontWeight: 700 }}>
+          <span>{isPlaying ? fmtDur(currentTime) : fmtDur(duration)}</span>
+          <span>🎙️</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MessagesPanel = ({ user, dark, onClose }) => {
   const { groups, messages, sendMessage, markRead, setMessages, deleteMessage } = useApp();
   const [selectedGroup, setSelectedGroup]     = useState(null);
@@ -24,10 +123,18 @@ const MessagesPanel = ({ user, dark, onClose }) => {
   const [showSearch, setShowSearch]           = useState(false);
   const [showMenu, setShowMenu]               = useState(false);
   const [showInfo, setShowInfo]               = useState(false);
-  const [ctxMsg, setCtxMsg]                   = useState(null); // context menu message
+  const [ctxMsg, setCtxMsg]                   = useState(null);
   const [ctxPos, setCtxPos]                   = useState({ x: 0, y: 0 });
   const [searchChat, setSearchChat]           = useState("");
   const [showChatSearch, setShowChatSearch]   = useState(false);
+  const [imagePreview, setImagePreview]       = useState(null);
+  const [isRecording, setIsRecording]         = useState(false);
+  const [recordingSecs, setRecordingSecs]     = useState(0);
+  const [viewImg, setViewImg]                 = useState(null);
+
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef   = useRef([]);
+  const fileInputRef     = useRef(null);
   const bottomRef  = useRef(null);
   const inputRef   = useRef(null);
   const longPress  = useRef(null);
@@ -69,9 +176,75 @@ const MessagesPanel = ({ user, dark, onClose }) => {
     if (!showChatSearch) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread.length]);
 
+  useEffect(() => {
+    let interval;
+    if (isRecording) {
+      interval = setInterval(() => setRecordingSecs(s => s + 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size should be under 5MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const startRecording = async () => {
+    if (!selectedGroup) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          sendMessage("admin", user.name, selectedGroup, "🎙️ Voice Message", { mediaType: "audio", mediaUrl: reader.result });
+        };
+        reader.readAsDataURL(audioBlob);
+        stream.getTracks().forEach(t => t.stop());
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingSecs(0);
+    } catch (err) {
+      console.error("Mic error:", err);
+      alert("Microphone permission needed to record audio.");
+    }
+  };
+
+  const stopRecording = (sendIt = true) => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (!sendIt) {
+        mediaRecorderRef.current.onstop = () => {
+          if (mediaRecorderRef.current?.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+          }
+        };
+      }
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
   const send = () => {
-    if (!text.trim() || !selectedGroup) return;
-    sendMessage("admin", user.name, selectedGroup, text.trim());
+    if ((!text.trim() && !imagePreview) || !selectedGroup) return;
+    if (imagePreview) {
+      sendMessage("admin", user.name, selectedGroup, text.trim() || "📷 Image", { mediaType: "image", mediaUrl: imagePreview });
+      setImagePreview(null);
+    } else {
+      sendMessage("admin", user.name, selectedGroup, text.trim());
+    }
     setText("");
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60);
   };
@@ -119,9 +292,9 @@ const MessagesPanel = ({ user, dark, onClose }) => {
   // ── Chat wallpaper pattern ───────────────────────────────────────────────────
   const wallpaperStyle = {
     background: dark
-      ? "radial-gradient(circle at 1.5px 1.5px, rgba(255, 255, 255, 0.04) 1.5px, transparent 0), #090a12"
-      : "radial-gradient(circle at 1.5px 1.5px, rgba(15, 23, 42, 0.035) 1.5px, transparent 0), #f8fafc",
-    backgroundSize: "28px 28px",
+      ? "radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.12) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(37, 99, 235, 0.09) 0%, transparent 55%), radial-gradient(circle at 1.5px 1.5px, rgba(96, 165, 250, 0.05) 1.5px, transparent 0), #080914"
+      : "radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.09) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(37, 99, 235, 0.06) 0%, transparent 55%), radial-gradient(circle at 1.5px 1.5px, rgba(37, 99, 235, 0.04) 1.5px, transparent 0), #f0f4f8",
+    backgroundSize: "100% 100%, 100% 100%, 28px 28px, 100% 100%",
   };
 
   return (
@@ -314,13 +487,12 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                     }} />
 
                     {m.mediaType === "image" && m.mediaUrl && (
-                      <img src={m.mediaUrl} alt="Attachment" style={{ width: "100%", maxHeight: 220, borderRadius: 10, objectFit: "cover", marginBottom: 4 }} />
+                      <img src={m.mediaUrl} alt="Attachment" onClick={() => setViewImg(m.mediaUrl)}
+                        style={{ width: "100%", maxHeight: 220, borderRadius: 10, objectFit: "cover", marginBottom: 4, cursor: "pointer" }} />
                     )}
 
                     {m.mediaType === "audio" && m.mediaUrl && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-                        <audio controls src={m.mediaUrl} style={{ height: 32, maxWidth: 200 }} />
-                      </div>
+                      <WhatsAppVoiceNote mediaUrl={m.mediaUrl} isOwn={isAdmin} />
                     )}
 
                     {m.text && m.text !== "🎙️ Voice Message" && m.text !== "📷 Image" && (
@@ -341,29 +513,64 @@ const MessagesPanel = ({ user, dark, onClose }) => {
             <div ref={bottomRef} />
           </div>
 
-          {/* Input bar */}
+          {/* Image Preview Bar */}
+          {imagePreview && (
+            <div style={{ padding: "8px 14px", borderTop: `1px solid ${border}`, background: dark ? "#0a0b12" : "#ffffff", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ position: "relative" }}>
+                <img src={imagePreview} alt="Preview" style={{ width: 50, height: 50, borderRadius: 10, objectFit: "cover" }} />
+                <button onClick={() => setImagePreview(null)} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#f43f5e", color: "#fff", border: "none", cursor: "pointer", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: mutedTx }}>Image Attached</span>
+            </div>
+          )}
+
+          {/* Input / Voice Bar */}
           <div style={{
             padding: "8px 8px",
             paddingBottom: "max(8px, env(safe-area-inset-bottom))",
             background: dark ? "#080912" : "#ece5dd",
-            display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0,
+            display: "flex", gap: 8, alignItems: "center", flexShrink: 0,
           }}>
-            <div style={{ flex: 1, display: "flex", alignItems: "flex-end", background: dark ? "#1a1b2e" : "#fff", borderRadius: 26, padding: "4px 14px", minHeight: 46 }}>
-              <textarea ref={inputRef} value={text} onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Message" rows={1}
-                style={{ flex: 1, resize: "none", border: "none", background: "transparent", fontSize: 15, color: dark ? "#e8e8f5" : "#111", fontFamily: "inherit", outline: "none", lineHeight: 1.5, maxHeight: 120, overflowY: "auto", paddingTop: 9, paddingBottom: 9 }}
-              />
-            </div>
-            <button onClick={send} style={{
-              width: 46, height: 46, borderRadius: "50%", flexShrink: 0, border: "none",
-              background: text.trim() ? "linear-gradient(135deg,#f14d4d,#dc2626)" : (dark ? "#1a1b2e" : "#ccc"),
-              color: text.trim() ? "#ffffff" : (dark ? "#4b5563" : "#888"),
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s", boxShadow: text.trim() ? "0 4px 14px rgba(241,77,77,0.4)" : "none",
-            }}>
-              <SendIcon s={18} />
-            </button>
+            <input type="file" ref={fileInputRef} accept="image/*" style={{ display: "none" }} onChange={handleImageSelect} />
+
+            {isRecording ? (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 20, padding: "8px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#f43f5e", boxShadow: "0 0 8px #f43f5e" }} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#f43f5e" }}>Recording {recordingSecs}s</span>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => stopRecording(false)} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, fontSize: 12, fontWeight: 700 }}>Cancel</button>
+                  <button onClick={() => stopRecording(true)} style={{ background: "#10b981", color: "#fff", border: "none", cursor: "pointer", borderRadius: 12, padding: "4px 12px", fontSize: 12, fontWeight: 800 }}>Send</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: "6px 8px", fontSize: 16 }}>
+                  📷
+                </button>
+                <button onClick={startRecording} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: "6px 8px", fontSize: 16 }}>
+                  🎙️
+                </button>
+
+                <div style={{ flex: 1, display: "flex", alignItems: "center", background: dark ? "#1a1b2e" : "#fff", borderRadius: 26, padding: "4px 14px", minHeight: 46 }}>
+                  <textarea ref={inputRef} value={text} onChange={e => setText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                    placeholder="Message..." rows={1}
+                    style={{ flex: 1, resize: "none", border: "none", background: "transparent", fontSize: 15, color: dark ? "#e8e8f5" : "#111", fontFamily: "inherit", outline: "none", lineHeight: 1.5, maxHeight: 120, overflowY: "auto", paddingTop: 9, paddingBottom: 9 }}
+                  />
+                </div>
+                <button onClick={send} style={{
+                  width: 46, height: 46, borderRadius: "50%", flexShrink: 0, border: "none",
+                  background: (text.trim() || imagePreview) ? "linear-gradient(135deg,#f14d4d,#dc2626)" : (dark ? "#1a1b2e" : "#ccc"),
+                  color: (text.trim() || imagePreview) ? "#ffffff" : (dark ? "#4b5563" : "#888"),
+                  cursor: (text.trim() || imagePreview) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.15s", boxShadow: (text.trim() || imagePreview) ? "0 4px 14px rgba(241,77,77,0.4)" : "none",
+                }}>
+                  <SendIcon s={18} />
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
@@ -416,6 +623,13 @@ const MessagesPanel = ({ user, dark, onClose }) => {
               Clear Chat
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Preview Modal */}
+      {viewImg && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setViewImg(null)}>
+          <img src={viewImg} alt="Enlarged" style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 12, objectFit: "contain" }} />
         </div>
       )}
     </div>
