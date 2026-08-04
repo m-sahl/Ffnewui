@@ -144,6 +144,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [editTarget, setEditTarget]       = useState(null);
   const [viewTarget, setViewTarget]       = useState(null);
   const [delConfirm, setDelConfirm]       = useState(null);
+  const [showCatStatsModal, setShowCatStatsModal] = useState(false);
 
   const groupStudents = students[group.id] || [];
   const groupRegs     = registrations.filter(r => r.groupId === group.id);
@@ -181,6 +182,18 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     if (p.category?.toLowerCase() !== catFilter.toLowerCase()) return false;
     return true;
   });
+
+  const getCatStats = (catName, pType = progType) => {
+    const totalCatProgs = programs.filter(p => 
+      (p.type || p.session || "Stage").toLowerCase() === pType.toLowerCase() &&
+      p.category?.toLowerCase() === catName.toLowerCase()
+    );
+    const registeredCount = totalCatProgs.filter(p => 
+      groupRegs.some(r => r.programId === p.id)
+    ).length;
+    const remainingCount = Math.max(0, totalCatProgs.length - registeredCount);
+    return { total: totalCatProgs.length, registered: registeredCount, remaining: remainingCount };
+  };
 
   // ── Registration ops ──────────────────────────────────────────────────────
   const openReg = (existing = null) => {
@@ -434,19 +447,34 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         }}>Registered ({filtRegs.length})</button>
       </div>
 
-      {/* Category Pills Bar */}
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 14 }}>
-        {CATS.map(cat => (
-          <button key={cat} onClick={() => setCatFilter(cat)}
-            style={{
-              padding: "4px 11px", borderRadius: 8, fontSize: 11, fontWeight: 800, flexShrink: 0, border: "none", cursor: "pointer",
-              background: catFilter === cat ? (dark ? "rgba(255,255,255,0.12)" : "#0f172a") : (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
-              color: catFilter === cat ? "#ffffff" : mutedTx, transition: "all 0.15s ease"
-            }}>
-            {cat === "Sub-Junior" ? "Sub" : cat}
-          </button>
-        ))}
+      {/* Category Pills Bar with Remaining Counts */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 10 }}>
+        {CATS.map(cat => {
+          const stats = getCatStats(cat, progType);
+          const catLabel = cat === "Sub-Junior" ? "Sub" : cat;
+          return (
+            <button key={cat} onClick={() => setCatFilter(cat)}
+              style={{
+                padding: "6px 12px", borderRadius: 10, fontSize: 11.5, fontWeight: 800, flexShrink: 0, border: "none", cursor: "pointer",
+                background: catFilter === cat ? (dark ? "rgba(255,255,255,0.12)" : "#0f172a") : (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
+                color: catFilter === cat ? "#ffffff" : mutedTx, transition: "all 0.15s ease",
+                display: "inline-flex", alignItems: "center", gap: 5
+              }}>
+              <span>{catLabel}</span>
+              <span style={{
+                fontSize: 10, padding: "1px 5px", borderRadius: 6,
+                background: catFilter === cat ? "rgba(255,255,255,0.2)" : (stats.remaining > 0 ? "rgba(241,77,77,0.14)" : "rgba(16,185,129,0.14)"),
+                color: catFilter === cat ? "#ffffff" : (stats.remaining > 0 ? "#f14d4d" : "#10b981"),
+                fontWeight: 800
+              }}>
+                {stats.remaining > 0 ? stats.remaining : "✓"}
+              </span>
+            </button>
+          );
+        })}
       </div>
+
+
 
       {locked && (
         <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.18)", marginBottom: 12, fontSize: 11.5, fontWeight: 700, color: "#f43f5e", display: "flex", alignItems: "center", gap: 6 }}>
@@ -500,7 +528,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <div style={{ fontSize: 11 }}>Tap "All" above to register your team</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 70 }}>
             {filtRegs.map(r => {
               const p = programs.find(pg => pg.id === r.programId);
               return (
@@ -522,6 +550,33 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             })}
           </div>
         )
+      )}
+
+      {/* Floating Pinned Button at Bottom-Right */}
+      {eventSubTab === "mine" && (
+        <button onClick={() => setShowCatStatsModal(true)} style={{
+          position: "fixed",
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)",
+          right: 16,
+          zIndex: 90,
+          padding: "10px 15px",
+          borderRadius: 30,
+          background: "linear-gradient(135deg, #f14d4d 0%, #e11d48 100%)",
+          color: "#ffffff",
+          border: "1px solid rgba(255,255,255,0.2)",
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          boxShadow: "0 8px 24px rgba(241,77,77,0.38)",
+          backdropFilter: "blur(8px)",
+          transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+        }}>
+          <span style={{ fontSize: 13 }}>📊</span>
+          <span>Remaining ({getCatStats(catFilter, progType).remaining})</span>
+        </button>
       )}
     </div>
   );
@@ -690,6 +745,40 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button className="btn btn-ghost" onClick={() => setDelConfirm(null)} style={{ borderRadius: 12 }}>Cancel</button>
             <button className="btn btn-danger" onClick={confirmDeleteReg} style={{ borderRadius: 12, fontWeight: 800 }}>Confirm Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Remaining Registrations Breakdown Modal */}
+      {showCatStatsModal && (
+        <Modal title={`Remaining Registrations (${progType})`} onClose={() => setShowCatStatsModal(false)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {CATS.map(cat => {
+              const stats = getCatStats(cat, progType);
+              const isCurrent = catFilter === cat;
+              return (
+                <div key={cat} onClick={() => { setCatFilter(cat); setShowCatStatsModal(false); }} style={{
+                  padding: "13px 15px", borderRadius: 14,
+                  background: isCurrent ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.06)") : (dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"),
+                  border: `1px solid ${isCurrent ? "rgba(241,77,77,0.25)" : border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  cursor: "pointer", transition: "all 0.15s ease"
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>{cat}</div>
+                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>{stats.registered} of {stats.total} Registered</div>
+                  </div>
+                  <span style={{
+                    padding: "5px 11px", borderRadius: 9, fontSize: 11.5, fontWeight: 800,
+                    background: stats.remaining > 0 ? "rgba(241,77,77,0.12)" : "rgba(16,185,129,0.12)",
+                    color: stats.remaining > 0 ? "#f14d4d" : "#10b981",
+                    border: `1px solid ${stats.remaining > 0 ? "rgba(241,77,77,0.2)" : "rgba(16,185,129,0.2)"}`
+                  }}>
+                    {stats.remaining > 0 ? `${stats.remaining} Remaining` : "✓ Complete"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </Modal>
       )}
