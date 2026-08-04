@@ -120,7 +120,8 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (convexLocks !== undefined && Array.isArray(convexLocks)) {
       const lockMap = {};
-      for (const l of convexLocks) {
+      const sorted = [...convexLocks].sort((a, b) => (a._creationTime || 0) - (b._creationTime || 0));
+      for (const l of sorted) {
         if (!l || !l.type) continue;
         let gId = l.groupId;
         let sess = l.session;

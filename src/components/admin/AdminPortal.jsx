@@ -343,7 +343,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {["Stage", "Off-Stage"].map(t => {
-                  const locked = locks[u.id]?.[t];
+                  const locked = isLocked(u.id, t);
                   return (
                     <button key={t} onClick={() => toggleLock(u.id, t)} style={{
                       flex: 1, padding: "7px 0", borderRadius: 8,
