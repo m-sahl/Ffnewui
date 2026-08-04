@@ -51,14 +51,12 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
     maxWidth: 440,
     height: 62,
     borderRadius: 24,
-    background: dark ? "rgba(15, 17, 26, 0.85)" : "rgba(255, 255, 255, 0.9)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
-    border: `1px solid ${dark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)"}`,
-    boxShadow: dark ? "0 12px 32px rgba(0, 0, 0, 0.5)" : "0 12px 32px rgba(0, 0, 0, 0.08)",
+    background: dark ? "#171923" : "#ffffff",
+    border: "none",
+    boxShadow: dark ? "0 12px 36px rgba(0, 0, 0, 0.6)" : "0 12px 36px rgba(15, 23, 42, 0.1)",
     display: "flex",
     alignItems: "center",
-    justify: "space-around",
+    justifyContent: "space-around",
     padding: "0 8px",
     zIndex: 150,
   }}>
@@ -171,6 +169,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     if (pType !== targetType) return false;
     if (p.category?.toLowerCase() !== catFilter.toLowerCase()) return false;
     return true;
+  }).sort((a, b) => {
+    const aReg = groupRegs.some(r => r.programId === a.id);
+    const bReg = groupRegs.some(r => r.programId === b.id);
+    if (aReg && !bReg) return 1;  // Push registered to bottom
+    if (!aReg && bReg) return -1; // Keep unregistered at top
+    return (a.order || 0) - (b.order || 0);
   });
 
   const filtRegs = groupRegs.filter(r => {
@@ -264,58 +268,178 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   // ── HOME TAB ───────────────────────────────────────────────────────────────
   const renderHome = () => {
     const totalRegs = groupRegs.length;
-    const typeStatus = ["Stage", "Off-Stage"].map(t => ({ type: t, locked: isLocked(group.id, t) }));
+    const leaderStudent = groupStudents.find(s => s.groupRole === "Leader");
+    const asstStudent   = groupStudents.find(s => s.groupRole === "Asst. Leader");
+
+    const stageProgs = programs.filter(p => (p.type || p.session || "Stage").toLowerCase() === "stage");
+    const offStageProgs = programs.filter(p => (p.type || p.session || "Stage").toLowerCase() === "off-stage");
+
+    const stageRegs = groupRegs.filter(r => stageProgs.some(p => p.id === r.programId));
+    const offStageRegs = groupRegs.filter(r => offStageProgs.some(p => p.id === r.programId));
+
+    const isStageLocked = isLocked(group.id, "stage");
+    const isOffStageLocked = isLocked(group.id, "off-stage");
+
+    const solidBg = dark ? "rgba(255,255,255,0.04)" : "#f8fafc";
+    const solidCardShadow = dark ? "none" : "0 4px 16px rgba(0,0,0,0.02)";
 
     return (
-      <div className="anim-fadeIn" style={{ padding: "20px 16px 110px", maxWidth: 600, margin: "0 auto" }}>
-        {/* Group Name Header */}
+      <div className="anim-fadeIn" style={{ padding: "24px 16px 110px", maxWidth: 600, margin: "0 auto" }}>
+        {/* Header - Group Name & Leaders */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.5px", color: dark ? "#f8fafc" : "#0f172a" }}>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 900,
+            fontSize: 28,
+            letterSpacing: "-0.6px",
+            color: dark ? "#f8fafc" : "#0f172a"
+          }}>
             {group.name}
           </div>
-        </div>
 
-        {/* Minimal Stat Cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-          <div style={{ padding: "20px 18px", borderRadius: 16, border: `1px solid ${border}`, background: cardBg, boxShadow: "0 2px 10px rgba(0,0,0,0.02)" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.5px" }}>Team Members</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 32, color: dark ? "#f8fafc" : "#0f172a", marginTop: 6 }}>{groupStudents.length}</div>
-          </div>
-          <div style={{ padding: "20px 18px", borderRadius: 16, border: `1px solid ${border}`, background: cardBg, boxShadow: "0 2px 10px rgba(0,0,0,0.02)" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.5px" }}>Registrations</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 32, color: ACCENT, marginTop: 6 }}>{totalRegs}</div>
-          </div>
-        </div>
-
-        {/* Minimal Status Strip */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: mutedTx, letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 10 }}>Stage Status</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            {typeStatus.map(s => (
-              <div key={s.type} style={{
-                flex: 1, padding: "14px 16px", borderRadius: 14, border: `1px solid ${border}`, background: cardBg,
-                display: "flex", alignItems: "center", justifyContent: "space-between"
-              }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{s.type}</span>
-                <span style={{
-                  fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
-                  background: s.locked ? "rgba(225,29,72,0.1)" : "rgba(16,185,129,0.1)",
-                  color: s.locked ? "#f43f5e" : "#10b981"
+          {/* Pro Leader & Asst. Subtitle */}
+          {(leaderStudent || asstStudent) && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginTop: 8,
+              flexWrap: "wrap"
+            }}>
+              {leaderStudent && (
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px 4px 8px",
+                  borderRadius: 20,
+                  background: dark ? "rgba(241, 77, 77, 0.1)" : "rgba(241, 77, 77, 0.06)",
+                  border: "1px solid rgba(241, 77, 77, 0.2)",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: dark ? "#f8fafc" : "#0f172a"
                 }}>
-                  {s.locked ? "LOCKED" : "OPEN"}
-                </span>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f14d4d", boxShadow: "0 0 6px rgba(241, 77, 77, 0.6)" }} />
+                  <span style={{ fontSize: 10, fontWeight: 900, color: "#f14d4d", textTransform: "uppercase", letterSpacing: "0.4px" }}>Leader</span>
+                  <span style={{ width: 1, height: 10, background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)" }} />
+                  <span>{leaderStudent.name}</span>
+                </div>
+              )}
+
+              {asstStudent && (
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px 4px 8px",
+                  borderRadius: 20,
+                  background: dark ? "rgba(59, 130, 246, 0.1)" : "rgba(59, 130, 246, 0.06)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: dark ? "#f8fafc" : "#0f172a"
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6", boxShadow: "0 0 6px rgba(59, 130, 246, 0.6)" }} />
+                  <span style={{ fontSize: 10, fontWeight: 900, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.4px" }}>Asst.</span>
+                  <span style={{ width: 1, height: 10, background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)" }} />
+                  <span>{asstStudent.name}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Solid Borderless Primary Stat Cards Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          {/* Card 1: Team Members */}
+          <div style={{
+            padding: "20px 18px", borderRadius: 18, border: "none",
+            background: solidBg, boxShadow: solidCardShadow
+          }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+              Total Members
+            </div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 34,
+              color: dark ? "#f8fafc" : "#0f172a", marginTop: 4
+            }}>
+              {groupStudents.length}
+            </div>
+          </div>
+
+          {/* Card 2: Total Registrations */}
+          <div style={{
+            padding: "20px 18px", borderRadius: 18, border: "none",
+            background: solidBg, boxShadow: solidCardShadow
+          }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+              Registrations
+            </div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 34,
+              color: ACCENT, marginTop: 4
+            }}>
+              {totalRegs}
+            </div>
+          </div>
+        </div>
+
+        {/* Solid Borderless Session Status Card */}
+        <div style={{
+          padding: "18px 20px", borderRadius: 18, border: "none",
+          background: solidBg, boxShadow: solidCardShadow, marginBottom: 20
+        }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
+            Session Status
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {/* Stage Session */}
+            <div style={{
+              padding: "12px 14px", borderRadius: 14,
+              background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+              display: "flex", alignItems: "center", justifyContent: "space-between"
+            }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Events</div>
               </div>
-            ))}
+              <span style={{
+                fontSize: 10.5, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
+                background: isStageLocked ? "rgba(244,63,94,0.1)" : "rgba(16,185,129,0.1)",
+                color: isStageLocked ? "#f43f5e" : "#10b981"
+              }}>
+                {isStageLocked ? "🔒 Locked" : "🟢 Open"}
+              </span>
+            </div>
+
+            {/* Off-Stage Session */}
+            <div style={{
+              padding: "12px 14px", borderRadius: 14,
+              background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+              display: "flex", alignItems: "center", justifyContent: "space-between"
+            }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Events</div>
+              </div>
+              <span style={{
+                fontSize: 10.5, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
+                background: isOffStageLocked ? "rgba(244,63,94,0.1)" : "rgba(16,185,129,0.1)",
+                color: isOffStageLocked ? "#f43f5e" : "#10b981"
+              }}>
+                {isOffStageLocked ? "🔒 Locked" : "🟢 Open"}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Primary Action Button */}
-        <button onClick={() => { setTab("events"); }} style={{
+        <button onClick={() => { triggerHaptic("medium"); setTab("events"); }} style={{
           width: "100%", padding: "16px", borderRadius: 16, border: "none", cursor: "pointer",
-          background: "linear-gradient(135deg,#f14d4d,#dc2626)", color: "#ffffff",
+          background: "linear-gradient(135deg, #f14d4d 0%, #e11d48 100%)", color: "#ffffff",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 15,
-          boxShadow: "0 8px 24px rgba(241, 77, 77, 0.35)", transition: "transform 0.15s ease",
+          boxShadow: "0 8px 24px rgba(241, 77, 77, 0.35)", transition: "all 0.15s ease"
         }}>
           <Ic name="plus" size={18} /> Register for Events
         </button>
@@ -394,19 +518,23 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   // ── EVENTS TAB ─────────────────────────────────────────────────────────────
   const renderEvents = () => (
     <div className="anim-fadeIn" style={{ padding: "16px 14px 100px", maxWidth: 540, margin: "0 auto" }}>
-      {/* Top Header Row with Stage Toggle */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.4px" }}>Events</div>
+      {/* Page Header & Stage Switcher */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.5px" }}>Events</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: mutedTx, marginTop: 1 }}>{group.name} • {progType} Session</div>
+        </div>
 
-        {/* Stage / Off-Stage Toggle */}
-        <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", borderRadius: 10, padding: 2 }}>
+        {/* Stage / Off-Stage Segmented Toggle */}
+        <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", borderRadius: 10, padding: 3 }}>
           {["Stage", "Off-Stage"].map(t => (
-            <button key={t} onClick={() => { setProgType(t); setCatFilter("Sub-Junior"); }}
+            <button key={t} onClick={() => { triggerHaptic("light"); setProgType(t); setCatFilter("Sub-Junior"); }}
               style={{
-                padding: "5px 11px", border: "none", cursor: "pointer", borderRadius: 8,
+                padding: "5px 12px", border: "none", cursor: "pointer", borderRadius: 8,
                 fontFamily: "inherit", fontSize: 11.5, fontWeight: 800,
-                background: progType === t ? (dark ? "rgba(255,255,255,0.12)" : "#ffffff") : "transparent",
+                background: progType === t ? (dark ? "rgba(255,255,255,0.14)" : "#ffffff") : "transparent",
                 color: progType === t ? (dark ? "#f8fafc" : "#0f172a") : mutedTx,
+                boxShadow: progType === t ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                 transition: "all 0.15s ease",
               }}>
               {t}
@@ -415,30 +543,30 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         </div>
       </div>
 
-      {/* Real-Time Lock Status Warning Banner */}
+      {/* Lock Warning Banner */}
       {locked && (
         <div style={{
-          marginBottom: 12, padding: "10px 14px", borderRadius: 12,
-          background: "rgba(225,29,72,0.1)", border: "1px solid rgba(225,29,72,0.25)",
-          color: "#f43f5e", fontSize: 12.5, fontWeight: 700,
+          marginBottom: 14, padding: "10px 14px", borderRadius: 12,
+          background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.2)",
+          color: "#f43f5e", fontSize: 12, fontWeight: 700,
           display: "flex", alignItems: "center", gap: 8
         }}>
           <span style={{ fontSize: 14 }}>🔒</span>
-          <span>{progType} Registration is currently locked by Admin</span>
+          <span>{progType} registrations are currently locked by Admin</span>
         </div>
       )}
 
-      {/* Segmented Sub-tab switcher */}
-      <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)", borderRadius: 12, padding: 3, marginBottom: 12, border: `1px solid ${border}` }}>
-        <button onClick={() => setEventSubTab("all")} style={{
+      {/* Sub-tab Switcher (All vs Registered) */}
+      <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", borderRadius: 12, padding: 3, marginBottom: 12, border: `1px solid ${border}` }}>
+        <button onClick={() => { triggerHaptic("light"); setEventSubTab("all"); }} style={{
           flex: 1, padding: "8px 10px", cursor: "pointer", borderRadius: 9, border: "none",
           fontWeight: 800, fontSize: 12, textAlign: "center",
           background: eventSubTab === "all" ? ACCENT : "transparent",
           color: eventSubTab === "all" ? "#ffffff" : mutedTx,
           transition: "all 0.15s ease",
-        }}>All ({filtProgs.length})</button>
+        }}>All Programs ({filtProgs.length})</button>
 
-        <button onClick={() => setEventSubTab("mine")} style={{
+        <button onClick={() => { triggerHaptic("light"); setEventSubTab("mine"); }} style={{
           flex: 1, padding: "8px 10px", cursor: "pointer", borderRadius: 9, border: "none",
           fontWeight: 800, fontSize: 12, textAlign: "center",
           background: eventSubTab === "mine" ? ACCENT : "transparent",
@@ -447,71 +575,95 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         }}>Registered ({filtRegs.length})</button>
       </div>
 
-      {/* Category Pills Bar with Remaining Counts */}
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginBottom: 10 }}>
+      {/* Standard Mobile Category Tab Bar */}
+      <div style={{
+        display: "flex",
+        borderBottom: `1px solid ${border}`,
+        marginBottom: 16,
+        position: "relative"
+      }}>
         {CATS.map(cat => {
           const stats = getCatStats(cat, progType);
-          const catLabel = cat === "Sub-Junior" ? "Sub" : cat;
+          const catLabel = cat === "Sub-Junior" ? "Sub-Jr" : cat;
+          const isSelected = catFilter === cat;
           return (
-            <button key={cat} onClick={() => setCatFilter(cat)}
+            <button key={cat} onClick={() => { triggerHaptic("light"); setCatFilter(cat); }}
               style={{
-                padding: "6px 12px", borderRadius: 10, fontSize: 11.5, fontWeight: 800, flexShrink: 0, border: "none", cursor: "pointer",
-                background: catFilter === cat ? (dark ? "rgba(255,255,255,0.12)" : "#0f172a") : (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
-                color: catFilter === cat ? "#ffffff" : mutedTx, transition: "all 0.15s ease",
-                display: "inline-flex", alignItems: "center", gap: 5
+                flex: 1,
+                padding: "10px 4px 12px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                color: isSelected ? (dark ? "#f8fafc" : "#0f172a") : mutedTx,
+                fontWeight: isSelected ? 800 : 600,
+                fontSize: 12,
+                fontFamily: "inherit",
+                transition: "all 0.15s ease"
               }}>
               <span>{catLabel}</span>
               <span style={{
-                fontSize: 10, padding: "1px 5px", borderRadius: 6,
-                background: catFilter === cat ? "rgba(255,255,255,0.2)" : (stats.remaining > 0 ? "rgba(241,77,77,0.14)" : "rgba(16,185,129,0.14)"),
-                color: catFilter === cat ? "#ffffff" : (stats.remaining > 0 ? "#f14d4d" : "#10b981"),
+                fontSize: 9.5, padding: "1px 5px", borderRadius: 6,
+                background: isSelected ? "rgba(241,77,77,0.12)" : (stats.remaining > 0 ? "rgba(241,77,77,0.08)" : "rgba(16,185,129,0.08)"),
+                color: isSelected ? ACCENT : (stats.remaining > 0 ? "#f14d4d" : "#10b981"),
                 fontWeight: 800
               }}>
                 {stats.remaining > 0 ? stats.remaining : "✓"}
               </span>
+
+              {/* Active Tab Underline Indicator */}
+              {isSelected && (
+                <div style={{
+                  position: "absolute",
+                  bottom: -1,
+                  left: "15%",
+                  width: "70%",
+                  height: 3,
+                  borderRadius: "3px 3px 0 0",
+                  background: ACCENT
+                }} />
+              )}
             </button>
           );
         })}
       </div>
 
-
-
-      {locked && (
-        <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.18)", marginBottom: 12, fontSize: 11.5, fontWeight: 700, color: "#f43f5e", display: "flex", alignItems: "center", gap: 6 }}>
-          <span>🔒</span> {progType} registrations locked by admin.
-        </div>
-      )}
-
-      {/* Compact Event Cards List */}
+      {/* Program Cards List */}
       {eventSubTab === "all" ? (
         filtProgs.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 0", color: mutedTx }}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>No programs found</div>
-            <div style={{ fontSize: 11 }}>No {progType} programs in {catFilter}</div>
+          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
+            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>No programs available</div>
+            <div style={{ fontSize: 12 }}>No {progType} programs found in {catFilter}</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {filtProgs.map(p => {
               const reg = groupRegs.find(r => r.programId === p.id);
               return (
                 <div key={p.id} onClick={() => reg ? setViewTarget(reg) : null} style={{
-                  padding: "11px 14px", borderRadius: 12, background: cardBg, border: `1px solid ${border}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-                  cursor: reg ? "pointer" : "default"
+                  padding: "12px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                  cursor: reg ? "pointer" : "default",
+                  transition: "all 0.15s ease",
+                  boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11.5, color: ACCENT, minWidth: 22 }}>{p?.order ? `#${p.order}` : ""}</span>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</div>
                   </div>
                   <div style={{ flexShrink: 0 }}>
                     {reg ? (
-                      <span style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 800, border: "1px solid rgba(16,185,129,0.22)", borderRadius: 9, fontSize: 11, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                      <span style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 800, border: "1px solid rgba(16,185,129,0.2)", borderRadius: 9, fontSize: 11, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 3 }}>
                         ✓ Registered <Ic name="chevronRight" size={12} color="#10b981" />
                       </span>
                     ) : locked ? (
-                      <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 800 }}>Locked</span>
+                      <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 800, background: "rgba(244,63,94,0.08)", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(244,63,94,0.15)" }}>🔒 Locked</span>
                     ) : (
-                      <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setEditTarget(null); setRegForm({ programId: p.id, participantIds: [] }); setRegModal(true); }} style={{ borderRadius: 9, fontWeight: 800, fontSize: 11.5, padding: "5px 12px" }}>
+                      <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); triggerHaptic("medium"); setEditTarget(null); setRegForm({ programId: p.id, participantIds: [] }); setRegModal(true); }} style={{ borderRadius: 9, fontWeight: 800, fontSize: 11.5, padding: "6px 14px" }}>
                         + Register
                       </button>
                     )}
@@ -523,25 +675,27 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         )
       ) : (
         filtRegs.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 0", color: mutedTx }}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>No registrations yet</div>
-            <div style={{ fontSize: 11 }}>Tap "All" above to register your team</div>
+          <div style={{ textAlign: "center", padding: "48px 0", color: mutedTx }}>
+            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>No registrations yet</div>
+            <div style={{ fontSize: 12 }}>Switch to "All Programs" above to register your team</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 70 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 80 }}>
             {filtRegs.map(r => {
               const p = programs.find(pg => pg.id === r.programId);
               return (
-                <div key={r.id} onClick={() => setViewTarget(r)} style={{
-                  padding: "11px 14px", borderRadius: 12, background: cardBg, border: `1px solid ${border}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, cursor: "pointer"
+                <div key={r.id} onClick={() => { triggerHaptic("light"); setViewTarget(r); }} style={{
+                  padding: "12px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 11.5, color: ACCENT, minWidth: 22 }}>{p?.order ? `#${p.order}` : ""}</span>
-                    <span style={{ fontWeight: 700, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</span>
                   </div>
                   <div style={{ flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 9, border: "1px solid rgba(16,185,129,0.22)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 9, border: "1px solid rgba(16,185,129,0.2)", display: "inline-flex", alignItems: "center", gap: 3 }}>
                       Details <Ic name="chevronRight" size={12} color="#10b981" />
                     </span>
                   </div>
@@ -554,12 +708,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
       {/* Floating Pinned Button at Bottom-Right */}
       {eventSubTab === "mine" && (
-        <button onClick={() => setShowCatStatsModal(true)} style={{
+        <button onClick={() => { triggerHaptic("light"); setShowCatStatsModal(true); }} style={{
           position: "fixed",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)",
           right: 16,
           zIndex: 90,
-          padding: "10px 15px",
+          padding: "10px 16px",
           borderRadius: 30,
           background: "linear-gradient(135deg, #f14d4d 0%, #e11d48 100%)",
           color: "#ffffff",
@@ -572,6 +726,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           gap: 6,
           boxShadow: "0 8px 24px rgba(241,77,77,0.38)",
           backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
         }}>
           <span style={{ fontSize: 13 }}>📊</span>
