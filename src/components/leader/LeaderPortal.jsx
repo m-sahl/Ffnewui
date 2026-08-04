@@ -413,12 +413,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               display: "flex", alignItems: "center", justifyContent: "space-between",
               border: `1px solid ${border}`
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 16 }}>🎭</span>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
-                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered</div>
-                </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered</div>
               </div>
               <span style={{
                 fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -426,7 +423,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 color: isStageLocked ? "#f43f5e" : "#10b981",
                 border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
               }}>
-                {isStageLocked ? "🔒 Locked" : "🟢 Open"}
+                {isStageLocked ? "Locked" : "Open"}
               </span>
             </div>
 
@@ -437,12 +434,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               display: "flex", alignItems: "center", justifyContent: "space-between",
               border: `1px solid ${border}`
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 16 }}>🎨</span>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
-                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered</div>
-                </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered</div>
               </div>
               <span style={{
                 fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -450,7 +444,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 color: isOffStageLocked ? "#f43f5e" : "#10b981",
                 border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
               }}>
-                {isOffStageLocked ? "🔒 Locked" : "🟢 Open"}
+                {isOffStageLocked ? "Locked" : "Open"}
               </span>
             </div>
           </div>
