@@ -304,8 +304,8 @@ export const AppProvider = ({ children }) => {
     return !!locks[key];
   };
 
-  const sendMessage = (from, fromName, to, text) => {
-    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName: fromName || from, to: to || "", text, timestamp: Date.now(), read: false };
+  const sendMessage = (from, fromName, to, text, extra = {}) => {
+    const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName: fromName || from, to: to || "", text, timestamp: Date.now(), read: false, ...extra };
     setMessagesState(prev => [...prev, msg]);
     sendConvexMessage(msg).catch(err => console.error("Convex sendMessage error:", err));
   };
@@ -321,7 +321,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const markRead = (toId) => {
-    setMessagesState(prev => prev.map(m => m.to === toId && !m.read ? { ...m, read: true } : m));
+    setMessagesState(prev => prev.map(m => (m.groupId === toId || m.to === toId || (toId === "admin" && m.to === "admin")) && !m.read ? { ...m, read: true } : m));
     markConvexMessageRead({ groupId: toId }).catch(err => console.error("Convex markRead error:", err));
   };
 

@@ -12,9 +12,14 @@ export const send = mutation({
     id: v.string(),
     groupId: v.string(),
     from: v.string(),
+    fromName: v.optional(v.string()),
+    to: v.optional(v.string()),
     text: v.string(),
     timestamp: v.number(),
     read: v.boolean(),
+    mediaType: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    deletedFor: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("messages", args);

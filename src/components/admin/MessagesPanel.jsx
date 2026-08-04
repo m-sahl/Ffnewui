@@ -42,22 +42,21 @@ const MessagesPanel = ({ user, dark, onClose }) => {
   const selectedGroupObj = groups.find(g => g.id === selectedGroup);
 
   const thread = (selectedGroup ? messages.filter(m => !(m.deletedFor||[]).includes("admin")).filter(m =>
-    (m.from === "admin" && m.to === selectedGroup) ||
-    (m.from === selectedGroup && m.to === "admin")
+    m.groupId === selectedGroup || m.from === selectedGroup || m.to === selectedGroup
   ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [])
-  .filter(m => !searchChat.trim() || m.text.toLowerCase().includes(searchChat.toLowerCase()));
+  .filter(m => !searchChat.trim() || (m.text && m.text.toLowerCase().includes(searchChat.toLowerCase())));
 
   const filteredGroups = groups.filter(g =>
     !search.trim() || g.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const unreadFor   = (gId) => messages.filter(m => m.from === gId && m.to === "admin" && !m.read).length;
-  const totalUnread = messages.filter(m => m.to === "admin" && !m.read).length;
+  const unreadFor   = (gId) => messages.filter(m => (m.from === gId || m.groupId === gId) && m.from !== "admin" && !m.read).length;
+  const totalUnread = messages.filter(m => m.from !== "admin" && !m.read).length;
 
   const lastMsg = (gId) => {
     const msgs = messages
       .filter(m => !(m.deletedFor||[]).includes("admin"))
-      .filter(m => (m.from === gId && m.to === "admin") || (m.from === "admin" && m.to === gId))
+      .filter(m => m.groupId === gId || m.from === gId || m.to === gId)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     return msgs[0] || null;
   };
@@ -119,10 +118,10 @@ const MessagesPanel = ({ user, dark, onClose }) => {
 
   // ── Chat wallpaper pattern ───────────────────────────────────────────────────
   const wallpaperStyle = {
-    backgroundImage: dark
-      ? `radial-gradient(circle at 1px 1px, rgba(245,158,11,0.04) 1px, transparent 0)`
-      : `radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0)`,
-    backgroundSize: "20px 20px",
+    background: dark
+      ? "radial-gradient(circle at 1.5px 1.5px, rgba(255, 255, 255, 0.04) 1.5px, transparent 0), #090a12"
+      : "radial-gradient(circle at 1.5px 1.5px, rgba(15, 23, 42, 0.035) 1.5px, transparent 0), #f8fafc",
+    backgroundSize: "28px 28px",
   };
 
   return (
@@ -314,7 +313,19 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                         : `transparent ${bubbleBg} transparent transparent`,
                     }} />
 
-                    <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", paddingRight: isAdmin ? 4 : 0 }}>{m.text}</div>
+                    {m.mediaType === "image" && m.mediaUrl && (
+                      <img src={m.mediaUrl} alt="Attachment" style={{ width: "100%", maxHeight: 220, borderRadius: 10, objectFit: "cover", marginBottom: 4 }} />
+                    )}
+
+                    {m.mediaType === "audio" && m.mediaUrl && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                        <audio controls src={m.mediaUrl} style={{ height: 32, maxWidth: 200 }} />
+                      </div>
+                    )}
+
+                    {m.text && m.text !== "🎙️ Voice Message" && m.text !== "📷 Image" && (
+                      <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", paddingRight: isAdmin ? 4 : 0 }}>{m.text}</div>
+                    )}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3, marginTop: 3 }}>
                       <span style={{ fontSize: 10, opacity: 0.65 }}>{fmtTime(m.timestamp)}</span>
                       {isAdmin && (
