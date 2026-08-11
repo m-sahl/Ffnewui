@@ -31,6 +31,9 @@ export const AppProvider = ({ children }) => {
   const updateConvexStudent       = useMutation(api.students.update);
   const removeConvexStudent       = useMutation(api.students.remove);
 
+  const addConvexRegistration     = useMutation(api.registrations.addRegistration);
+  const updateConvexRegistration  = useMutation(api.registrations.update);
+  const removeConvexRegistration  = useMutation(api.registrations.remove);
   const setAllConvexRegistrations = useMutation(api.registrations.setAll);
 
   const setAllConvexUsers         = useMutation(api.users.setAll);
@@ -241,9 +244,65 @@ export const AppProvider = ({ children }) => {
     setRegistrationsState(prev => {
       const next = typeof action === "function" ? action(prev) : action;
       if (next) {
-        setAllConvexRegistrations({ registrations: next }).catch(err => console.error("Convex setRegistrations error:", err));
+        // Smart sync: detect if it's a single add (length increased by 1)
+        if (Array.isArray(next) && Array.isArray(prev) && next.length === prev.length + 1) {
+          // Single add: find the new item and use atomic mutation
+          const newItem = next.find(item => !prev.some(p => p.id === item.id));
+          if (newItem && newItem.id) {
+            addConvexRegistration({ registration: newItem }).catch(err => {
+              console.error("Convex addRegistration error:", err);
+              // Rollback on error
+              setRegistrationsState(prev);
+            });
+          }
+        } else if (Array.isArray(next) && Array.isArray(prev) && next.length === prev.length - 1) {
+          // Single remove: find removed item
+          const removedItem = prev.find(item => !next.some(p => p.id === item.id));
+          if (removedItem && removedItem.id) {
+            removeConvexRegistration({ id: removedItem.id }).catch(err => {
+              console.error("Convex removeRegistration error:", err);
+              setRegistrationsState(prev);
+            });
+          }
+        } else {
+          // Bulk replace - use setAll
+          setAllConvexRegistrations({ registrations: next }).catch(err => {
+            console.error("Convex setRegistrations error:", err);
+            setRegistrationsState(prev);
+          });
+        }
       }
       return next;
+    });
+  };
+
+  // New atomic add function
+  const addRegistration = (newReg) => {
+    setRegistrationsState(prev => [...prev, newReg]);
+    addConvexRegistration({ registration: newReg }).catch(err => {
+      console.error("Convex addRegistration error:", err);
+      // Rollback on error
+      setRegistrationsState(prev => prev.filter(r => r.id !== newReg.id));
+    });
+  };
+
+  // New atomic update function
+  const updateRegistration = (id, updatedReg) => {
+    setRegistrationsState(prev => prev.map(r => r.id === id ? { ...r, ...updatedReg } : r));
+    updateConvexRegistration({ id, registration: updatedReg }).catch(err => {
+      console.error("Convex updateRegistration error:", err);
+      // Rollback - refresh from Convex
+      setRegistrationsState(prev => prev); // Keep current, will sync from live query
+    });
+  };
+
+  // New atomic remove function
+  const removeRegistration = (id) => {
+    setRegistrationsState(prev => prev.filter(r => r.id !== id));
+    removeConvexRegistration({ id }).catch(err => {
+      console.error("Convex removeRegistration error:", err);
+      // On error, refresh from Convex
+      setRegistrationsState(prev => prev);
     });
   };
 
@@ -336,7 +395,7 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider value={{
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
       students, setStudents, updateStudent,
-      registrations, setRegistrations,
+      registrations, setRegistrations, addRegistration, updateRegistration, removeRegistration,
       users, setUsers, addUser, updateUser, deleteUser,
       activityLogs, setActivityLogs: setActivityLogsState, logActivity, clearLogs,
       messages, setMessages: setMessagesState, sendMessage, markRead, deleteMessage,

@@ -129,7 +129,7 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { programs, students, registrations, setRegistrations, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked } = useApp();
+  const { programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked } = useApp();
 
   const [tab, setTab]                     = useState("home");
   const [progType, setProgType]           = useState("Stage");
@@ -225,11 +225,13 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     const alreadyExists = !editTarget && groupRegs.some(r => r.programId === regForm.programId);
     if (alreadyExists) return;
     if (editTarget) {
-      setRegistrations(prev => prev.map(r => r.id === editTarget ? { ...r, ...regForm } : r));
+      // Use atomic update for existing registration
+      updateRegistration(editTarget, regForm);
       logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
     } else {
+      // Use atomic add for new registration
       const newReg = { id: "r-" + Math.random().toString(36).substr(2, 5), groupId: group.id, ...regForm };
-      setRegistrations(prev => [...prev, newReg]);
+      addRegistration(newReg);
       logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
     }
     setRegModal(false);
@@ -241,7 +243,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     const pType = (p?.type || p?.session || "Stage").toLowerCase();
     if (isLocked(group.id, pType)) return;
 
-    setRegistrations(prev => prev.filter(r => r.id !== delConfirm));
+    // Use atomic remove function
+    removeRegistration(delConfirm);
     logActivity(user.name, "Deleted registration", `${p?.name || "Program"} for ${group.name}`);
     setDelConfirm(null);
   };

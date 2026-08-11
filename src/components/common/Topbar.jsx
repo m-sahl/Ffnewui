@@ -3,9 +3,9 @@ import Ic from "./Ic";
 import { ACCENT } from "../../styles/DesignTokens";
 import { useApp } from "../../context/AppContext";
 
-const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, onBack, isAdmin, verify, pinLength }) => {
+const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength }) => {
   const handleSignOut = () => {
-    const doLogout = onLogout || onBack;
+    const doLogout = onLogout;
     if (typeof doLogout === "function") doLogout();
     onClose();
   };
@@ -31,8 +31,38 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, onBack, isAd
   const rowBg  = dark ? "rgba(255,255,255,0.022)" : "rgba(255,255,255,0.8)";
 
   return (
-    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 390 }}>
+    <div 
+      className="modal-bg" 
+      onClick={e => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.7)",
+        backdropFilter: "blur(8px)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        animation: "fadeIn 0.2s ease",
+      }}
+    >
+      <div 
+        className="modal" 
+        style={{ 
+          maxWidth: 390,
+          width: "100%",
+          maxHeight: "90vh",
+          overflow: "auto",
+          background: dark ? "#0e0f1f" : "#ffffff",
+          border: `1px solid ${dark ? "rgba(241,77,77,0.2)" : "rgba(241,77,77,0.15)"}`,
+          borderRadius: 22,
+          padding: 24,
+          boxShadow: "0 28px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(241,77,77,0.08)",
+          animation: "modalIn 0.28s cubic-bezier(0.34,1.56,0.64,1)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
           <div>
             <div className="ff-display fw-800" style={{ fontSize: 18 }}>Settings</div>
@@ -167,8 +197,9 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, onBack, isAd
           </div>
         )}
       </div>
+    </div>
 
-      {/* Activity Log sheet */}
+    {/* Activity Log sheet */}
       {showLog && (
         <div className="modal-bg" onClick={() => setShowLog(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
