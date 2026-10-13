@@ -77,7 +77,8 @@ export default defineSchema({
     timestamp: v.number(),
     read: v.boolean(),
     mediaType: v.optional(v.string()),
-    mediaUrl: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),          // LEGACY base64 data URL (see messagesMigrate)
+    mediaStorageId: v.optional(v.id("_storage")),
     deletedFor: v.optional(v.array(v.string())),
   }).index("by_mid", ["id"]).index("by_from", ["from"]).index("by_to", ["to"]).index("by_group", ["groupId"]),
 

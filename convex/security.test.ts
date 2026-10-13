@@ -2,7 +2,8 @@
 import { convexTest } from "convex-test";
 import { describe, it, expect, beforeEach } from "vitest";
 import schema from "./schema";
-import { api } from "./_generated/api";
+import { isAllowedMedia } from "./helpers";
+import { api, internal } from "./_generated/api";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -125,5 +126,36 @@ describe("authorization", () => {
     await t.mutation(api.locks.setLock, { token: adminToken, groupId: "g1", session: "Day1", locked: true, type: "g1_day1" });
     await expect(t.mutation(api.registrations.update, { token: t1, id: "r1", registration: { participantIds: [] } })).rejects.toThrow("locked");
     await expect(t.mutation(api.registrations.remove, { token: t1, id: "r1" })).rejects.toThrow("locked");
+  });
+
+  it("media validation: type must match the file, size capped, inline URLs rejected", async () => {
+    const ok = (ct: string | undefined, size: number, mt: string | undefined) => isAllowedMedia({ contentType: ct, size }, mt);
+    expect(ok("image/jpeg", 1000, "image")).toBe(true);
+    expect(ok("audio/webm;codecs=opus", 1000, "audio")).toBe(true);
+    expect(ok("text/html", 10, "image")).toBe(false);        // wrong content type
+    expect(ok("audio/webm", 10, "image")).toBe(false);       // declared type mismatch
+    expect(ok(undefined, 10, "image")).toBe(false);          // no content type
+    expect(ok("image/png", 6 * 1024 * 1024, "image")).toBe(false); // too big
+    expect(ok("image/png", 10, "video")).toBe(false);
+    expect(isAllowedMedia(null, "image")).toBe(false);
+
+    const base = { token: adminToken, groupId: "g1", from: "admin", to: "g1", text: "pic", timestamp: 1, read: false, mediaType: "image" };
+    await expect(t.mutation(api.messages.send, { ...base, id: "m3", mediaUrl: "data:image/png;base64,AAAA" })).rejects.toThrow("Invalid media");
+  });
+
+  it("messages with a storage file are returned with a resolvable URL", async () => {
+    const sid = await t.run((ctx: any) => ctx.storage.store(new Blob(["x"], { type: "image/png" })));
+    await t.run((ctx: any) => ctx.db.insert("messages", { id: "mm", groupId: "g1", from: "admin", to: "g1", text: "pic", timestamp: 1, read: false, mediaType: "image", mediaStorageId: sid }));
+    const msgs: any[] = await t.query(api.messages.get, { token: adminToken });
+    expect(msgs[0].mediaUrl).toMatch(/^https?:/);
+  });
+
+  it("migrates legacy base64 messages into storage", async () => {
+    await t.run((ctx: any) => ctx.db.insert("messages", { id: "old", groupId: "admin", from: "g1", to: "admin", text: "", timestamp: 1, read: true, mediaType: "image", mediaUrl: "data:image/png;base64,iVBORw0KGgo=" }));
+    const r: any = await t.action(internal.messagesMigrate.run, {});
+    expect(r.moved).toBe(1);
+    const doc: any = await t.run((ctx: any) => ctx.db.query("messages").first());
+    expect(doc.mediaUrl).toBeUndefined();
+    expect(doc.mediaStorageId).toBeTruthy();
   });
 });

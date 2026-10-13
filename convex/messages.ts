@@ -1,6 +1,15 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { getSession, requireSession } from "./helpers";
+import { getSession, requireSession, isAllowedMedia } from "./helpers";
+
+// Step 1 of sending media: client uploads the file straight to Convex storage with this URL
+export const generateUploadUrl = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireSession(ctx, args.token);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 // Admin sees every thread. A group leader only sees messages they sent or that were addressed to them.
 export const get = query({
@@ -8,21 +17,34 @@ export const get = query({
   handler: async (ctx, args) => {
     const s = await getSession(ctx, args.token);
     if (!s) return [];
-    if (s.role === "admin") return await ctx.db.query("messages").collect();
-    const gid = s.groupId;
-    if (!gid) return [];
-    const [a, b, c] = await Promise.all([
-      ctx.db.query("messages").withIndex("by_from", (q) => q.eq("from", gid)).collect(),
-      ctx.db.query("messages").withIndex("by_to", (q) => q.eq("to", gid)).collect(),
-      ctx.db.query("messages").withIndex("by_group", (q) => q.eq("groupId", gid)).collect(),
-    ]);
-    const seen = new Set<string>();
-    return [...a, ...b, ...c].filter((m) => (seen.has(m._id) ? false : (seen.add(m._id), true)));
+    let rows;
+    if (s.role === "admin") {
+      // newest N only — the subscription must not grow forever
+      rows = (await ctx.db.query("messages").order("desc").take(ADMIN_LIMIT)).reverse();
+    } else {
+      const gid = s.groupId;
+      if (!gid) return [];
+      const [a, b, c] = await Promise.all([
+        ctx.db.query("messages").withIndex("by_from", (q) => q.eq("from", gid)).order("desc").take(GROUP_LIMIT),
+        ctx.db.query("messages").withIndex("by_to", (q) => q.eq("to", gid)).order("desc").take(GROUP_LIMIT),
+        ctx.db.query("messages").withIndex("by_group", (q) => q.eq("groupId", gid)).order("desc").take(GROUP_LIMIT),
+      ]);
+      const seen = new Set<string>();
+      rows = [...a, ...b, ...c]
+        .filter((m) => (seen.has(m._id) ? false : (seen.add(m._id), true)))
+        .sort((x, y) => x.timestamp - y.timestamp)
+        .slice(-GROUP_LIMIT);
+    }
+    // Files live in Convex storage; hand the client a URL instead of an inline blob
+    return await Promise.all(
+      rows.map(async (m) => (m.mediaStorageId ? { ...m, mediaUrl: (await ctx.storage.getUrl(m.mediaStorageId)) ?? undefined } : m))
+    );
   },
 });
 
+const ADMIN_LIMIT = 500;
+const GROUP_LIMIT = 300;
 const MAX_TEXT = 4000;
-const MAX_MEDIA = 900_000; // stays under Convex's 1MB document limit
 
 export const send = mutation({
   args: {
@@ -37,18 +59,22 @@ export const send = mutation({
     read: v.boolean(),
     mediaType: v.optional(v.string()),
     mediaUrl: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
     deletedFor: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const s = await requireSession(ctx, args.token);
     if (args.text.length > MAX_TEXT) throw new Error("Message too long");
 
-    // Media must be an inline image/audio data URL — blocks javascript:/external URLs
-    let mediaType = args.mediaType, mediaUrl = args.mediaUrl;
-    if (mediaUrl) {
-      const okType = mediaType === "image" ? "data:image/" : mediaType === "audio" ? "data:audio/" : null;
-      if (!okType || !mediaUrl.startsWith(okType) || mediaUrl.length > MAX_MEDIA) throw new Error("Invalid media");
-    } else { mediaType = undefined; mediaUrl = undefined; }
+    // Media must be a file in Convex storage, of the declared type and a sane size.
+    // Inline URLs (data:/javascript:/external) are rejected outright.
+    let mediaType = args.mediaType;
+    const mediaStorageId = args.mediaStorageId;
+    if (args.mediaUrl) throw new Error("Invalid media");
+    if (mediaStorageId) {
+      const meta = await ctx.db.system.get(mediaStorageId);
+      if (!isAllowedMedia(meta, mediaType)) throw new Error("Invalid media");
+    } else { mediaType = undefined; }
 
     // Sender identity and routing are decided by the server, never trusted from the client
     let from: string, to: string, groupId: string, fromName: string | undefined;
@@ -63,7 +89,7 @@ export const send = mutation({
     await ctx.db.insert("messages", {
       id: args.id, groupId, from, fromName, to,
       text: args.text, timestamp: Date.now(), read: false,
-      mediaType, mediaUrl,
+      mediaType, mediaStorageId,
     });
   },
 });
@@ -87,6 +113,7 @@ export const deleteMsg = mutation({
     if (!msg) return;
     // Leaders may only delete messages they sent
     if (s.role !== "admin" && msg.from !== s.groupId) throw new Error("Forbidden");
+    if (msg.mediaStorageId) await ctx.storage.delete(msg.mediaStorageId);
     await ctx.db.delete(msg._id);
   },
 });

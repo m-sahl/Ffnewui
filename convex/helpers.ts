@@ -59,4 +59,15 @@ export async function requireAdmin(ctx: Ctx, token?: string) {
   return s;
 }
 
+// Chat attachments: declared type must match the stored file's content type, and size is capped
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const isAllowedMedia = (
+  meta: { contentType?: string | null; size: number } | null | undefined,
+  mediaType: string | undefined,
+) =>
+  !!meta &&
+  (mediaType === "image" || mediaType === "audio") &&
+  (meta.contentType ?? "").startsWith(`${mediaType}/`) &&
+  meta.size <= MAX_FILE_BYTES;
+
 export const isValidGroupPin = (pin: string) => /^\d{3,8}$/.test(pin);

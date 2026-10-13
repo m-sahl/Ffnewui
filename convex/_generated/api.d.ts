@@ -13,6 +13,7 @@ import type * as helpers from "../helpers.js";
 import type * as locks from "../locks.js";
 import type * as logs from "../logs.js";
 import type * as messages from "../messages.js";
+import type * as messagesMigrate from "../messagesMigrate.js";
 import type * as programs from "../programs.js";
 import type * as registrations from "../registrations.js";
 import type * as students from "../students.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   locks: typeof locks;
   logs: typeof logs;
   messages: typeof messages;
+  messagesMigrate: typeof messagesMigrate;
   programs: typeof programs;
   registrations: typeof registrations;
   students: typeof students;

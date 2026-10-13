@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { toUploadBlob } from "../utils/media";
 
 export const INITIAL_PROGRAMS      = [];
 export const INITIAL_STUDENTS      = {};
@@ -43,6 +44,7 @@ export const AppProvider = ({ children, token }) => {
 
   const setConvexLock             = authed(useMutation(api.locks.setLock));
   const sendConvexMessage         = authed(useMutation(api.messages.send));
+  const getUploadUrl              = authed(useMutation(api.messages.generateUploadUrl));
   const markConvexMessageRead     = authed(useMutation(api.messages.markRead));
   const deleteConvexMessage       = authed(useMutation(api.messages.deleteMsg));
   const addConvexLog              = authed(useMutation(api.logs.add));
@@ -106,9 +108,9 @@ export const AppProvider = ({ children, token }) => {
 
   const GROUP_COLORS = ["#f14d4d", "#3b82f6", "#f59e0b", "#1dd183", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];
 
-  const groups = users
+  const groups = useMemo(() => users
     .filter(u => u.role === "group")
-    .map((u, i) => ({ id: u.id, name: u.name, color: u.color || GROUP_COLORS[i % GROUP_COLORS.length] }));
+    .map((u, i) => ({ id: u.id, name: u.name, color: u.color || GROUP_COLORS[i % GROUP_COLORS.length] })), [users]);
 
   // Helper Setters (Updates both Local State & Convex Cloud)
   const setPrograms = (action) => {
@@ -310,8 +312,23 @@ export const AppProvider = ({ children, token }) => {
 
   const sendMessage = (from, fromName, to, text, extra = {}) => {
     const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName: fromName || from, to: to || "", text, timestamp: Date.now(), read: false, ...extra };
-    setMessagesState(prev => [...prev, msg]);
-    sendConvexMessage(msg).catch(err => console.error("Convex sendMessage error:", err));
+    setMessagesState(prev => [...prev, msg]); // optimistic: shows the local data URL instantly
+    (async () => {
+      const payload = { ...msg };
+      if (msg.mediaUrl?.startsWith("data:")) {
+        // Upload the file to Convex storage; the message then carries only a storage id
+        const blob = await toUploadBlob(msg.mediaUrl, msg.mediaType);
+        const res = await fetch(await getUploadUrl(), { method: "POST", headers: { "Content-Type": blob.type || (msg.mediaType === "image" ? "image/jpeg" : "audio/webm") }, body: blob });
+        if (!res.ok) throw new Error("Upload failed");
+        const { storageId } = await res.json();
+        payload.mediaStorageId = storageId;
+        delete payload.mediaUrl;
+      }
+      await sendConvexMessage(payload);
+    })().catch(err => {
+      console.error("Convex sendMessage error:", err);
+      setMessagesState(prev => prev.filter(m => m.id !== msg.id)); // roll back the optimistic message
+    });
   };
 
   const deleteMessage = (id, mode, userId) => {
@@ -336,8 +353,9 @@ export const AppProvider = ({ children, token }) => {
     return (maxUsed + 1).toString();
   };
 
-  return (
-    <AppContext.Provider value={{
+  // Consumers re-render only when data (or the session) actually changes. Every function in here either
+  // uses functional setState or reads one of these deps, so no stale closures.
+  const value = useMemo(() => ({
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
       students, setStudents, updateStudent,
       registrations, setRegistrations, addRegistration, updateRegistration, removeRegistration,
@@ -346,7 +364,10 @@ export const AppProvider = ({ children, token }) => {
       messages, setMessages: setMessagesState, sendMessage, markRead, deleteMessage,
       locks, toggleLock, isLocked,
       nextChestNo,
-    }}>
+  }), [groups, programs, students, registrations, users, activityLogs, messages, locks, token]);
+
+  return (
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

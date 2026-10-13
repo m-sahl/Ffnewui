@@ -2,7 +2,6 @@ import { ACCENT } from "./DesignTokens";
 
 const GlobalStyles = ({ dark }) => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800;900&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html { scroll-behavior: smooth; }
@@ -38,6 +37,7 @@ const GlobalStyles = ({ dark }) => (
     /* ── Keyframes ────────────────────────────────────── */
     @keyframes splashFadeIn { from { opacity:0; transform:scale(0.85) translateY(24px); } to { opacity:1; transform:scale(1) translateY(0); } }
     @keyframes fadeUp        { from { opacity:0; transform:translateY(28px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes spin          { to { transform: rotate(360deg); } }
     @keyframes fadeIn        { from { opacity:0; } to { opacity:1; } }
     @keyframes slideDown     { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
     @keyframes slideRight    { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }

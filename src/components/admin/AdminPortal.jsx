@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
 import PrintSection from "./PrintSection";
-import MessagesPanel from "./MessagesPanel";
+const MessagesPanel = lazy(() => import("./MessagesPanel"));
 import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
 
 const NAV = [
@@ -521,7 +521,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         </div>
       </div>
 
-      {showMessages && <MessagesPanel user={user} dark={dark} onClose={() => setShowMessages(false)} />}
+      {showMessages && <Suspense fallback={null}><MessagesPanel user={user} dark={dark} onClose={() => setShowMessages(false)} /></Suspense>}
 
       {/* ── Modals ── */}
       {stuModal && (
