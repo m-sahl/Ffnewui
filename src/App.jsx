@@ -7,7 +7,9 @@ import SplashScreen from "./components/common/SplashScreen";
 import LandingPage from "./components/landing/LandingPage";
 const LeaderPortal = lazy(() => import("./components/leader/LeaderPortal"));
 const AdminPortal  = lazy(() => import("./components/admin/AdminPortal"));
+import AdminLogin from "./components/landing/AdminLogin";
 import { ToastProvider } from "./components/common/Toast";
+import { usePath, navigate, resolveRoute } from "./utils/router";
 
 const SESSION_KEY = "ff_session"; // { token, user } — user has NO pin; token is validated server-side
 
@@ -32,14 +34,22 @@ const Routes = ({ session, dark, setDark, onLogin, onLogout }) => {
   useEffect(() => { if (session && me === null) onLogout(); }, [me, session]);
 
   const user = session?.user || null;
-  if (!user) return <LandingPage dark={dark} onLeaderLogin={onLogin} onAdminClick={onLogin} />;
-  if (user.role === "group") {
+  const path = usePath();
+  const { view, redirect } = resolveRoute(path, user?.role);
+  // Keep the URL in sync with who is signed in (/admin vs /leader)
+  useEffect(() => { if (redirect) navigate(redirect, true); }, [redirect]);
+
+  if (view === "adminLogin") return <AdminLogin dark={dark} onLogin={onLogin} />;
+  if (view === "landing")    return <LandingPage dark={dark} onLeaderLogin={onLogin} />;
+  if (view === "leader") {
     return (
-      <Suspense fallback={<PortalFallback />}><LeaderPortal
-        user={user}
-        group={groups.find(g => g.id === user.groupId) || { id: user.groupId, name: user.name, color: "#f14d4d" }}
-        dark={dark} setDark={setDark} onBack={onLogout}
-      /></Suspense>
+      <Suspense fallback={<PortalFallback />}>
+        <LeaderPortal
+          user={user}
+          group={groups.find(g => g.id === user.groupId) || { id: user.groupId, name: user.name, color: "#f14d4d" }}
+          dark={dark} setDark={setDark} onBack={onLogout}
+        />
+      </Suspense>
     );
   }
   return <Suspense fallback={<PortalFallback />}><AdminPortal user={user} dark={dark} setDark={setDark} onBack={onLogout} /></Suspense>;
