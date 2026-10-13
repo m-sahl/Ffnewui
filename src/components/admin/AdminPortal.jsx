@@ -20,7 +20,7 @@ const Tag = ({ label, dark }) => (
 );
 
 // Thin wrapper — just the gear icon that opens Topbar's SettingsPanel
-const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
+const SettingsBtn = ({ dark, setDark, onLogout }) => {
   const [open, setOpen] = React.useState(false);
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
   const border  = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
@@ -42,7 +42,6 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
           dark={dark} setDark={setDark}
           context="Admin mode · Full access"
           onLogout={onLogout} isAdmin
-          verify={(val) => val === userPin}
           onSettingsClose={() => setOpen(false)}
           _forceOpen={open}
         />
@@ -52,7 +51,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo } = useApp();
 
   const [view, setView]               = useState("students");
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
@@ -141,16 +140,18 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
   // ── Group ops ────────────────────────────────────────────────────────────
   const saveUser = () => {
-    if (!userForm.name.trim() || !userForm.pin.trim()) return;
+    if (!userForm.name.trim() || !/^\d{3,8}$/.test(userForm.pin.trim())) return; // server enforces the same rule
     const id = "u-" + Math.random().toString(36).substr(2, 5);
     addUser({ id, name: userForm.name.trim(), pin: userForm.pin.trim(), role: "group", groupId: id });
     logActivity(user.name, "Added group", userForm.name);
     setUserModal(false); setUserForm({ name: "", pin: "" });
   };
-  const openEditUser  = (u) => { setEditingUser(u); setEditUserForm({ name: u.name, pin: u.pin }); setEditUserModal(true); };
+  const openEditUser  = (u) => { setEditingUser(u); setEditUserForm({ name: u.name, pin: "" }); setEditUserModal(true); };
   const saveEditUser  = () => {
-    if (!editUserForm.name.trim() || !editUserForm.pin.trim()) return;
-    updateUser(editingUser.id, { name: editUserForm.name.trim(), pin: editUserForm.pin.trim() });
+    if (!editUserForm.name.trim()) return;
+    if (editUserForm.pin.trim() && !/^\d{3,8}$/.test(editUserForm.pin.trim())) return;
+    // PIN is write-only: blank means "keep the current PIN"
+    updateUser(editingUser.id, { name: editUserForm.name.trim(), ...(editUserForm.pin.trim() ? { pin: editUserForm.pin.trim() } : {}) });
     logActivity(user.name, "Edited group", editUserForm.name);
     setEditUserModal(false); setEditingUser(null);
   };
@@ -467,7 +468,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             <Ic name="message" size={15} />
             {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: ACCENT, color: "#ffffff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
           </button>
-          <SettingsBtn dark={dark} setDark={setDark} userPin={user.pin} onLogout={onBack} />
+          <SettingsBtn dark={dark} setDark={setDark} onLogout={onBack} />
         </div>
       </div>
 
@@ -561,10 +562,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         <Modal title="Add Group" onClose={() => setUserModal(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div><label className="label">Group Name</label><input type="text" className="input" placeholder="e.g. Team Alpha" value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} autoFocus /></div>
-            <div><label className="label">PIN / Password</label><input type="text" className="input" placeholder="e.g. 1234" value={userForm.pin} onChange={e => setUserForm({ ...userForm, pin: e.target.value })} autoComplete="new-password" /></div>
+            <div><label className="label">PIN / Password</label><input type="password" inputMode="numeric" className="input" placeholder="3-8 digits, e.g. 1234" value={userForm.pin} onChange={e => setUserForm({ ...userForm, pin: e.target.value })} autoComplete="new-password" /></div>
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setUserModal(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveUser} disabled={!userForm.name.trim() || !userForm.pin.trim()}>Add Group</button>
+              <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveUser} disabled={!userForm.name.trim() || !/^\d{3,8}$/.test(userForm.pin.trim())}>Add Group</button>
             </div>
           </div>
         </Modal>
@@ -574,10 +575,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         <Modal title="Edit Group" onClose={() => { setEditUserModal(false); setEditingUser(null); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div><label className="label">Group Name</label><input type="text" className="input" value={editUserForm.name} onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })} autoFocus /></div>
-            <div><label className="label">PIN / Password</label><input type="text" className="input" value={editUserForm.pin} onChange={e => setEditUserForm({ ...editUserForm, pin: e.target.value })} autoComplete="new-password" /></div>
+            <div><label className="label">PIN / Password</label><input type="password" inputMode="numeric" className="input" placeholder="Leave blank to keep current PIN" value={editUserForm.pin} onChange={e => setEditUserForm({ ...editUserForm, pin: e.target.value })} autoComplete="new-password" /></div>
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => { setEditUserModal(false); setEditingUser(null); }}>Cancel</button>
-              <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveEditUser} disabled={!editUserForm.name.trim() || !editUserForm.pin.trim()}>Save Changes</button>
+              <button className="btn btn-primary" style={{ flex: 2, height: 44 }} onClick={saveEditUser} disabled={!editUserForm.name.trim()}>Save Changes</button>
             </div>
           </div>
         </Modal>

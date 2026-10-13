@@ -9,7 +9,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
     if (typeof doLogout === "function") doLogout();
     onClose();
   };
-  const { users, setUsers, activityLogs, clearLogs } = useApp();
+  const { activityLogs, clearLogs, changePassword } = useApp();
   const [confirming, setConfirming]         = useState(false);
   const [changingPwd, setChangingPwd]       = useState(false);
   const [newPwd, setNewPwd]                 = useState("");
@@ -19,10 +19,14 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   const [showLog, setShowLog]               = useState(false);
   const [clearLogConfirm, setClearLogConfirm] = useState(false);
 
-  const handleChangePassword = () => {
-    if (!newPwd.trim()) { setPwdError("Password cannot be empty."); return; }
+  const handleChangePassword = async () => {
+    if (newPwd.trim().length < 8) { setPwdError("Password must be at least 8 characters."); return; }
     if (newPwd !== newPwdConfirm) { setPwdError("Passwords do not match."); return; }
-    setUsers(prev => prev.map(u => u.role === "admin" ? { ...u, pin: newPwd.trim() } : u));
+    try {
+      await changePassword(newPwd.trim());
+    } catch {
+      setPwdError("Could not update password. Please try again."); return;
+    }
     setPwdSuccess(true); setPwdError(""); setNewPwd(""); setNewPwdConfirm("");
     setTimeout(() => { setPwdSuccess(false); setChangingPwd(false); }, 1500);
   };
@@ -31,6 +35,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   const rowBg  = dark ? "rgba(255,255,255,0.022)" : "rgba(255,255,255,0.8)";
 
   return (
+    <>
     <div 
       className="modal-bg" 
       onClick={e => e.target === e.currentTarget && onClose()}
@@ -251,7 +256,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

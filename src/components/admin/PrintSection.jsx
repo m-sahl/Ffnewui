@@ -3,6 +3,9 @@ import { useApp } from "../../context/AppContext";
 import { ACCENT, CATS } from "../../styles/DesignTokens";
 import Ic from "../common/Ic";
 
+// Escape user-controlled text before interpolating into the print HTML (prevents stored XSS)
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 const PrintSection = ({ dark }) => {
   const { programs, students, registrations, groups } = useApp();
   const [progType, setProgType] = useState("Stage");
@@ -51,9 +54,9 @@ const PrintSection = ({ dark }) => {
   // ── Print HTML generator ───────────────────────────────────────────────────
   const buildSheet = (id) => {
     const festName = "FestFlow";
-    const progName = prog?.name || "";
-    const progCat  = prog?.category || "";
-    const progSess = prog?.session  || "";
+    const progName = esc(prog?.name || "");
+    const progCat  = esc(prog?.category || "");
+    const progSess = esc(prog?.session  || "");
     const total    = participants.length;
 
     const header = `
@@ -70,9 +73,9 @@ const PrintSection = ({ dark }) => {
     if (id === "call") {
       const rows = participants.map((p, i) => `
         <tr class="${i % 2 === 0 ? "even" : ""}">
-          <td class="chest">${p.chestNo}</td>
-          <td class="name">${p.name}</td>
-          <td>${p.groupName || ""}</td>
+          <td class="chest">${esc(p.chestNo)}</td>
+          <td class="name">${esc(p.name)}</td>
+          <td>${esc(p.groupName)}</td>
         </tr>`).join("") || `<tr><td colspan="3" class="empty">No participants registered</td></tr>`;
       return `
         <div class="sheet">
@@ -88,8 +91,8 @@ const PrintSection = ({ dark }) => {
     if (id === "code") {
       const rows = participants.map((p, i) => `
         <tr class="${i % 2 === 0 ? "even" : ""}">
-          <td class="chest">${p.chestNo}</td>
-          <td class="name">${p.name}</td>
+          <td class="chest">${esc(p.chestNo)}</td>
+          <td class="name">${esc(p.name)}</td>
           <td class="blank c"></td>
           <td class="blank sign"></td>
         </tr>`).join("") || `<tr><td colspan="4" class="empty">No participants registered</td></tr>`;
@@ -105,7 +108,7 @@ const PrintSection = ({ dark }) => {
     }
 
     if (id === "valuation") {
-      const critHeaders = criteria.map(c => `<th class="c">${c}</th>`).join("") +
+      const critHeaders = criteria.map(c => `<th class="c">${esc(c)}</th>`).join("") +
         `<th class="c">Total</th><th class="c">Rank</th>`;
       const critCells   = criteria.map(() => `<td class="blank c"></td>`).join("") +
         `<td class="blank c"></td><td class="blank c"></td>`;
@@ -162,7 +165,7 @@ const PrintSection = ({ dark }) => {
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>${prog?.name || "Print"} — FestFlow</title>
+  <title>${esc(prog?.name || "Print")} — FestFlow</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Times New Roman', serif; background: #f0f0f0; color: #000; }

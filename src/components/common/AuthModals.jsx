@@ -19,12 +19,17 @@ export const NumPinModal = ({ title, subtitle, onSuccess, onClose, dark, verify,
     setPin(val.slice(0, pinLength));
   };
 
-  const attempt = (val) => {
-    const res = verify(val);
+  const busy = useRef(false); // blocks double-submits while the server call is in flight
+
+  const attempt = async (val) => {
+    if (busy.current) return;
+    busy.current = true;
+    let res = null;
+    try { res = await verify(val); } catch { res = null; }
     if (res) onSuccess(res);
     else {
       setShaking(true); setError(true);
-      setTimeout(() => { setPin(""); setError(false); setShaking(false); inputRef.current?.focus(); }, 700);
+      setTimeout(() => { setPin(""); setError(false); setShaking(false); busy.current = false; inputRef.current?.focus(); }, 700);
     }
   };
 
@@ -77,12 +82,17 @@ export const TextPinModal = ({ title, subtitle, onSuccess, onClose, dark, verify
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
-  const attempt = () => {
-    const res = verify(val);
+  const busy = useRef(false);
+
+  const attempt = async () => {
+    if (busy.current || !val) return;
+    busy.current = true;
+    let res = null;
+    try { res = await verify(val); } catch { res = null; }
     if (res) onSuccess(res);
     else {
       setError(true);
-      setTimeout(() => { setError(false); setVal(""); inputRef.current?.focus(); }, 700);
+      setTimeout(() => { setError(false); setVal(""); busy.current = false; inputRef.current?.focus(); }, 700);
     }
   };
 

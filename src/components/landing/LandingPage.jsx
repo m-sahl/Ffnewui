@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { useApp } from "../../context/AppContext";
 import { NumPinModal, TextPinModal } from "../common/AuthModals";
 import Ic from "../common/Ic";
@@ -8,8 +10,16 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
   const [loginGroup, setLoginGroup] = useState(null);
   const [adminModal, setAdminModal] = useState(false);
 
-  const verifyGroupPin = (pin) => users.find(u => u.id === loginGroup.id && u.pin === pin) || null;
-  const verifyAdmin    = (pass) => users.find(u => u.role === "admin" && u.pin === pass) || null;
+  const login = useMutation(api.auth.login);
+  // Credentials are verified on the server; the result is {ok, token, user} or null
+  const verifyGroupPin = async (pin) => {
+    const r = await login({ role: "group", userId: loginGroup.id, secret: pin });
+    return r.ok ? r : null;
+  };
+  const verifyAdmin = async (pass) => {
+    const r = await login({ role: "admin", secret: pass });
+    return r.ok ? r : null;
+  };
 
   const groupColors = ["#f14d4d", "#3b82f6", "#f59e0b", "#1dd183", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];
 
@@ -184,7 +194,7 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           title={loginGroup.name}
           subtitle="Enter your group PIN to continue"
           verify={verifyGroupPin} dark={dark}
-          pinLength={users.find(u => u.id === loginGroup.id)?.pin?.length || 3}
+          pinLength={users.find(u => u.id === loginGroup.id)?.pinLength || 4}
           onSuccess={(u) => { setLoginGroup(null); onLeaderLogin(u); }}
           onClose={() => setLoginGroup(null)}
         />
