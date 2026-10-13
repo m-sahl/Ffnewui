@@ -1,15 +1,20 @@
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { useApp } from "../../context/AppContext";
-import { NumPinModal, TextPinModal } from "../common/AuthModals";
+import { NumPinModal } from "../common/AuthModals";
 import Ic from "../common/Ic";
 
-const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
+const LandingPage = ({ dark, onLeaderLogin }) => {
   const { groups, users } = useApp();
   const [loginGroup, setLoginGroup] = useState(null);
-  const [adminModal, setAdminModal] = useState(false);
 
-  const verifyGroupPin = (pin) => users.find(u => u.id === loginGroup.id && u.pin === pin) || null;
-  const verifyAdmin    = (pass) => users.find(u => u.role === "admin" && u.pin === pass) || null;
+  const login = useMutation(api.auth.login);
+  // Credentials are verified on the server; the result is {ok, token, user} or null
+  const verifyGroupPin = async (pin) => {
+    const r = await login({ role: "group", userId: loginGroup.id, secret: pin });
+    return r.ok ? r : null;
+  };
 
   const groupColors = ["#f14d4d", "#3b82f6", "#f59e0b", "#1dd183", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];
 
@@ -148,34 +153,6 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           })}
         </div>
 
-        {/* Admin button */}
-        <div className="anim-fadeUp" style={{ textAlign: "center", animationDelay: `${0.06 * groups.length + 0.18}s` }}>
-          <button onClick={() => setAdminModal(true)} style={{
-            display: "inline-flex", alignItems: "center", gap: 7,
-            padding: "10px 22px", borderRadius: 50,
-            background: "transparent",
-            border: `1px solid ${border}`,
-            cursor: "pointer", fontFamily: "inherit",
-            fontSize: 12.5, fontWeight: 600,
-            color: mutedTx,
-            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-          }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = "#f14d4d";
-              e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)";
-              e.currentTarget.style.background = "rgba(241,77,77,0.06)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = mutedTx;
-              e.currentTarget.style.borderColor = border;
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.transform = "translateY(0)";
-            }}
-          >
-            <Ic name="shield" size={13} /> Admin Portal
-          </button>
-        </div>
 
       </div>
 
@@ -184,18 +161,9 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           title={loginGroup.name}
           subtitle="Enter your group PIN to continue"
           verify={verifyGroupPin} dark={dark}
-          pinLength={users.find(u => u.id === loginGroup.id)?.pin?.length || 3}
+          pinLength={users.find(u => u.id === loginGroup.id)?.pinLength || 4}
           onSuccess={(u) => { setLoginGroup(null); onLeaderLogin(u); }}
           onClose={() => setLoginGroup(null)}
-        />
-      )}
-      {adminModal && (
-        <TextPinModal
-          title="Admin Sign In"
-          subtitle="Enter your admin password to continue"
-          verify={verifyAdmin} dark={dark}
-          onSuccess={(u) => { setAdminModal(false); onAdminClick(u); }}
-          onClose={() => setAdminModal(false)}
         />
       )}
     </div>

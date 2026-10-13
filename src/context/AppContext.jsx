@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { toUploadBlob } from "../utils/media";
 
-export const INITIAL_USERS         = [{ id: "u-admin", name: "System Admin", role: "admin", pin: "admin" }];
 export const INITIAL_PROGRAMS      = [];
 export const INITIAL_STUDENTS      = {};
 export const INITIAL_REGISTRATIONS = [];
@@ -10,94 +10,65 @@ export const INITIAL_REGISTRATIONS = [];
 const AppContext = createContext();
 export const useApp = () => useContext(AppContext);
 
-export const AppProvider = ({ children }) => {
-  // Convex Live Queries
-  const convexPrograms      = useQuery(api.programs.get);
-  const convexStudents      = useQuery(api.students.get);
-  const convexRegistrations = useQuery(api.registrations.get);
-  const convexUsers         = useQuery(api.users.get);
-  const convexLocks         = useQuery(api.locks.get);
-  const convexMessages      = useQuery(api.messages.get);
-  const convexLogs          = useQuery(api.logs.get);
+export const AppProvider = ({ children, token }) => {
+  // Every data query needs a valid session token; skipped until the user logs in.
+  const auth = token ? { token } : "skip";
+  const convexPrograms      = useQuery(api.programs.get, auth);
+  const convexStudents      = useQuery(api.students.get, auth);
+  const convexRegistrations = useQuery(api.registrations.get, auth);
+  const convexLocks         = useQuery(api.locks.get, auth);
+  const convexMessages      = useQuery(api.messages.get, auth);   // server scopes this to the caller
+  const convexLogs          = useQuery(api.logs.get, auth);       // admin only
+  const convexUsers         = useQuery(api.users.listPublic);     // public: groups only, never PINs
 
-  // Convex Live Mutations
-  const setAllConvexPrograms      = useMutation(api.programs.setAll);
-  const addConvexProgram          = useMutation(api.programs.add);
-  const updateConvexProgram       = useMutation(api.programs.update);
-  const removeConvexProgram       = useMutation(api.programs.remove);
+  // Attach the session token to every mutation call
+  const authed = (m) => (args = {}) => m({ ...args, token });
 
-  const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
-  const addConvexStudent          = useMutation(api.students.add);
-  const updateConvexStudent       = useMutation(api.students.update);
-  const removeConvexStudent       = useMutation(api.students.remove);
+  const setAllConvexPrograms      = authed(useMutation(api.programs.setAll));
+  const addConvexProgram          = authed(useMutation(api.programs.add));
+  const updateConvexProgram       = authed(useMutation(api.programs.update));
+  const removeConvexProgram       = authed(useMutation(api.programs.remove));
 
-  const addConvexRegistration     = useMutation(api.registrations.addRegistration);
-  const updateConvexRegistration  = useMutation(api.registrations.update);
-  const removeConvexRegistration  = useMutation(api.registrations.remove);
-  const setAllConvexRegistrations = useMutation(api.registrations.setAll);
+  const setGroupConvexStudents    = authed(useMutation(api.students.setGroupStudents));
+  const updateConvexStudent       = authed(useMutation(api.students.update));
 
-  const setAllConvexUsers         = useMutation(api.users.setAll);
-  const addConvexUser             = useMutation(api.users.add);
-  const updateConvexUser          = useMutation(api.users.update);
-  const removeConvexUser          = useMutation(api.users.remove);
+  const addConvexRegistration     = authed(useMutation(api.registrations.addRegistration));
+  const updateConvexRegistration  = authed(useMutation(api.registrations.update));
+  const removeConvexRegistration  = authed(useMutation(api.registrations.remove));
+  const setAllConvexRegistrations = authed(useMutation(api.registrations.setAll));
 
-  const setConvexLock             = useMutation(api.locks.setLock);
-  const sendConvexMessage         = useMutation(api.messages.send);
-  const markConvexMessageRead     = useMutation(api.messages.markRead);
-  const deleteConvexMessage       = useMutation(api.messages.deleteMsg);
-  const addConvexLog              = useMutation(api.logs.add);
-  const clearConvexLogs           = useMutation(api.logs.clear);
+  const addConvexUser             = authed(useMutation(api.users.add));
+  const updateConvexUser          = authed(useMutation(api.users.update));
+  const removeConvexUser          = authed(useMutation(api.users.remove));
+  const changeConvexPassword      = authed(useMutation(api.auth.changePassword));
 
-  // Local State
-  const [programs, setProgramsState] = useState(() => {
-    try {
-      const s = localStorage.getItem("ff_programs");
-      const parsed = s ? JSON.parse(s) : INITIAL_PROGRAMS;
-      return parsed.map((p, i) => (p.order !== undefined && p.order !== null) ? p : { ...p, order: i + 1 });
-    } catch { return INITIAL_PROGRAMS; }
-  });
+  const setConvexLock             = authed(useMutation(api.locks.setLock));
+  const sendConvexMessage         = authed(useMutation(api.messages.send));
+  const getUploadUrl              = authed(useMutation(api.messages.generateUploadUrl));
+  const markConvexMessageRead     = authed(useMutation(api.messages.markRead));
+  const deleteConvexMessage       = authed(useMutation(api.messages.deleteMsg));
+  const addConvexLog              = authed(useMutation(api.logs.add));
+  const clearConvexLogs           = authed(useMutation(api.logs.clear));
 
-  const [students, setStudentsState] = useState(() => {
-    try { const s = localStorage.getItem("ff_students"); return s ? JSON.parse(s) : INITIAL_STUDENTS; } catch { return INITIAL_STUDENTS; }
-  });
+  // Local state mirrors the live queries. No localStorage cache: private data
+  // (messages, rosters) must not persist on the device after logout.
+  const [programs, setProgramsState]           = useState(INITIAL_PROGRAMS);
+  const [students, setStudentsState]           = useState(INITIAL_STUDENTS);
+  const [registrations, setRegistrationsState] = useState(INITIAL_REGISTRATIONS);
+  const [users, setUsersState]                 = useState([]);
+  const [activityLogs, setActivityLogsState]   = useState([]);
+  const [locks, setLocksState]                 = useState({});
+  const [messages, setMessagesState]           = useState([]);
 
-  const [registrations, setRegistrationsState] = useState(() => {
-    try { const s = localStorage.getItem("ff_registrations"); return s ? JSON.parse(s) : INITIAL_REGISTRATIONS; } catch { return INITIAL_REGISTRATIONS; }
-  });
-
-  const [users, setUsersState] = useState(() => {
-    try {
-      const s      = localStorage.getItem("ff_users");
-      const parsed = s ? JSON.parse(s) : INITIAL_USERS;
-      const hasAdmin = parsed.some(u => u.role === "admin");
-      if (!hasAdmin) return [INITIAL_USERS[0], ...parsed];
-      return parsed;
-    } catch { return INITIAL_USERS; }
-  });
-
-  const [activityLogs, setActivityLogsState] = useState(() => {
-    try { const s = localStorage.getItem("ff_logs"); return s ? JSON.parse(s) : []; } catch { return []; }
-  });
-
-  const [locks, setLocksState] = useState(() => {
-    try { const s = localStorage.getItem("ff_locks"); return s ? JSON.parse(s) : {}; } catch { return {}; }
-  });
-
-  const [messages, setMessagesState] = useState(() => {
-    try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
-  });
-
-  const initialSynced = useRef(false);
-
-  // Sync Convex Real-Time Queries into Local State when available
+  // Sync Convex real-time queries into local state
   useEffect(() => {
-    if (convexPrograms !== undefined && Array.isArray(convexPrograms)) {
+    if (Array.isArray(convexPrograms)) {
       setProgramsState(convexPrograms.map((p, i) => (p.order !== undefined && p.order !== null) ? p : { ...p, order: i + 1 }));
     }
   }, [convexPrograms]);
 
   useEffect(() => {
-    if (convexStudents !== undefined && Array.isArray(convexStudents)) {
+    if (Array.isArray(convexStudents)) {
       const grouped = {};
       for (const st of convexStudents) {
         if (!grouped[st.groupId]) grouped[st.groupId] = [];
@@ -108,64 +79,38 @@ export const AppProvider = ({ children }) => {
   }, [convexStudents]);
 
   useEffect(() => {
-    if (convexRegistrations !== undefined && Array.isArray(convexRegistrations)) {
-      setRegistrationsState(convexRegistrations);
-    }
+    if (Array.isArray(convexRegistrations)) setRegistrationsState(convexRegistrations);
   }, [convexRegistrations]);
 
   useEffect(() => {
-    if (convexUsers !== undefined && Array.isArray(convexUsers)) {
-      const hasAdmin = convexUsers.some(u => u.role === "admin");
-      setUsersState(hasAdmin ? convexUsers : [INITIAL_USERS[0], ...convexUsers]);
-    }
+    if (Array.isArray(convexUsers)) setUsersState(convexUsers);
   }, [convexUsers]);
 
   useEffect(() => {
-    if (convexLocks !== undefined && Array.isArray(convexLocks)) {
+    if (Array.isArray(convexLocks)) {
       const lockMap = {};
       for (const l of convexLocks) {
         if (!l) continue;
         const key = (l.type || `${l.groupId}_${l.session}`).toLowerCase();
-        if (key) {
-          lockMap[key] = !!l.locked;
-        }
+        if (key) lockMap[key] = !!l.locked;
       }
       setLocksState(lockMap);
     }
   }, [convexLocks]);
 
   useEffect(() => {
-    if (convexMessages !== undefined && Array.isArray(convexMessages)) {
-      setMessagesState(convexMessages);
-    }
+    if (Array.isArray(convexMessages)) setMessagesState(convexMessages);
   }, [convexMessages]);
 
   useEffect(() => {
-    if (convexLogs !== undefined && Array.isArray(convexLogs)) {
-      setActivityLogsState(convexLogs);
-    }
+    if (Array.isArray(convexLogs)) setActivityLogsState(convexLogs);
   }, [convexLogs]);
-
-  useEffect(() => {
-    if (convexPrograms !== undefined && convexStudents !== undefined && convexUsers !== undefined) {
-      initialSynced.current = true;
-    }
-  }, [convexPrograms, convexStudents, convexUsers]);
-
-  // Persist Local Storage Cache
-  useEffect(() => { localStorage.setItem("ff_programs",      JSON.stringify(programs));      }, [programs]);
-  useEffect(() => { localStorage.setItem("ff_students",      JSON.stringify(students));      }, [students]);
-  useEffect(() => { localStorage.setItem("ff_registrations", JSON.stringify(registrations)); }, [registrations]);
-  useEffect(() => { localStorage.setItem("ff_users",         JSON.stringify(users));         }, [users]);
-  useEffect(() => { localStorage.setItem("ff_logs",          JSON.stringify(activityLogs));  }, [activityLogs]);
-  useEffect(() => { localStorage.setItem("ff_locks",         JSON.stringify(locks));         }, [locks]);
-  useEffect(() => { localStorage.setItem("ff_messages",      JSON.stringify(messages));      }, [messages]);
 
   const GROUP_COLORS = ["#f14d4d", "#3b82f6", "#f59e0b", "#1dd183", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];
 
-  const groups = users
+  const groups = useMemo(() => users
     .filter(u => u.role === "group")
-    .map((u, i) => ({ id: u.id, name: u.name, color: u.color || GROUP_COLORS[i % GROUP_COLORS.length] }));
+    .map((u, i) => ({ id: u.id, name: u.name, color: u.color || GROUP_COLORS[i % GROUP_COLORS.length] })), [users]);
 
   // Helper Setters (Updates both Local State & Convex Cloud)
   const setPrograms = (action) => {
@@ -306,24 +251,23 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  const setUsers = (action) => {
-    setUsersState(prev => {
-      const next = typeof action === "function" ? action(prev) : action;
-      if (next) {
-        setAllConvexUsers({ users: next }).catch(err => console.error("Convex setUsers error:", err));
-      }
-      return next;
-    });
-  };
-
+  // PINs are sent once to the server (which hashes them) and never kept in client state
   const addUser = (newUser) => {
-    setUsersState(prev => [...prev, newUser]);
-    addConvexUser({ user: newUser }).catch(err => console.error("Convex addUser error:", err));
+    const { pin, ...safe } = newUser;
+    setUsersState(prev => [...prev, { ...safe, role: "group", groupId: newUser.id, pinLength: pin?.length }]);
+    const user = { id: newUser.id, name: newUser.name, pin };
+    if (newUser.color) user.color = newUser.color;
+    addConvexUser({ user }).catch(err => console.error("Convex addUser error:", err));
   };
 
-  const updateUser = (id, updatedUser) => {
-    setUsersState(prev => prev.map(u => u.id === id ? { ...u, ...updatedUser } : u));
-    updateConvexUser({ id, user: updatedUser }).catch(err => console.error("Convex updateUser error:", err));
+  const updateUser = (id, patch) => {
+    const { pin, ...safe } = patch;
+    setUsersState(prev => prev.map(u => u.id === id ? { ...u, ...safe, ...(pin ? { pinLength: pin.length } : {}) } : u));
+    const user = {};
+    if (patch.name !== undefined)  user.name = patch.name;
+    if (patch.color !== undefined) user.color = patch.color;
+    if (pin) user.pin = pin;
+    updateConvexUser({ id, user }).catch(err => console.error("Convex updateUser error:", err));
   };
 
   const deleteUser = (id) => {
@@ -331,10 +275,13 @@ export const AppProvider = ({ children }) => {
     removeConvexUser({ id }).catch(err => console.error("Convex deleteUser error:", err));
   };
 
+  // Admin password change (rejects on failure so the UI can show an error)
+  const changePassword = (newPassword) => changeConvexPassword({ newPassword });
+
   const logActivity = (userName, action, details) => {
     const newLog = { id: "log-" + Date.now() + Math.random().toString(36).substr(2, 4), timestamp: Date.now(), user: userName, action, details };
     setActivityLogsState(prev => [newLog, ...prev].slice(0, 500));
-    addConvexLog(newLog).catch(err => console.error("Convex log error:", err));
+    addConvexLog({ id: newLog.id, action, details, timestamp: newLog.timestamp }).catch(err => console.error("Convex log error:", err));
   };
 
   const clearLogs = () => {
@@ -365,8 +312,23 @@ export const AppProvider = ({ children }) => {
 
   const sendMessage = (from, fromName, to, text, extra = {}) => {
     const msg = { id: "msg-" + Date.now() + Math.random().toString(36).substr(2, 4), groupId: to || from, from, fromName: fromName || from, to: to || "", text, timestamp: Date.now(), read: false, ...extra };
-    setMessagesState(prev => [...prev, msg]);
-    sendConvexMessage(msg).catch(err => console.error("Convex sendMessage error:", err));
+    setMessagesState(prev => [...prev, msg]); // optimistic: shows the local data URL instantly
+    (async () => {
+      const payload = { ...msg };
+      if (msg.mediaUrl?.startsWith("data:")) {
+        // Upload the file to Convex storage; the message then carries only a storage id
+        const blob = await toUploadBlob(msg.mediaUrl, msg.mediaType);
+        const res = await fetch(await getUploadUrl(), { method: "POST", headers: { "Content-Type": blob.type || (msg.mediaType === "image" ? "image/jpeg" : "audio/webm") }, body: blob });
+        if (!res.ok) throw new Error("Upload failed");
+        const { storageId } = await res.json();
+        payload.mediaStorageId = storageId;
+        delete payload.mediaUrl;
+      }
+      await sendConvexMessage(payload);
+    })().catch(err => {
+      console.error("Convex sendMessage error:", err);
+      setMessagesState(prev => prev.filter(m => m.id !== msg.id)); // roll back the optimistic message
+    });
   };
 
   const deleteMessage = (id, mode, userId) => {
@@ -391,17 +353,21 @@ export const AppProvider = ({ children }) => {
     return (maxUsed + 1).toString();
   };
 
-  return (
-    <AppContext.Provider value={{
+  // Consumers re-render only when data (or the session) actually changes. Every function in here either
+  // uses functional setState or reads one of these deps, so no stale closures.
+  const value = useMemo(() => ({
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
       students, setStudents, updateStudent,
       registrations, setRegistrations, addRegistration, updateRegistration, removeRegistration,
-      users, setUsers, addUser, updateUser, deleteUser,
+      users, addUser, updateUser, deleteUser, changePassword,
       activityLogs, setActivityLogs: setActivityLogsState, logActivity, clearLogs,
       messages, setMessages: setMessagesState, sendMessage, markRead, deleteMessage,
       locks, toggleLock, isLocked,
       nextChestNo,
-    }}>
+  }), [groups, programs, students, registrations, users, activityLogs, messages, locks, token]);
+
+  return (
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

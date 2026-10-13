@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useApp } from "../../context/AppContext";
 import { ACCENT } from "../../styles/DesignTokens";
 import Ic from "../common/Ic";
+import { WhatsAppVoiceNote } from "../common/VoiceNote";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, fill = "none", stroke = "currentColor", sw = 2, vb = "0 0 24 24", children }) => (
@@ -17,104 +18,6 @@ const CloseIcon   = ({ s }) => <Icon size={s}><line x1="18" y1="6" x2="6" y2="18
 const CheckIcon   = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l3.5 3.5L13 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const DblCheckIcon = ({ color }) => <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><path d="M1 5l3.5 3.5L10 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 5l3.5 3.5L16 2" stroke={color||"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
-// ── WhatsApp Voice Note Component ──────────────────────────────────────────
-const WhatsAppVoiceNote = ({ mediaUrl, isOwn }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef(null);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      document.querySelectorAll("audio").forEach(a => a.pause());
-      audioRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-      setDuration(audioRef.current.duration || 0);
-    }
-  };
-
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-
-  const pct = duration > 0 ? (currentTime / duration) : 0;
-  const waveformHeights = [30, 45, 65, 35, 80, 50, 90, 40, 70, 30, 60, 85, 45, 75, 50, 90, 60, 40, 70, 35];
-
-  const fmtDur = (secs) => {
-    if (!secs || isNaN(secs)) return "0:05";
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 200, padding: "4px 0" }}>
-      <audio
-        ref={audioRef}
-        src={mediaUrl}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={handleEnded}
-        onLoadedMetadata={handleTimeUpdate}
-        style={{ display: "none" }}
-      />
-
-      <button onClick={togglePlay} style={{
-        width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer",
-        background: isOwn ? "#ffffff" : "#f14d4d",
-        color: isOwn ? "#dc2626" : "#ffffff",
-        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)", fontSize: 13, fontWeight: 900
-      }}>
-        {isPlaying ? "❚❚" : "▶"}
-      </button>
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 2, height: 20, cursor: "pointer" }}
-          onClick={(e) => {
-            if (!audioRef.current || !duration) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-            audioRef.current.currentTime = ratio * duration;
-            setCurrentTime(ratio * duration);
-          }}
-        >
-          {waveformHeights.map((h, idx) => {
-            const barPct = idx / waveformHeights.length;
-            const isPlayed = barPct <= pct;
-            return (
-              <span key={idx} style={{
-                flex: 1,
-                height: `${h}%`,
-                borderRadius: 2,
-                background: isOwn
-                  ? (isPlayed ? "#ffffff" : "rgba(255,255,255,0.4)")
-                  : (isPlayed ? "#f14d4d" : "rgba(0,0,0,0.2)"),
-                transition: "all 0.1s ease"
-              }} />
-            );
-          })}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10, opacity: 0.85, fontWeight: 700 }}>
-          <span>{isPlaying ? fmtDur(currentTime) : fmtDur(duration)}</span>
-          <span>🎙️</span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const MessagesPanel = ({ user, dark, onClose }) => {
   const { groups, messages, sendMessage, markRead, setMessages, deleteMessage } = useApp();
@@ -149,25 +52,39 @@ const MessagesPanel = ({ user, dark, onClose }) => {
 
   const selectedGroupObj = groups.find(g => g.id === selectedGroup);
 
-  const thread = (selectedGroup ? messages.filter(m => !(m.deletedFor||[]).includes("admin")).filter(m =>
-    m.groupId === selectedGroup || m.from === selectedGroup || m.to === selectedGroup
-  ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [])
-  .filter(m => !searchChat.trim() || (m.text && m.text.toLowerCase().includes(searchChat.toLowerCase())));
+  // Recomputed only when messages / selection / search change (not on every keystroke or re-render)
+  const thread = useMemo(() => {
+    const q = searchChat.trim().toLowerCase();
+    return (selectedGroup ? messages : [])
+      .filter(m => !(m.deletedFor || []).includes("admin") &&
+        (m.groupId === selectedGroup || m.from === selectedGroup || m.to === selectedGroup) &&
+        (!q || (m.text && m.text.toLowerCase().includes(q))))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }, [messages, selectedGroup, searchChat]);
+
+  // One pass over messages -> unread count + latest message per group (was O(groups x messages) per render)
+  const { unreadByGroup, lastByGroup, totalUnread } = useMemo(() => {
+    const unread = {}, last = {};
+    let total = 0;
+    for (const m of messages) {
+      const keys = new Set([m.groupId, m.from, m.to].filter(Boolean));
+      if (m.from !== "admin" && !m.read) {
+        total++;
+        for (const k of new Set([m.from, m.groupId])) unread[k] = (unread[k] || 0) + 1;
+      }
+      if (!(m.deletedFor || []).includes("admin")) {
+        for (const k of keys) if (!last[k] || m.timestamp > last[k].timestamp) last[k] = m;
+      }
+    }
+    return { unreadByGroup: unread, lastByGroup: last, totalUnread: total };
+  }, [messages]);
 
   const filteredGroups = groups.filter(g =>
     !search.trim() || g.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const unreadFor   = (gId) => messages.filter(m => (m.from === gId || m.groupId === gId) && m.from !== "admin" && !m.read).length;
-  const totalUnread = messages.filter(m => m.from !== "admin" && !m.read).length;
-
-  const lastMsg = (gId) => {
-    const msgs = messages
-      .filter(m => !(m.deletedFor||[]).includes("admin"))
-      .filter(m => m.groupId === gId || m.from === gId || m.to === gId)
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    return msgs[0] || null;
-  };
+  const unreadFor = (gId) => unreadByGroup[gId] || 0;
+  const lastMsg   = (gId) => lastByGroup[gId] || null;
 
   useEffect(() => {
     if (selectedGroup) { markRead("admin"); setTimeout(() => inputRef.current?.focus(), 100); }
