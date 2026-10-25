@@ -42,7 +42,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
 
     try {
       const targetGroupId = group?.id || user?.groupId || user?.id;
-      const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || "https://scrupulous-goldfish-520.convex.site";
+      const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || "https://outgoing-sandpiper-663.convex.site";
       const res = await fetch(`${siteUrl}/api/leader/change-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

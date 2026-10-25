@@ -11,9 +11,10 @@ import PublishResultsModal from "./PublishResultsModal";
 import { CATS, STUDENT_CATS, ACCENT, catColor, ACCENT4 } from "../../styles/DesignTokens";
 import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
 
-const VALID_VIEWS = ["students", "events", "programs", "users", "registrations", "results", "print"];
+const VALID_VIEWS = ["dashboard", "students", "events", "programs", "users", "registrations", "results", "print"];
 
 const NAV = [
+  { id: "dashboard",     icon: "dashboard", label: "Dashboard" },
   { id: "students",      icon: "users",   label: "Students"  },
   { id: "events",        icon: "book",    label: "Events"    },
   { id: "users",         icon: "shield",  label: "Groups"    },
@@ -254,6 +255,333 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [delConfirm]);
+
+  // ── RENDER: Dashboard ─────────────────────────────────────────────────────
+  const renderDashboard = () => {
+    const totalTeams = groups.length;
+    const allStudents = Object.values(students || {}).flat();
+    const totalStudents = allStudents.length;
+    const totalEntries = registrations.length;
+
+    // Team-by-team computed data
+    const teamStats = groups.map(group => {
+      const gStudents = students[group.id] || [];
+      const gRegs = registrations.filter(r => r.groupId === group.id).length;
+      const gDue = Math.max(0, programs.length - gRegs);
+
+      return {
+        ...group,
+        total: gStudents.length,
+        regs: gRegs,
+        due: gDue,
+      };
+    });
+
+    const totalDue = teamStats.reduce((sum, t) => sum + t.due, 0);
+    const primaryHeadingColor = dark ? "#f8fafc" : "#0f172a";
+
+    return (
+      <div className="anim-fadeIn">
+        {/* Top Header */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 800,
+            fontSize: 24,
+            letterSpacing: "-0.5px",
+            color: primaryHeadingColor
+          }}>
+            Dashboard
+          </div>
+        </div>
+
+        {/* Top Summary KPI Cards */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 16,
+          marginBottom: 32
+        }}>
+          {/* Card 1: Total Teams */}
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
+                Teams
+              </span>
+              <span style={{
+                width: 32, height: 32, borderRadius: 9,
+                background: dark ? "rgba(241, 77, 77, 0.12)" : "rgba(241, 77, 77, 0.08)",
+                color: "#f14d4d", display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Ic name="shield" size={16} />
+              </span>
+            </div>
+            <div>
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                fontWeight: 900,
+                fontSize: 32,
+                lineHeight: 1,
+                color: primaryHeadingColor
+              }}>
+                {totalTeams}
+              </div>
+              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
+                Active teams
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Total Students */}
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
+                Students
+              </span>
+              <span style={{
+                width: 32, height: 32, borderRadius: 9,
+                background: dark ? "rgba(59, 130, 246, 0.12)" : "rgba(59, 130, 246, 0.08)",
+                color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Ic name="users" size={16} />
+              </span>
+            </div>
+            <div>
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                fontWeight: 900,
+                fontSize: 32,
+                lineHeight: 1,
+                color: primaryHeadingColor
+              }}>
+                {totalStudents}
+              </div>
+              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
+                Enrolled students
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Program Entries */}
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
+                Program Entries
+              </span>
+              <span style={{
+                width: 32, height: 32, borderRadius: 9,
+                background: dark ? "rgba(29, 209, 131, 0.12)" : "rgba(29, 209, 131, 0.08)",
+                color: "#1dd183", display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Ic name="list" size={16} />
+              </span>
+            </div>
+            <div>
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                fontWeight: 900,
+                fontSize: 32,
+                lineHeight: 1,
+                color: primaryHeadingColor
+              }}>
+                {totalEntries}
+              </div>
+              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
+                Submitted entries
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Due Entries */}
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
+                Due Entries
+              </span>
+              <span style={{
+                width: 32, height: 32, borderRadius: 9,
+                background: dark ? "rgba(245, 158, 11, 0.12)" : "rgba(245, 158, 11, 0.08)",
+                color: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Ic name="info" size={16} />
+              </span>
+            </div>
+            <div>
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                fontWeight: 900,
+                fontSize: 32,
+                lineHeight: 1,
+                color: totalDue > 0 ? (dark ? "#fbbf24" : "#d97706") : "#1dd183"
+              }}>
+                {totalDue}
+              </div>
+              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
+                Pending event entries
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section Header: Team Details */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 800,
+            fontSize: 18,
+            letterSpacing: "-0.3px",
+            color: primaryHeadingColor
+          }}>
+            Team Details
+          </div>
+        </div>
+
+        {/* Team-by-team Responsive Card Grid */}
+        {teamStats.length === 0 ? (
+          <div className="card" style={{ padding: "48px 20px", textAlign: "center", color: mutedTx }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: primaryHeadingColor }}>No teams found</div>
+            <div style={{ fontSize: 13, marginTop: 4 }}>Add a group from the Groups tab to view team statistics.</div>
+          </div>
+        ) : (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: 16
+          }}>
+            {teamStats.map((team, idx) => {
+              const teamColor = team.color || ACCENT;
+
+              return (
+                <div
+                  key={team.id || idx}
+                  className="card"
+                  style={{
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 16,
+                  }}
+                >
+                  {/* Team Header: Avatar & Name */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background: teamColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                      fontWeight: 900,
+                      fontSize: 15,
+                      color: "#ffffff",
+                      flexShrink: 0
+                    }}>
+                      {team.name ? team.name.charAt(0).toUpperCase() : "T"}
+                    </div>
+                    <div style={{
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                      fontWeight: 800,
+                      fontSize: 16,
+                      color: primaryHeadingColor,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}>
+                      {team.name}
+                    </div>
+                  </div>
+
+                  {/* Metric Counters (Students & Program Entries) */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10
+                  }}>
+                    <div style={{
+                      background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                      border: `1px solid ${border}`,
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px", color: mutedTx }}>
+                        Students
+                      </div>
+                      <div style={{
+                        fontFamily: "'Plus Jakarta Sans',sans-serif",
+                        fontWeight: 900,
+                        fontSize: 24,
+                        color: primaryHeadingColor,
+                        marginTop: 4
+                      }}>
+                        {team.total}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                      border: `1px solid ${border}`,
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px", color: mutedTx }}>
+                        Program Entries
+                      </div>
+                      <div style={{
+                        fontFamily: "'Plus Jakarta Sans',sans-serif",
+                        fontWeight: 900,
+                        fontSize: 24,
+                        color: primaryHeadingColor,
+                        marginTop: 4
+                      }}>
+                        {team.regs}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Due Entries Area */}
+                  <div style={{
+                    background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                    border: `1px solid ${border}`,
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between"
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px", color: mutedTx }}>
+                        Due Entries
+                      </div>
+                      <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>
+                        {team.due === 0 ? "All programs registered" : `${team.due} pending of ${programs.length}`}
+                      </div>
+                    </div>
+                    <div style={{
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                      fontWeight: 900,
+                      fontSize: 24,
+                      color: team.due > 0 ? (dark ? "#fbbf24" : "#d97706") : "#1dd183"
+                    }}>
+                      {team.due}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
 
   // ── RENDER: Students ─────────────────────────────────────────────────────
   const renderStudents = () => {
@@ -1675,7 +2003,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     );
   };
 
-  const renderViews = { students: renderStudents, events: renderEvents, programs: renderEvents, users: renderGroups, registrations: renderRegistrations, results: renderResults };
+  const renderViews = { dashboard: renderDashboard, students: renderStudents, events: renderEvents, programs: renderEvents, users: renderGroups, registrations: renderRegistrations, results: renderResults };
 
   const unreadCount = (messages || []).filter(m => m.to === "admin" && !m.read).length;
 
