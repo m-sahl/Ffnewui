@@ -497,4 +497,83 @@ http.route({
   }),
 });
 
+
+// ── POST /api/leader/change-password ──────────────────────────────────────────
+http.route({
+  path: "/api/leader/change-password",
+  method: "OPTIONS",
+  handler: handleCorsPreflight,
+});
+
+http.route({
+  path: "/api/leader/change-password",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const groupId = body.groupId || body.id;
+      const currentPassword = body.currentPassword ?? body.currentPin;
+      const newPassword = body.newPassword ?? body.newPin;
+
+      if (!groupId || !currentPassword || !newPassword) {
+        return errorResponse("groupId, current password, and new password are required");
+      }
+
+      const result = await ctx.runMutation(api.users.changePin, {
+        groupId: String(groupId),
+        currentPin: String(currentPassword),
+        newPin: String(newPassword),
+      });
+
+      return jsonResponse({
+        success: true,
+        message: "Password changed successfully",
+        user: result.user,
+      });
+    } catch (err: any) {
+      const msg = (err?.message || "Failed to change password").replace(/^Uncaught (Error: )?/i, "").split("\n")[0].trim();
+      return errorResponse(msg, 400);
+    }
+  }),
+});
+
+// ── POST /api/auth/change-password ───────────────────────────────────────────
+http.route({
+  path: "/api/auth/change-password",
+  method: "OPTIONS",
+  handler: handleCorsPreflight,
+});
+
+http.route({
+  path: "/api/auth/change-password",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const groupId = body.groupId || body.id;
+      const currentPassword = body.currentPassword ?? body.currentPin;
+      const newPassword = body.newPassword ?? body.newPin;
+
+      if (!groupId || !currentPassword || !newPassword) {
+        return errorResponse("groupId, current password, and new password are required");
+      }
+
+      const result = await ctx.runMutation(api.users.changePin, {
+        groupId: String(groupId),
+        currentPin: String(currentPassword),
+        newPin: String(newPassword),
+      });
+
+      return jsonResponse({
+        success: true,
+        message: "Password changed successfully",
+        user: result.user,
+      });
+    } catch (err: any) {
+      const msg = (err?.message || "Failed to change password").replace(/^Uncaught (Error: )?/i, "").split("\n")[0].trim();
+      return errorResponse(msg, 400);
+    }
+  }),
+});
+
 export default http;

@@ -4,7 +4,7 @@ import Ic from "./Ic";
 import { ACCENT } from "../../styles/DesignTokens";
 import { useApp } from "../../context/AppContext";
 
-const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength }) => {
+const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, verify, pinLength, user, group }) => {
   const handleSignOut = () => {
     const doLogout = onLogout;
     if (typeof doLogout === "function") doLogout();
@@ -15,10 +15,66 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   const [changingPwd, setChangingPwd]       = useState(false);
   const [newPwd, setNewPwd]                 = useState("");
   const [newPwdConfirm, setNewPwdConfirm]   = useState("");
+  const [currentPwd, setCurrentPwd]         = useState("");
+  const [pwdLoading, setPwdLoading]         = useState(false);
   const [pwdError, setPwdError]             = useState("");
   const [pwdSuccess, setPwdSuccess]         = useState(false);
   const [showLog, setShowLog]               = useState(false);
   const [clearLogConfirm, setClearLogConfirm] = useState(false);
+
+  const handleLeaderChangePassword = async () => {
+    if (!currentPwd.trim()) {
+      setPwdError("Please enter your current password.");
+      return;
+    }
+    if (!newPwd.trim()) {
+      setPwdError("Please enter a new password.");
+      return;
+    }
+    if (newPwd !== newPwdConfirm) {
+      setPwdError("New password and confirmation do not match.");
+      return;
+    }
+
+    setPwdLoading(true);
+    setPwdError("");
+    setPwdSuccess(false);
+
+    try {
+      const targetGroupId = group?.id || user?.groupId || user?.id;
+      const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || "https://scrupulous-goldfish-520.convex.site";
+      const res = await fetch(`${siteUrl}/api/leader/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupId: targetGroupId,
+          currentPassword: currentPwd.trim(),
+          newPassword: newPwd.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPwdError(data.error || "Failed to update password");
+        setPwdLoading(false);
+        return;
+      }
+
+      setPwdSuccess(true);
+      setPwdError("");
+      setCurrentPwd("");
+      setNewPwd("");
+      setNewPwdConfirm("");
+      setTimeout(() => {
+        setPwdSuccess(false);
+        setChangingPwd(false);
+      }, 1500);
+    } catch (err) {
+      setPwdError(err.message || "Failed to communicate with database");
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   const handleChangePassword = () => {
     if (!newPwd.trim()) { setPwdError("Password cannot be empty."); return; }
@@ -150,6 +206,56 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
                   <div className="text-muted" style={{ fontSize: 12 }}>{activityLogs.length} events recorded</div>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={() => setShowLog(true)}>View</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Leader password change */}
+        {!isAdmin && (
+          <div style={{ marginBottom: 18 }}>
+            <div className="label" style={{ paddingLeft: 4 }}>Security</div>
+            <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+              <div style={{ padding: "13px 16px", background: rowBg }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: changingPwd ? 14 : 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(245,158,11,0.1)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Ic name="lock" size={16} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>Change Password</div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>Update leader portal login password</div>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setChangingPwd(p => !p); setPwdError(""); setPwdSuccess(false); setCurrentPwd(""); setNewPwd(""); setNewPwdConfirm(""); }}>
+                    {changingPwd ? "Cancel" : "Change"}
+                  </button>
+                </div>
+                {changingPwd && (
+                  <div className="anim-fadeIn" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: dark ? "#94a3b8" : "#64748b" }}>Current Password</div>
+                      <input type="password" className="input" placeholder="Enter current password to verify" value={currentPwd}
+                        onChange={e => { setCurrentPwd(e.target.value); setPwdError(""); }}
+                        autoCapitalize="none" autoCorrect="off" spellCheck="false" autoFocus />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: dark ? "#94a3b8" : "#64748b" }}>New Password</div>
+                      <input type="password" className="input" placeholder="Enter new password" value={newPwd}
+                        onChange={e => { setNewPwd(e.target.value); setPwdError(""); }}
+                        autoCapitalize="none" autoCorrect="off" spellCheck="false" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: dark ? "#94a3b8" : "#64748b" }}>Confirm New Password</div>
+                      <input type="password" className="input" placeholder="Confirm new password" value={newPwdConfirm}
+                        onChange={e => { setNewPwdConfirm(e.target.value); setPwdError(""); }}
+                        autoCapitalize="none" autoCorrect="off" spellCheck="false" />
+                    </div>
+                    {pwdError && <div style={{ fontSize: 12, color: "#e11d48" }}>{pwdError}</div>}
+                    {pwdSuccess && <div style={{ fontSize: 12, color: "#10b981" }}>✓ Password updated successfully in database</div>}
+                    <button className="btn btn-primary" style={{ height: 42 }} disabled={pwdLoading} onClick={handleLeaderChangePassword}>
+                      {pwdLoading ? "Updating in database..." : "Update Password"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -381,7 +487,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
   return typeof document !== "undefined" ? createPortal(panelContent, document.body) : panelContent;
 };
 
-export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose }) => {
+export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose, user, group }) => {
   const [settings, setSettings] = useState(_forceOpen || false);
   const handleClose = () => { setSettings(false); onSettingsClose?.(); };
 
@@ -389,7 +495,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, 
   if (_settingsOnly) {
     return settings ? (
       <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
-        context={context} onLogout={onLogout || onBack} onBack={onBack || onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
+        context={context} onLogout={onLogout || onBack} onBack={onBack || onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} user={user} group={group} />
     ) : null;
   }
 
@@ -406,7 +512,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, 
       </div>
       {settings && (
         <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}
-          context={context} onLogout={onLogout || onBack} onBack={onBack || onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} />
+          context={context} onLogout={onLogout || onBack} onBack={onBack || onLogout} isAdmin={isAdmin} verify={verify} pinLength={pinLength} user={user} group={group} />
       )}
     </>
   );
