@@ -33,7 +33,10 @@ export const markRead = mutation({
       .query("messages")
       .filter((q) =>
         q.and(
-          q.eq(q.field("groupId"), args.groupId),
+          q.or(
+            q.eq(q.field("groupId"), args.groupId),
+            q.eq(q.field("to"), args.groupId)
+          ),
           q.eq(q.field("read"), false)
         )
       )

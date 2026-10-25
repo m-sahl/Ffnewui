@@ -1,14 +1,22 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useApp } from "../../context/AppContext";
 import { NumPinModal, TextPinModal } from "../common/AuthModals";
 import Ic from "../common/Ic";
+import { useModalBackHandler } from "../../utils/useRouting";
 
 const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
   const { groups, users } = useApp();
   const [loginGroup, setLoginGroup] = useState(null);
   const [adminModal, setAdminModal] = useState(false);
 
-  const verifyGroupPin = (pin) => users.find(u => u.id === loginGroup.id && u.pin === pin) || null;
+  const handleCloseModals = useCallback(() => {
+    setLoginGroup(null);
+    setAdminModal(false);
+  }, []);
+
+  useModalBackHandler(!!loginGroup || adminModal, handleCloseModals);
+
+  const verifyGroupPin = (pin) => users.find(u => u.id === loginGroup?.id && u.pin === pin) || null;
   const verifyAdmin    = (pass) => users.find(u => u.role === "admin" && u.pin === pass) || null;
 
   const groupColors = ["#f14d4d", "#3b82f6", "#f59e0b", "#1dd183", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];

@@ -62,3 +62,58 @@ export const setAll = mutation({
     }
   },
 });
+
+export const changePin = mutation({
+  args: {
+    groupId: v.string(),
+    currentPin: v.string(),
+    newPin: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const cleanGroupId = String(args.groupId).trim();
+    let targetId = cleanGroupId;
+    if (cleanGroupId === "u-g1" || cleanGroupId.toLowerCase() === "alpha") {
+      targetId = "u-2yojq";
+    } else if (cleanGroupId === "u-g2" || cleanGroupId.toLowerCase() === "beta") {
+      targetId = "u-qmdps";
+    }
+
+    const allUsers = await ctx.db.query("users").collect();
+    const user = allUsers.find(
+      (u: any) =>
+        u.id === targetId ||
+        u.groupId === targetId ||
+        u.id === cleanGroupId ||
+        u.groupId === cleanGroupId ||
+        (u.name && u.name.trim().toLowerCase() === cleanGroupId.toLowerCase()) ||
+        (u.name && u.name.trim().toLowerCase() === targetId.toLowerCase())
+    );
+
+    if (!user) {
+      throw new Error("Leader user not found in database");
+    }
+
+    if (String(user.pin).trim() !== String(args.currentPin).trim()) {
+      throw new Error("Current password is incorrect");
+    }
+
+    const trimmedNewPin = String(args.newPin).trim();
+    if (!trimmedNewPin) {
+      throw new Error("New password cannot be empty");
+    }
+
+    await ctx.db.patch(user._id, {
+      pin: trimmedNewPin,
+    });
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        groupId: user.groupId,
+      },
+    };
+  },
+});

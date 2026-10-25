@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
 import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
 import { triggerHaptic } from "../../utils/haptics";
+import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
+
+const VALID_TABS = ["home", "members", "events", "results"];
 
 const Tag = ({ label, dark, variant = "default" }) => {
   const isAccent = variant === "accent";
@@ -38,7 +41,7 @@ const NAV = [
   { id: "home",     icon: "home",    label: "Home"     },
   { id: "members",  icon: "users",   label: "Members"  },
   { id: "events",   icon: "book",    label: "Events"   },
-  { id: "messages", icon: "message", label: "Messages" },
+  { id: "results",  icon: "award",   label: "Results"  },
 ];
 
 const BottomNav = ({ tab, setTab, unread, dark }) => (
@@ -84,26 +87,6 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
         >
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Ic name={n.icon} size={19} />
-            {n.id === "messages" && unread > 0 && (
-              <span style={{
-                position: "absolute",
-                top: -3,
-                right: -6,
-                width: 15,
-                height: 15,
-                borderRadius: "50%",
-                background: "#f14d4d",
-                color: "#ffffff",
-                fontSize: 9,
-                fontWeight: 900,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 6px rgba(241,77,77,0.4)"
-              }}>
-                {unread}
-              </span>
-            )}
           </div>
           <span style={{
             fontSize: 11,
@@ -129,9 +112,11 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked } = useApp();
+  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked } = useApp();
 
-  const [tab, setTab]                     = useState("home");
+  const [tab, setTabState]               = useState(() => getHashRoute("leader", "home", VALID_TABS, { programs: "events", messages: "results" }));
+  const setTab                            = useHashSync("leader", tab, setTabState, VALID_TABS, { programs: "events", messages: "results" });
+
   const [progType, setProgType]           = useState("Stage");
   const [catFilter, setCatFilter]         = useState("Sub-Junior");
   const [eventSubTab, setEventSubTab]     = useState("all");
@@ -144,6 +129,26 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [delConfirm, setDelConfirm]       = useState(null);
   const [showSettings, setShowSettings]   = useState(false);
   const [showCatStatsModal, setShowCatStatsModal] = useState(false);
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+
+  // Results Tab State
+  const [resView, setResView]             = useState("all"); // "all" | "mine" | "leaderboard"
+  const [resCatFilter, setResCatFilter]   = useState("All");
+  const [resTypeFilter, setResTypeFilter] = useState("All");
+  const [resSearch, setResSearch]         = useState("");
+  const [resSearchOpen, setResSearchOpen] = useState(false);
+
+  const isAnyModalOpen = regModal || !!delConfirm || !!viewTarget || showSettings || showCatStatsModal || showMessagesModal;
+  const closeAllModals = useCallback(() => {
+    setRegModal(false);
+    setDelConfirm(null);
+    setViewTarget(null);
+    setShowSettings(false);
+    setShowCatStatsModal(false);
+    setShowMessagesModal(false);
+  }, []);
+
+  useModalBackHandler(isAnyModalOpen, closeAllModals);
 
   const groupStudents = students[group.id] || [];
   const groupRegs     = registrations.filter(r => r.groupId === group.id);
@@ -482,7 +487,21 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
       {memSearchOpen && (
         <div style={{ marginBottom: 16 }}>
-          <input className="input" type="text" placeholder="Filter by student name..." value={memSearch} onChange={e => setMemSearch(e.target.value)} style={{ fontSize: 13, borderRadius: 12 }} autoFocus />
+          <input
+            className="input"
+            type="text"
+            placeholder="Filter by student name..."
+            value={memSearch}
+            onChange={e => setMemSearch(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Escape") {
+                setMemSearch("");
+                setMemSearchOpen(false);
+              }
+            }}
+            style={{ fontSize: 13, borderRadius: 12 }}
+            autoFocus
+          />
         </div>
       )}
 
@@ -728,12 +747,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         )
       )}
 
-      {/* Floating Pinned Button at Bottom-Right */}
+      {/* Floating Pinned Button at Bottom-Left */}
       {eventSubTab === "mine" && (
         <button onClick={() => { triggerHaptic("light"); setShowCatStatsModal(true); }} style={{
           position: "fixed",
-          bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)",
-          right: 16,
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 86px)",
+          left: 16,
           zIndex: 90,
           padding: "10px 16px",
           borderRadius: 30,
@@ -758,18 +777,905 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     </div>
   );
 
-  // ── MESSAGES TAB ───────────────────────────────────────────────────────────
-  const renderMessages = () => (
-    <EmbeddedInbox group={group} dark={dark} messages={messages} sendMessage={sendMessage} markRead={markRead} setMessages={setMessages} deleteMessage={deleteMessage} />
+  // ── RESULTS OPS & HELPERS ──────────────────────────────────────────────────
+  // ── RESULTS OPS & HELPERS ──────────────────────────────────────────────────
+  const findStudentInfo = useCallback((studentId) => {
+    if (!studentId) return null;
+    const sId = String(studentId);
+    const grpList = groups && groups.length > 0 ? groups : [group];
+    for (const [gId, stuList] of Object.entries(students || {})) {
+      const st = (stuList || []).find(s => String(s.id) === sId);
+      if (st) {
+        const grp = grpList.find(g => g.id === gId) || { id: gId, name: gId, color: "#f14d4d" };
+        return {
+          ...st,
+          groupId: gId,
+          groupName: grp.name,
+          groupColor: grp.color || "#f14d4d",
+          isMyGroup: gId === group.id,
+        };
+      }
+    }
+    return null;
+  }, [students, groups, group]);
+
+  const resolveStudent = useCallback((item) => {
+    if (!item) return null;
+    const st = item.studentId ? findStudentInfo(item.studentId) : null;
+    const gId = st?.groupId || item.groupId || "";
+    const grp = (groups && groups.length > 0 ? groups : [group]).find(g => g.id === gId) || {
+      id: gId,
+      name: item.groupName || gId || "Team",
+      color: item.groupColor || "#f14d4d",
+    };
+    const isMe = gId === group.id || (item.groupName && group.name && item.groupName.toLowerCase() === group.name.toLowerCase());
+
+    return {
+      studentId: item.studentId || st?.id,
+      name: item.studentName || item.rawName || st?.name || (item.studentId ? `Contestant #${item.studentId}` : "—"),
+      chestNo: item.chestNo || st?.chestNo || "",
+      groupId: gId,
+      groupName: grp.name || item.groupName || "Team",
+      groupColor: grp.color || item.groupColor || "#f14d4d",
+      isMyGroup: isMe,
+    };
+  }, [findStudentInfo, groups, group]);
+
+  const publishedPrograms = useMemo(() => {
+    return programs
+      .filter(p => p.status === "published" || (p.results?.entries && p.results.entries.length > 0))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [programs]);
+
+  const groupScores = useMemo(() => {
+    const scores = {};
+    const grpList = groups && groups.length > 0 ? groups : [group];
+    grpList.forEach(g => {
+      scores[g.id] = {
+        group: g,
+        totalPoints: 0,
+        firsts: 0,
+        seconds: 0,
+        thirds: 0,
+        gradeA: 0,
+        gradeB: 0,
+        gradeC: 0,
+        totalAwards: 0,
+      };
+    });
+
+    publishedPrograms.forEach(p => {
+      if (p.results?.entries && Array.isArray(p.results.entries)) {
+        p.results.entries.forEach(e => {
+          const sInfo = resolveStudent(e);
+          const targetGid = sInfo?.groupId || e.groupId;
+          if (targetGid) {
+            if (!scores[targetGid]) {
+              scores[targetGid] = {
+                group: { id: targetGid, name: sInfo?.groupName || e.groupName || targetGid, color: sInfo?.groupColor || e.groupColor || "#f14d4d" },
+                totalPoints: 0,
+                firsts: 0,
+                seconds: 0,
+                thirds: 0,
+                gradeA: 0,
+                gradeB: 0,
+                gradeC: 0,
+                totalAwards: 0,
+              };
+            }
+            const pts = parseFloat(e.points) || 0;
+            scores[targetGid].totalPoints += pts;
+            const place = Number(e.place);
+            if (place === 1) scores[targetGid].firsts += 1;
+            else if (place === 2) scores[targetGid].seconds += 1;
+            else if (place === 3) scores[targetGid].thirds += 1;
+            if (e.grade === "A") scores[targetGid].gradeA += 1;
+            else if (e.grade === "B") scores[targetGid].gradeB += 1;
+            else if (e.grade === "C") scores[targetGid].gradeC += 1;
+            scores[targetGid].totalAwards += 1;
+          }
+        });
+      }
+      if (p.results?.otherGrades && Array.isArray(p.results.otherGrades)) {
+        p.results.otherGrades.forEach(o => {
+          const sInfo = resolveStudent(o);
+          const targetGid = sInfo?.groupId || o.groupId;
+          if (targetGid) {
+            if (!scores[targetGid]) {
+              scores[targetGid] = {
+                group: { id: targetGid, name: sInfo?.groupName || o.groupName || targetGid, color: sInfo?.groupColor || o.groupColor || "#f14d4d" },
+                totalPoints: 0,
+                firsts: 0,
+                seconds: 0,
+                thirds: 0,
+                gradeA: 0,
+                gradeB: 0,
+                gradeC: 0,
+                totalAwards: 0,
+              };
+            }
+            if (o.grade === "A") scores[targetGid].gradeA += 1;
+            else if (o.grade === "B") scores[targetGid].gradeB += 1;
+            else if (o.grade === "C") scores[targetGid].gradeC += 1;
+            scores[targetGid].totalAwards += 1;
+          }
+        });
+      }
+    });
+
+    return Object.values(scores).sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.firsts !== a.firsts) return b.firsts - a.firsts;
+      return b.seconds - a.seconds;
+    });
+  }, [publishedPrograms, groups, group, resolveStudent]);
+
+  const myGroupStanding = useMemo(() => {
+    const idx = groupScores.findIndex(s => s.group.id === group.id);
+    const score = groupScores[idx];
+    return {
+      rank: idx >= 0 ? idx + 1 : 1,
+      totalPoints: score?.totalPoints || 0,
+      firsts: score?.firsts || 0,
+      seconds: score?.seconds || 0,
+      thirds: score?.thirds || 0,
+      gradeA: score?.gradeA || 0,
+      gradeB: score?.gradeB || 0,
+      gradeC: score?.gradeC || 0,
+      ...score,
+    };
+  }, [groupScores, group.id]);
+
+  const filteredPublishedProgs = useMemo(() => {
+    let list = publishedPrograms;
+    if (resCatFilter !== "All") {
+      list = list.filter(p => p.category?.toLowerCase() === resCatFilter.toLowerCase());
+    }
+    if (resTypeFilter !== "All") {
+      list = list.filter(p => (p.type || p.session || "Stage").toLowerCase() === resTypeFilter.toLowerCase());
+    }
+    if (resView === "mine") {
+      list = list.filter(p => {
+        const hasEntry = (p.results?.entries || []).some(e => {
+          const s = resolveStudent(e);
+          return s && s.isMyGroup;
+        });
+        const hasOther = (p.results?.otherGrades || []).some(o => {
+          const s = resolveStudent(o);
+          return s && s.isMyGroup;
+        });
+        return hasEntry || hasOther;
+      });
+    }
+    if (resSearch.trim()) {
+      const q = resSearch.toLowerCase().trim();
+      const cleanQ = q.replace(/^#/, "").trim();
+      list = list.filter(p => {
+        const name = (p.name || "").toLowerCase();
+        const code = String(p.order || "").toLowerCase();
+        return name.includes(q) || code.includes(cleanQ);
+      });
+    }
+    return list;
+  }, [publishedPrograms, resCatFilter, resTypeFilter, resView, resSearch, resolveStudent]);
+
+  const fmtPublishTime = (ts) => {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" }) + " • " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // ── RESULTS TAB ────────────────────────────────────────────────────────────
+  const renderResults = () => (
+    <div className="anim-fadeIn" style={{ maxWidth: 540, margin: "0 auto", padding: "20px 16px 120px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+        <div>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 900,
+            fontSize: 24,
+            letterSpacing: "-0.5px",
+            color: dark ? "#f8fafc" : "#0f172a"
+          }}>
+            Results & Standings
+          </div>
+          <div style={{ fontSize: 13, color: mutedTx, marginTop: 4, fontWeight: 500 }}>
+            {publishedPrograms.length} {publishedPrograms.length === 1 ? "event" : "events"} published
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => {
+              setResSearchOpen(o => !o);
+              if (resSearchOpen) setResSearch("");
+            }}
+            style={{
+              width: 40, height: 40, borderRadius: 12, border: `1px solid ${border}`,
+              background: resSearchOpen ? (dark ? "rgba(241,77,77,0.15)" : "rgba(241,77,77,0.1)") : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+              color: resSearchOpen ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.15s ease"
+            }}
+            title="Search events"
+          >
+            <Ic name="search" size={17} />
+          </button>
+
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              width: 40, height: 40, borderRadius: 12, border: `1px solid ${border}`,
+              background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              color: dark ? "#f8fafc" : "#0f172a", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.15s ease"
+            }}
+            title="Settings"
+          >
+            <Ic name="settings" size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      {resSearchOpen && (
+        <div style={{ marginBottom: 16 }}>
+          <input
+            className="input"
+            type="text"
+            placeholder="Search event name or #..."
+            value={resSearch}
+            onChange={e => setResSearch(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Escape") {
+                setResSearch("");
+                setResSearchOpen(false);
+              }
+            }}
+            style={{ fontSize: 13, borderRadius: 12 }}
+            autoFocus
+          />
+        </div>
+      )}
+
+      {/* Team Scorecard Hero */}
+      <div style={{
+        borderRadius: 20,
+        padding: "18px 20px",
+        marginBottom: 18,
+        background: dark
+          ? "linear-gradient(135deg, rgba(241, 77, 77, 0.18) 0%, rgba(225, 29, 72, 0.08) 100%), #131524"
+          : "linear-gradient(135deg, rgba(241, 77, 77, 0.12) 0%, rgba(255, 255, 255, 0.95) 100%)",
+        border: dark ? "1px solid rgba(241, 77, 77, 0.25)" : "1px solid rgba(241, 77, 77, 0.2)",
+        boxShadow: dark ? "0 10px 30px rgba(0,0,0,0.3)" : "0 10px 30px rgba(241, 77, 77, 0.08)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{
+              width: 38, height: 38, borderRadius: 12,
+              background: "linear-gradient(135deg, #ff5c5c, #f14d4d)",
+              color: "#fff", display: "grid", placeItems: "center",
+              fontSize: 18, fontWeight: 900
+            }}>
+              🏆
+            </span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+                {group.name}
+              </div>
+              <div style={{ fontSize: 11.5, color: mutedTx }}>
+                Team Performance
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 12,
+            background: dark ? "rgba(255,255,255,0.08)" : "#ffffff",
+            border: `1px solid ${border}`,
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>RANK</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+              #{myGroupStanding.rank}
+            </span>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1.2fr repeat(3, 1fr)",
+          gap: 8,
+          background: dark ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.6)",
+          padding: "12px 14px",
+          borderRadius: 14,
+          border: `1px solid ${border}`,
+          textAlign: "center"
+        }}>
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase" }}>Total Points</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", marginTop: 2 }}>
+              {myGroupStanding.totalPoints || 0}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>🥇 1st</div>
+            <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>{myGroupStanding.firsts || 0}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>🥈 2nd</div>
+            <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>{myGroupStanding.seconds || 0}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>🥉 3rd</div>
+            <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>{myGroupStanding.thirds || 0}</div>
+          </div>
+        </div>
+
+        {(myGroupStanding.gradeA > 0 || myGroupStanding.gradeB > 0 || myGroupStanding.gradeC > 0) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, fontSize: 12, color: mutedTx, justifyContent: "center" }}>
+            <span>Grades Achieved:</span>
+            {myGroupStanding.gradeA > 0 && <span style={{ fontWeight: 800, color: ACCENT }}>{myGroupStanding.gradeA} A</span>}
+            {myGroupStanding.gradeB > 0 && <span style={{ fontWeight: 800 }}>{myGroupStanding.gradeB} B</span>}
+            {myGroupStanding.gradeC > 0 && <span style={{ fontWeight: 800 }}>{myGroupStanding.gradeC} C</span>}
+          </div>
+        )}
+      </div>
+
+      {/* Subtab Switcher: All Events | Our Wins | Standings */}
+      <div style={{
+        display: "flex",
+        background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+        borderRadius: 14,
+        padding: 4,
+        marginBottom: 16,
+      }}>
+        {[
+          { id: "all", label: "All Events", icon: "book" },
+          { id: "mine", label: "Our Wins", icon: "star" },
+          { id: "leaderboard", label: "Standings", icon: "award" },
+        ].map(st => {
+          const active = resView === st.id;
+          return (
+            <button
+              key={st.id}
+              onClick={() => { triggerHaptic("light"); setResView(st.id); }}
+              style={{
+                flex: 1,
+                padding: "8px 0",
+                borderRadius: 10,
+                border: "none",
+                background: active ? (dark ? "#1f2233" : "#ffffff") : "transparent",
+                color: active ? (dark ? "#ffffff" : "#0f172a") : mutedTx,
+                fontWeight: active ? 800 : 600,
+                fontSize: 12.5,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                boxShadow: active ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Ic name={st.icon} size={14} />
+              <span>{st.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Filter Chips (Category & Session) when browsing events */}
+      {resView !== "leaderboard" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+            {["All", ...CATS].map(cat => (
+              <button
+                key={cat}
+                onClick={() => { triggerHaptic("light"); setResCatFilter(cat); }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  border: "none",
+                  cursor: "pointer",
+                  background: resCatFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                  color: resCatFilter === cat ? "#ffffff" : mutedTx,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {cat === "Sub-Junior" ? "Sub" : cat}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 6 }}>
+            {["All", "Stage", "Off-Stage"].map(t => (
+              <button
+                key={t}
+                onClick={() => setResTypeFilter(t)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: `1px solid ${resTypeFilter === t ? ACCENT : border}`,
+                  background: resTypeFilter === t ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)") : "transparent",
+                  color: resTypeFilter === t ? ACCENT : mutedTx,
+                  cursor: "pointer",
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Content: Standings Leaderboard OR Events List */}
+      {resView === "leaderboard" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {groupScores.map((s, idx) => {
+            const isMe = s.group.id === group.id;
+            const rank = idx + 1;
+            const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+            return (
+              <div
+                key={s.group.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "14px 18px",
+                  borderRadius: 16,
+                  background: isMe
+                    ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.06)")
+                    : cardBg,
+                  border: isMe
+                    ? `1.5px solid ${ACCENT}`
+                    : `1px solid ${border}`,
+                  boxShadow: isMe
+                    ? "0 6px 20px rgba(241,77,77,0.15)"
+                    : "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background: medal
+                        ? (rank === 1 ? "#fbbf24" : rank === 2 ? "#cbd5e1" : "#d97706")
+                        : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+                      color: medal ? "#000" : (dark ? "#fff" : "#000"),
+                      fontWeight: 900,
+                      fontSize: medal ? 16 : 14,
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {medal || rank}
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: 800,
+                      fontSize: 14.5,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}>
+                      <span>{s.group.name}</span>
+                      {isMe && (
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 900,
+                          textTransform: "uppercase",
+                          padding: "2px 6px",
+                          borderRadius: 6,
+                          background: ACCENT,
+                          color: "#fff",
+                        }}>
+                          You
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2, display: "flex", gap: 8 }}>
+                      <span>🥇 {s.firsts}</span>
+                      <span>🥈 {s.seconds}</span>
+                      <span>🥉 {s.thirds}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{
+                    fontSize: 19,
+                    fontWeight: 900,
+                    color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                    fontFamily: "'Plus Jakarta Sans',sans-serif",
+                  }}>
+                    {s.totalPoints}
+                    <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 2, color: mutedTx }}>pts</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {filteredPublishedProgs.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "48px 16px", color: mutedTx }}>
+              <div style={{ fontSize: 44, marginBottom: 12 }}>🏆</div>
+              <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>
+                {resView === "mine"
+                  ? "No awards in published events yet"
+                  : publishedPrograms.length === 0
+                  ? "No results published yet"
+                  : "No events match your search or filter"}
+              </div>
+              <div style={{ fontSize: 13, maxWidth: 320, margin: "0 auto" }}>
+                {resView === "mine"
+                  ? "When your team members secure placements or grades in published events, they will appear here!"
+                  : publishedPrograms.length === 0
+                  ? "Results will be published live as soon as organizers evaluate and finalize them."
+                  : "Try clearing your search query or selecting a different category."}
+              </div>
+            </div>
+          ) : (
+            filteredPublishedProgs.map(p => {
+              const entries = p.results?.entries || [];
+              const otherGrades = p.results?.otherGrades || [];
+              const hasMyTeamWin = entries.some(e => {
+                const st = resolveStudent(e);
+                return st && st.isMyGroup;
+              }) || otherGrades.some(o => {
+                const st = resolveStudent(o);
+                return st && st.isMyGroup;
+              });
+
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    borderRadius: 18,
+                    padding: "16px 18px",
+                    background: cardBg,
+                    border: hasMyTeamWin
+                      ? (dark ? "1.5px solid rgba(241,77,77,0.4)" : "1.5px solid rgba(241,77,77,0.3)")
+                      : `1px solid ${border}`,
+                    boxShadow: hasMyTeamWin
+                      ? (dark ? "0 8px 24px rgba(241,77,77,0.12)" : "0 8px 24px rgba(241,77,77,0.06)")
+                      : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {/* Event Card Header */}
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                        <span style={{
+                          fontFamily: "'Plus Jakarta Sans',sans-serif",
+                          fontWeight: 800,
+                          fontSize: 12,
+                          color: ACCENT,
+                          background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
+                          padding: "2px 7px",
+                          borderRadius: 6,
+                        }}>
+                          #{p.order || p.code || "—"}
+                        </span>
+                        <Tag label={p.category} dark={dark} />
+                        <Tag label={p.type || p.session || "Stage"} dark={dark} variant="accent" />
+                        {hasMyTeamWin && (
+                          <span style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: "#10b981",
+                            background: "rgba(16,185,129,0.12)",
+                            padding: "2px 8px",
+                            borderRadius: 6,
+                          }}>
+                            🎉 Team Placed!
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: dark ? "#f8fafc" : "#0f172a" }}>
+                        {p.name}
+                      </div>
+                    </div>
+
+                    {p.results?.publishedAt && (
+                      <div style={{ fontSize: 10.5, color: mutedTx, flexShrink: 0, textAlign: "right" }}>
+                        {fmtPublishTime(p.results.publishedAt)}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 1st, 2nd, 3rd Placements */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                    {entries.map((e, idx) => {
+                      const st = resolveStudent(e);
+                      const isMe = st?.isMyGroup;
+                      const place = Number(e.place || idx + 1);
+                      const placeLabel = place === 1 ? "1st" : place === 2 ? "2nd" : place === 3 ? "3rd" : `${place}th`;
+                      const medalColor = place === 1 ? "#f59e0b" : place === 2 ? "#94a3b8" : "#d97706";
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 10,
+                            padding: "8px 12px",
+                            borderRadius: 12,
+                            background: isMe
+                              ? (dark ? "rgba(241,77,77,0.14)" : "rgba(241,77,77,0.07)")
+                              : (dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"),
+                            border: isMe
+                              ? `1px solid rgba(241,77,77,0.3)`
+                              : `1px solid ${dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"}`,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                            <span style={{
+                              width: 32,
+                              height: 24,
+                              borderRadius: 6,
+                              background: `${medalColor}22`,
+                              color: medalColor,
+                              fontWeight: 900,
+                              fontSize: 11.5,
+                              display: "grid",
+                              placeItems: "center",
+                              flexShrink: 0,
+                            }}>
+                              {placeLabel}
+                            </span>
+
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{
+                                fontWeight: 700,
+                                fontSize: 13,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                              }}>
+                                {st?.chestNo && <span style={{ opacity: 0.8, marginRight: 5 }}>#{st.chestNo}</span>}
+                                {st?.name || `Contestant #${e.studentId}`}
+                              </div>
+                              <div style={{ fontSize: 11, color: mutedTx, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {st?.groupName || "—"}
+                                {isMe && <span style={{ marginLeft: 6, color: ACCENT, fontWeight: 700 }}>• Your Team</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                            {e.points !== undefined && e.points !== "" && (
+                              <span style={{ fontSize: 12, fontWeight: 800, color: isMe ? ACCENT : mutedTx }}>
+                                {e.points} pts
+                              </span>
+                            )}
+                            {e.grade && e.grade !== "—" && (
+                              <span style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 7,
+                                display: "grid",
+                                placeItems: "center",
+                                fontSize: 11.5,
+                                fontWeight: 900,
+                                background: isMe ? "rgba(241,77,77,0.2)" : (dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+                                color: isMe ? ACCENT : (dark ? "#e2e8f0" : "#334155"),
+                              }}>
+                                {e.grade}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Other Grades list if available */}
+                  {otherGrades.length > 0 && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${border}` }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx, marginBottom: 6 }}>
+                        Other Honors & Grades:
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {otherGrades.map((og, ogIdx) => {
+                          const ost = resolveStudent(og);
+                          const isMe = ost?.isMyGroup;
+                          return (
+                            <span
+                              key={ogIdx}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "4px 9px",
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                background: isMe ? "rgba(241,77,77,0.12)" : (dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
+                                color: isMe ? ACCENT : (dark ? "#cbd5e1" : "#475569"),
+                                border: `1px solid ${isMe ? "rgba(241,77,77,0.25)" : border}`,
+                              }}
+                            >
+                              <span>
+                                {ost?.chestNo && <span style={{ opacity: 0.8, marginRight: 4 }}>#{ost.chestNo}</span>}
+                                {ost?.name}
+                              </span>
+                              <span style={{
+                                fontWeight: 900,
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                                background: isMe ? ACCENT : (dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.07)"),
+                                color: isMe ? "#fff" : "inherit",
+                                fontSize: 10,
+                              }}>
+                                {og.grade}
+                              </span>
+                              {ost?.groupName && (
+                                <span style={{ fontSize: 10, color: mutedTx }}>({ost.groupName})</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
   );
 
-  const renderViews = { home: renderHome, members: renderMembers, events: renderEvents, messages: renderMessages };
+  const renderViews = { home: renderHome, members: renderMembers, events: renderEvents, results: renderResults };
 
   return (
     <div className="anim-fadeIn" style={{ minHeight: "100vh" }}>
-      {renderViews[tab]()}
+      {renderViews[tab] ? renderViews[tab]() : renderViews.home()}
 
-      <BottomNav tab={tab} setTab={setTab} unread={unreadCount} dark={dark} />
+      <BottomNav tab={tab} setTab={setTab} dark={dark} />
+
+      {/* ── Messages Floating Action Button (FAB) on all pages except results ── */}
+      {tab !== "results" && (
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic("medium");
+            setShowMessagesModal(true);
+          }}
+          aria-label="Support Chat"
+          title="Admin Support Chat"
+          style={{
+            position: "fixed",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 86px)",
+            right: 18,
+            width: 52,
+            height: 52,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #ff5c5c 0%, #f14d4d 100%)",
+            color: "#ffffff",
+            border: "none",
+            boxShadow: dark
+              ? "0 8px 24px rgba(241, 77, 77, 0.45), 0 2px 8px rgba(0,0,0,0.5)"
+              : "0 8px 24px rgba(241, 77, 77, 0.4), 0 2px 8px rgba(0,0,0,0.12)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 140,
+            transition: "all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = "scale(1.08) translateY(-2px)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = "none";
+          }}
+        >
+          <Ic name="message" size={22} />
+          {unreadCount > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                top: -3,
+                right: -3,
+                minWidth: 19,
+                height: 19,
+                padding: "0 4px",
+                borderRadius: 10,
+                background: "#ffffff",
+                color: "#f14d4d",
+                fontSize: 10.5,
+                fontWeight: 900,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                border: "2px solid #f14d4d",
+              }}
+            >
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* ── Messages Modal Sheet ── */}
+      {showMessagesModal && (
+        <div
+          className="anim-fadeIn"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setShowMessagesModal(false);
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 580,
+              height: "92vh",
+              maxHeight: 760,
+              borderRadius: "24px 24px 0 0",
+              background: dark ? "#0a0c16" : "#ffffff",
+              border: `1px solid ${border}`,
+              borderBottom: "none",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              boxShadow: "0 -10px 40px rgba(0,0,0,0.4)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <EmbeddedInbox
+              group={group}
+              dark={dark}
+              messages={messages}
+              sendMessage={sendMessage}
+              markRead={markRead}
+              setMessages={setMessages}
+              deleteMessage={deleteMessage}
+              onClose={() => setShowMessagesModal(false)}
+              isModal={true}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Settings modal ── */}
       {showSettings && (
@@ -787,7 +1693,15 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       {/* ── Registration modal ── */}
       {regModal && (
         <Modal title={editTarget ? "Edit Registration" : "Register for Event"} onClose={() => setRegModal(false)} wide>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              if (regForm.programId && regForm.participantIds.length > 0) {
+                saveReg();
+              }
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 16 }}
+          >
             <div>
               <label className="label">Select Program</label>
               <select className="input select" value={regForm.programId} onChange={e => setRegForm({ programId: e.target.value, participantIds: [] })} style={{ borderRadius: 12 }}>
@@ -813,14 +1727,28 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                       const registered = alreadyRegistered.has(s.id);
                       const disabled   = registered || (!active && atMax);
                       return (
-                        <div key={s.id} onClick={() => !disabled && togglePart(s.id)} style={{
-                          padding: "12px 14px", display: "flex", alignItems: "center", gap: 12,
-                          cursor: disabled ? "not-allowed" : "pointer",
-                          opacity: registered ? 0.35 : (!active && atMax) ? 0.45 : 1,
-                          background: active ? (dark ? "rgba(241,77,77,0.1)" : "rgba(241,77,77,0.06)") : "transparent",
-                          borderTop: i > 0 ? `1px solid ${border}` : "none",
-                          transition: "background 0.12s",
-                        }}>
+                        <div
+                          key={s.id}
+                          tabIndex={disabled ? -1 : 0}
+                          role="checkbox"
+                          aria-checked={active}
+                          onClick={() => !disabled && togglePart(s.id)}
+                          onKeyDown={e => {
+                            if (e.key === " " || e.key === "Enter") {
+                              e.preventDefault();
+                              if (!disabled) togglePart(s.id);
+                            }
+                          }}
+                          style={{
+                            padding: "12px 14px", display: "flex", alignItems: "center", gap: 12,
+                            cursor: disabled ? "not-allowed" : "pointer",
+                            opacity: registered ? 0.35 : (!active && atMax) ? 0.45 : 1,
+                            background: active ? (dark ? "rgba(241,77,77,0.1)" : "rgba(241,77,77,0.06)") : "transparent",
+                            borderTop: i > 0 ? `1px solid ${border}` : "none",
+                            transition: "background 0.12s",
+                            outline: "none",
+                          }}
+                        >
                           <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, border: `2px solid ${active ? ACCENT : (dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)")}`, background: active ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.12s" }}>
                             {active && <Ic name="check" size={12} color="#ffffff" />}
                           </div>
@@ -836,12 +1764,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             )}
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setRegModal(false)} style={{ borderRadius: 12 }}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveReg} disabled={!regForm.programId || regForm.participantIds.length === 0} style={{ borderRadius: 12, fontWeight: 800 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setRegModal(false)} style={{ borderRadius: 12 }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={!regForm.programId || regForm.participantIds.length === 0} style={{ borderRadius: 12, fontWeight: 800 }}>
                 {editTarget ? "Update Registration" : "Confirm Registration"}
               </button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
 
@@ -919,13 +1847,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       {/* Delete confirmation */}
       {delConfirm && (
         <Modal title="Cancel Registration" onClose={() => setDelConfirm(null)}>
-          <p style={{ fontSize: 14, color: mutedTx, marginBottom: 20 }}>
-            Are you sure you want to remove this event registration?
-          </p>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button className="btn btn-ghost" onClick={() => setDelConfirm(null)} style={{ borderRadius: 12 }}>Cancel</button>
-            <button className="btn btn-danger" onClick={confirmDeleteReg} style={{ borderRadius: 12, fontWeight: 800 }}>Confirm Cancel</button>
-          </div>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              confirmDeleteReg();
+            }}
+          >
+            <p style={{ fontSize: 14, color: mutedTx, marginBottom: 20 }}>
+              Are you sure you want to remove this event registration?
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setDelConfirm(null)} style={{ borderRadius: 12 }}>Cancel</button>
+              <button type="submit" className="btn btn-danger" style={{ borderRadius: 12, fontWeight: 800 }}>Confirm Cancel</button>
+            </div>
+          </form>
         </Modal>
       )}
 
@@ -1071,7 +2006,7 @@ const WhatsAppVoiceNote = ({ mediaUrl, isOwn }) => {
 };
 
 // ── EMBEDDED CHAT ─────────────────────────────────────────────────────────────
-const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessages, deleteMessage }) => {
+const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessages, deleteMessage, onClose, isModal = false }) => {
   const [text, setText]                 = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [isRecording, setIsRecording]   = useState(false);
@@ -1210,10 +2145,59 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 70px)", maxWidth: 600, margin: "0 auto", paddingBottom: 80 }} onClick={() => setShowMenu(false)}>
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: isModal ? "100%" : "calc(100vh - 70px)",
+      maxWidth: 600,
+      margin: "0 auto",
+      width: "100%",
+      paddingBottom: isModal ? 0 : 80,
+    }} onClick={() => setShowMenu(false)}>
       {/* Header bar */}
-      <div style={{ padding: "14px 16px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>Admin Support Chat</div>
+      <div style={{
+        padding: "14px 16px",
+        borderBottom: `1px solid ${border}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: isModal ? (dark ? "#111322" : "#fdfaf9") : "transparent",
+        flexShrink: 0,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: mutedTx,
+                padding: "4px 8px 4px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontFamily: "inherit",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+              title="Close chat"
+            >
+              <Ic name="back" size={17} />
+              <span>Back</span>
+            </button>
+          )}
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+              Admin Support Chat
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#10b981", fontWeight: 700 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+              Live · {group.name}
+            </div>
+          </div>
+        </div>
         <div style={{ position: "relative" }}>
           <button onClick={e => { e.stopPropagation(); setShowMenu(s => !s); }} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 6 }}>
             <Ic name="list" size={16} />

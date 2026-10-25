@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Ic from "./Ic";
 import { ACCENT } from "../../styles/DesignTokens";
 import { useApp } from "../../context/AppContext";
@@ -27,42 +28,54 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
     setTimeout(() => { setPwdSuccess(false); setChangingPwd(false); }, 1500);
   };
 
-  const border = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-  const rowBg  = dark ? "rgba(255,255,255,0.022)" : "rgba(255,255,255,0.8)";
+  const border = dark ? "rgba(255,255,255,0.1)" : "#e2e8f0";
+  const rowBg  = dark ? "#181a2e" : "#f8fafc";
 
-  return (
-    <div 
-      className="modal-bg" 
-      onClick={e => e.target === e.currentTarget && onClose()}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.7)",
-        backdropFilter: "blur(8px)",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-        animation: "fadeIn 0.2s ease",
-      }}
-    >
+  const panelContent = (
+    <>
       <div 
-        className="modal" 
-        style={{ 
-          maxWidth: 390,
-          width: "100%",
-          maxHeight: "90vh",
-          overflow: "auto",
-          background: dark ? "#0e0f1f" : "#ffffff",
-          border: `1px solid ${dark ? "rgba(241,77,77,0.2)" : "rgba(241,77,77,0.15)"}`,
-          borderRadius: 22,
-          padding: 24,
-          boxShadow: "0 28px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(241,77,77,0.08)",
-          animation: "modalIn 0.28s cubic-bezier(0.34,1.56,0.64,1)",
+        className="modal-bg" 
+        onClick={e => e.target === e.currentTarget && onClose()}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: "100vw",
+          height: "100dvh",
+          background: "rgba(0, 0, 0, 0.78)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          zIndex: 99999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          boxSizing: "border-box",
+          animation: "fadeIn 0.2s ease",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
+        <div 
+          className="modal" 
+          style={{ 
+            maxWidth: 420,
+            width: "100%",
+            maxHeight: "88vh",
+            overflowY: "auto",
+            background: dark ? "#111322" : "#ffffff",
+            border: dark ? "1px solid rgba(255, 255, 255, 0.14)" : "1px solid #e2e8f0",
+            borderRadius: 22,
+            padding: "24px 22px",
+            boxShadow: dark
+              ? "0 28px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(241, 77, 77, 0.25)"
+              : "0 28px 80px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.08)",
+            margin: "auto",
+            position: "relative",
+            animation: "modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
           <div>
             <div className="ff-display fw-800" style={{ fontSize: 18 }}>Settings</div>
@@ -180,55 +193,130 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
           </div>
         </div>
 
-        {confirming && (
-          <div className="modal-bg" onClick={() => setConfirming(false)}>
-            <div className="modal" style={{ maxWidth: 320, textAlign: "center" }} onClick={e => e.stopPropagation()}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(225,29,72,0.1)", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                <Ic name="logout" size={20} />
-              </div>
-              <div className="ff-display fw-800" style={{ fontSize: 17, marginBottom: 6, color: dark ? "#f8fafc" : "#0f172a" }}>Sign Out?</div>
-              <div style={{ fontSize: 13, color: dark ? "#94a3b8" : "#64748b", marginBottom: 20 }}>Are you sure you want to log out of your account?</div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 12, height: 42 }} onClick={() => setConfirming(false)}>Cancel</button>
-                <button className="btn" style={{ flex: 1, borderRadius: 12, height: 42, background: "#f43f5e", color: "white", fontWeight: 800, border: "none" }}
-                  onClick={handleSignOut}>Sign Out</button>
-              </div>
+        </div>
+      </div>
+
+      {/* Confirm Sign Out modal */}
+      {confirming && (
+        <div
+          className="modal-bg"
+          onClick={() => setConfirming(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100dvh",
+            background: "rgba(0, 0, 0, 0.82)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 100000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            className="modal"
+            style={{
+              maxWidth: 340,
+              width: "100%",
+              margin: "auto",
+              textAlign: "center",
+              background: dark ? "#141628" : "#ffffff",
+              border: dark ? "1px solid rgba(255, 255, 255, 0.14)" : "1px solid #e2e8f0",
+              borderRadius: 22,
+              padding: "26px 22px",
+              boxShadow: "0 28px 80px rgba(0, 0, 0, 0.6)",
+              animation: "modalIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ width: 48, height: 48, borderRadius: 16, background: "rgba(225, 29, 72, 0.12)", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+              <Ic name="logout" size={22} />
+            </div>
+            <div className="ff-display fw-800" style={{ fontSize: 18, marginBottom: 6, color: dark ? "#f8fafc" : "#0f172a" }}>Sign Out?</div>
+            <div style={{ fontSize: 13, color: dark ? "#94a3b8" : "#64748b", marginBottom: 22, lineHeight: 1.4 }}>Are you sure you want to log out of your account?</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 12, height: 42, background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)" }} onClick={() => setConfirming(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, borderRadius: 12, height: 42, background: "#f43f5e", color: "white", fontWeight: 800, border: "none", boxShadow: "0 4px 14px rgba(244,63,94,0.35)" }}
+                onClick={handleSignOut}>Sign Out</button>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
 
-    {/* Activity Log sheet */}
+      {/* Activity Log sheet */}
       {showLog && (
-        <div className="modal-bg" onClick={() => setShowLog(false)}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+        <div
+          className="modal-bg"
+          onClick={() => setShowLog(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100dvh",
+            background: "rgba(0, 0, 0, 0.82)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 100000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            className="modal modal-lg"
+            style={{
+              maxWidth: 540,
+              width: "100%",
+              margin: "auto",
+              background: dark ? "#141628" : "#ffffff",
+              border: dark ? "1px solid rgba(255, 255, 255, 0.14)" : "1px solid #e2e8f0",
+              borderRadius: 22,
+              padding: 24,
+              boxShadow: "0 28px 80px rgba(0, 0, 0, 0.6)",
+              maxHeight: "88vh",
+              overflowY: "auto",
+              animation: "modalIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
               <div>
-                <div className="ff-display fw-800" style={{ fontSize: 17 }}>Activity Log</div>
-                <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>{activityLogs.length} events</div>
+                <div className="ff-display fw-800" style={{ fontSize: 18 }}>Activity Log</div>
+                <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>{activityLogs.length} events recorded</div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 {activityLogs.length > 0 && (
-                  <button className="btn btn-ghost btn-sm" onClick={() => setClearLogConfirm(true)} style={{ color: "#e11d48" }}>Clear</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setClearLogConfirm(true)} style={{ color: "#e11d48", fontWeight: 700 }}>Clear</button>
                 )}
                 <button className="btn btn-ghost btn-icon" onClick={() => setShowLog(false)}><Ic name="x" size={14} /></button>
               </div>
             </div>
             {activityLogs.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 0", color: "#6b7280" }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>No activity yet</div>
               </div>
             ) : (
-              <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${border}`, maxHeight: 400, overflowY: "auto" }}>
+              <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}`, maxHeight: 420, overflowY: "auto" }}>
                 {activityLogs.map((l, i) => (
                   <div key={l.id} style={{ padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? rowBg : "transparent" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{l.action}</div>
-                      <div style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap" }}>{new Date(l.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                      <div style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{new Date(l.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
                     </div>
-                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{l.details} · {l.userName}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{l.details} · {l.userName || l.user}</div>
                   </div>
                 ))}
               </div>
@@ -239,20 +327,58 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
 
       {/* Clear log confirm */}
       {clearLogConfirm && (
-        <div className="modal-bg" onClick={() => setClearLogConfirm(false)}>
-          <div className="modal" style={{ maxWidth: 320, textAlign: "center" }} onClick={e => e.stopPropagation()}>
-            <div className="ff-display fw-800" style={{ fontSize: 16, marginBottom: 8 }}>Clear Activity Log?</div>
+        <div
+          className="modal-bg"
+          onClick={() => setClearLogConfirm(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100dvh",
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 100001,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            className="modal"
+            style={{
+              maxWidth: 340,
+              width: "100%",
+              margin: "auto",
+              textAlign: "center",
+              background: dark ? "#141628" : "#ffffff",
+              border: dark ? "1px solid rgba(255, 255, 255, 0.14)" : "1px solid #e2e8f0",
+              borderRadius: 22,
+              padding: 24,
+              boxShadow: "0 28px 80px rgba(0, 0, 0, 0.6)",
+              animation: "modalIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="ff-display fw-800" style={{ fontSize: 17, marginBottom: 8 }}>Clear Activity Log?</div>
             <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>This will permanently remove all {activityLogs.length} log entries.</div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setClearLogConfirm(false)}>Cancel</button>
-              <button className="btn" style={{ flex: 1, height: 44, background: "#e11d48", color: "white", fontWeight: 700 }}
+              <button className="btn btn-ghost" style={{ flex: 1, height: 42, borderRadius: 12 }} onClick={() => setClearLogConfirm(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, height: 42, borderRadius: 12, background: "#e11d48", color: "white", fontWeight: 700 }}
                 onClick={() => { clearLogs(); setClearLogConfirm(false); setShowLog(false); }}>Clear</button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
+
+  return typeof document !== "undefined" ? createPortal(panelContent, document.body) : panelContent;
 };
 
 export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, isAdmin, verify, pinLength, _settingsOnly, _forceOpen, onSettingsClose }) => {
