@@ -60,7 +60,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage } = useApp();
 
   const [view, setViewState]         = useState(() => getHashRoute("admin", "students", VALID_VIEWS, { programs: "events" }));
   const setView                       = useHashSync("admin", view, setViewState, VALID_VIEWS, { programs: "events" });
@@ -818,7 +818,29 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             {groupStudents.map((s, i) => (
               <div key={s.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 40px", alignItems: "center", padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent", transition: "background 0.12s" }}>
                 <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 14 }}>{s.chestNo}</span>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
+                  {(() => {
+                    const q = getStudentQuotaUsage ? getStudentQuotaUsage(s.id) : null;
+                    if (!q) return null;
+                    const isExceeded = q.stage > (programLimits?.maxStage || 3) || q.offStage > (programLimits?.maxOffStage || 3);
+                    if (!isExceeded) return null;
+                    return (
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: "#f59e0b",
+                        background: dark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.1)",
+                        border: "1px solid rgba(245,158,11,0.3)",
+                        padding: "1px 6px",
+                        borderRadius: 6,
+                        letterSpacing: 0.3,
+                      }}>
+                        ⚠️ OVER LIMIT (Stage: {q.stage}/{programLimits?.maxStage || 3}, Off: {q.offStage}/{programLimits?.maxOffStage || 3})
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div>
                   <span style={{
                     display: "inline-flex",
@@ -886,6 +908,72 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             </button>
             <button className="btn btn-primary" onClick={openAddProg}><Ic name="plus" size={13} /> Add Event</button>
           </div>
+        </div>
+
+        {/* Minimal Participation Limits widget */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "8px 14px",
+          borderRadius: 12,
+          background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+          border: `1px solid ${border}`,
+          marginBottom: 16,
+          flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            <span style={{ fontSize: 13 }}>⚙️</span>
+            <span>Student Limits (Solo):</span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Stage:</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
+                onClick={() => updateProgramLimits({ maxStage: Math.max(1, (programLimits?.maxStage || 3) - 1), maxOffStage: programLimits?.maxOffStage || 3 })}
+              >-</button>
+              <span style={{ fontWeight: 800, fontSize: 13, minWidth: 18, textAlign: "center", color: ACCENT }}>
+                {programLimits?.maxStage || 3}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
+                onClick={() => updateProgramLimits({ maxStage: (programLimits?.maxStage || 3) + 1, maxOffStage: programLimits?.maxOffStage || 3 })}
+              >+</button>
+            </div>
+          </div>
+
+          <div style={{ width: 1, height: 16, background: border }} />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Off-Stage:</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
+                onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: Math.max(1, (programLimits?.maxOffStage || 3) - 1) })}
+              >-</button>
+              <span style={{ fontWeight: 800, fontSize: 13, minWidth: 18, textAlign: "center", color: "#3b82f6" }}>
+                {programLimits?.maxOffStage || 3}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
+                onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: (programLimits?.maxOffStage || 3) + 1 })}
+              >+</button>
+            </div>
+          </div>
+
+          <span style={{ fontSize: 11, color: mutedTx, marginLeft: "auto" }}>
+            Max solo events per student · Auto-saved
+          </span>
         </div>
 
         {/* Event Type + Category + Search in one toolbar */}

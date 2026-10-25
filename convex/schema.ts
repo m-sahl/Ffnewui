@@ -31,6 +31,7 @@ export default defineSchema({
     programId: v.string(),
     groupId: v.string(),
     participantIds: v.array(v.string()),
+    adminOverride: v.optional(v.boolean()),
   }),
 
   users: defineTable({
@@ -69,5 +70,10 @@ export default defineSchema({
     action: v.string(),
     details: v.string(),
     timestamp: v.number(),
+  }),
+
+  settings: defineTable({
+    key: v.string(),
+    value: v.any(),
   }),
 });

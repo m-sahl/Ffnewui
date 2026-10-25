@@ -48,6 +48,7 @@ http.route({
           name: u.name,
           color: u.color || GROUP_COLORS[idx % GROUP_COLORS.length],
           role: u.role,
+          pinLength: String(u.pin || "").length || 1,
         }));
       return jsonResponse({ success: true, groups });
     } catch (err: any) {

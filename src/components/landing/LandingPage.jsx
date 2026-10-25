@@ -192,7 +192,14 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           title={loginGroup.name}
           subtitle="Enter your group PIN to continue"
           verify={verifyGroupPin} dark={dark}
-          pinLength={users.find(u => u.id === loginGroup.id)?.pin?.length || 3}
+          pinLength={(() => {
+            const u = users.find(x => 
+              x.id === loginGroup.id || 
+              x.groupId === loginGroup.id || 
+              (x.name && x.name.toLowerCase() === loginGroup.name.toLowerCase())
+            );
+            return u?.pin ? String(u.pin).length : (loginGroup.pinLength || 1);
+          })()}
           onSuccess={(u) => { setLoginGroup(null); onLeaderLogin(u); }}
           onClose={() => setLoginGroup(null)}
         />

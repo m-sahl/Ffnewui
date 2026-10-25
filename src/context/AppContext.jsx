@@ -19,6 +19,7 @@ export const AppProvider = ({ children }) => {
   const convexLocks         = useQuery(api.locks.get);
   const convexMessages      = useQuery(api.messages.get);
   const convexLogs          = useQuery(api.logs.get);
+  const convexSettings      = useQuery(api.settings.getLimits);
 
   // Convex Live Mutations
   const setAllConvexPrograms      = useMutation(api.programs.setAll);
@@ -47,6 +48,7 @@ export const AppProvider = ({ children }) => {
   const deleteConvexMessage       = useMutation(api.messages.deleteMsg);
   const addConvexLog              = useMutation(api.logs.add);
   const clearConvexLogs           = useMutation(api.logs.clear);
+  const updateConvexLimits        = useMutation(api.settings.updateLimits);
 
   // Local State
   const [programs, setProgramsState] = useState(() => {
@@ -85,6 +87,13 @@ export const AppProvider = ({ children }) => {
 
   const [messages, setMessagesState] = useState(() => {
     try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+
+  const [programLimits, setProgramLimitsState] = useState(() => {
+    try {
+      const s = localStorage.getItem("ff_program_limits");
+      return s ? JSON.parse(s) : { maxStage: 3, maxOffStage: 3 };
+    } catch { return { maxStage: 3, maxOffStage: 3 }; }
   });
 
   const initialSynced = useRef(false);
@@ -147,19 +156,26 @@ export const AppProvider = ({ children }) => {
   }, [convexLogs]);
 
   useEffect(() => {
+    if (convexSettings && typeof convexSettings.maxStage === "number" && typeof convexSettings.maxOffStage === "number") {
+      setProgramLimitsState(convexSettings);
+    }
+  }, [convexSettings]);
+
+  useEffect(() => {
     if (convexPrograms !== undefined && convexStudents !== undefined && convexUsers !== undefined) {
       initialSynced.current = true;
     }
   }, [convexPrograms, convexStudents, convexUsers]);
 
   // Persist Local Storage Cache
-  useEffect(() => { localStorage.setItem("ff_programs",      JSON.stringify(programs));      }, [programs]);
-  useEffect(() => { localStorage.setItem("ff_students",      JSON.stringify(students));      }, [students]);
-  useEffect(() => { localStorage.setItem("ff_registrations", JSON.stringify(registrations)); }, [registrations]);
-  useEffect(() => { localStorage.setItem("ff_users",         JSON.stringify(users));         }, [users]);
-  useEffect(() => { localStorage.setItem("ff_logs",          JSON.stringify(activityLogs));  }, [activityLogs]);
-  useEffect(() => { localStorage.setItem("ff_locks",         JSON.stringify(locks));         }, [locks]);
-  useEffect(() => { localStorage.setItem("ff_messages",      JSON.stringify(messages));      }, [messages]);
+  useEffect(() => { localStorage.setItem("ff_programs",       JSON.stringify(programs));      }, [programs]);
+  useEffect(() => { localStorage.setItem("ff_students",       JSON.stringify(students));      }, [students]);
+  useEffect(() => { localStorage.setItem("ff_registrations",  JSON.stringify(registrations)); }, [registrations]);
+  useEffect(() => { localStorage.setItem("ff_users",          JSON.stringify(users));         }, [users]);
+  useEffect(() => { localStorage.setItem("ff_logs",           JSON.stringify(activityLogs));  }, [activityLogs]);
+  useEffect(() => { localStorage.setItem("ff_locks",          JSON.stringify(locks));         }, [locks]);
+  useEffect(() => { localStorage.setItem("ff_messages",       JSON.stringify(messages));      }, [messages]);
+  useEffect(() => { localStorage.setItem("ff_program_limits", JSON.stringify(programLimits)); }, [programLimits]);
 
   const GROUP_COLORS = ["#f14d4d", "#3b82f6", "#f59e0b", "#1dd183", "#8b5cf6", "#f97316", "#06b6d4", "#ec4899"];
 
@@ -391,6 +407,57 @@ export const AppProvider = ({ children }) => {
     return (maxUsed + 1).toString();
   };
 
+  const updateProgramLimits = ({ maxStage, maxOffStage }) => {
+    const next = {
+      maxStage: Math.max(1, Number(maxStage) || 1),
+      maxOffStage: Math.max(1, Number(maxOffStage) || 1),
+    };
+    setProgramLimitsState(next);
+    updateConvexLimits(next).catch(err => console.error("Convex updateLimits error:", err));
+  };
+
+  const getStudentQuotaUsage = (studentId, excludeRegId = null) => {
+    if (!studentId) return { stage: 0, offStage: 0, maxStage: programLimits.maxStage, maxOffStage: programLimits.maxOffStage, stageFull: false, offStageFull: false };
+    const sId = String(studentId);
+
+    let stageCount = 0;
+    let offStageCount = 0;
+
+    const programMap = new Map();
+    for (const p of programs) {
+      programMap.set(p.id, p);
+    }
+
+    for (const r of registrations) {
+      if (excludeRegId && r.id === excludeRegId) continue;
+      if (!Array.isArray(r.participantIds) || !r.participantIds.map(String).includes(sId)) continue;
+
+      const p = programMap.get(r.programId);
+      if (!p) continue;
+      const maxP = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
+      if (maxP !== 1) continue; // Solo items only count against personal limit
+
+      const sessionType = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+      if (sessionType === "Off-Stage") {
+        offStageCount++;
+      } else {
+        stageCount++;
+      }
+    }
+
+    const maxStage = programLimits?.maxStage ?? 3;
+    const maxOffStage = programLimits?.maxOffStage ?? 3;
+
+    return {
+      stage: stageCount,
+      offStage: offStageCount,
+      maxStage,
+      maxOffStage,
+      stageFull: stageCount >= maxStage,
+      offStageFull: offStageCount >= maxOffStage,
+    };
+  };
+
   return (
     <AppContext.Provider value={{
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
@@ -401,6 +468,7 @@ export const AppProvider = ({ children }) => {
       messages, setMessages: setMessagesState, sendMessage, markRead, deleteMessage,
       locks, toggleLock, isLocked,
       nextChestNo,
+      programLimits, updateProgramLimits, getStudentQuotaUsage,
     }}>
       {children}
     </AppContext.Provider>

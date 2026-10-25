@@ -14,6 +14,7 @@ import type * as logs from "../logs.js";
 import type * as messages from "../messages.js";
 import type * as programs from "../programs.js";
 import type * as registrations from "../registrations.js";
+import type * as settings from "../settings.js";
 import type * as students from "../students.js";
 import type * as users from "../users.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   programs: typeof programs;
   registrations: typeof registrations;
+  settings: typeof settings;
   students: typeof students;
   users: typeof users;
 }>;

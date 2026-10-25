@@ -112,7 +112,7 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
 );
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked } = useApp();
+  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked, programLimits, getStudentQuotaUsage } = useApp();
 
   const [tab, setTabState]               = useState(() => getHashRoute("leader", "home", VALID_TABS, { programs: "events", messages: "results" }));
   const setTab                            = useHashSync("leader", tab, setTabState, VALID_TABS, { programs: "events", messages: "results" });
@@ -256,6 +256,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const selectedProg = programs.find(p => p.id === regForm.programId);
   const max          = selectedProg?.maxParticipants || 1;
+  const isSolo       = max === 1;
+  const progSession  = (selectedProg?.type || selectedProg?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
   const atMax        = regForm.participantIds.length >= max;
 
   const alreadyRegistered = new Set(
@@ -266,10 +268,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const togglePart = id => {
     if (alreadyRegistered.has(id)) return;
+    const quota = getStudentQuotaUsage ? getStudentQuotaUsage(id, editTarget) : null;
+    const quotaFull = isSolo && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
     setRegForm(prev => {
       const has = prev.participantIds.includes(id);
       if (has) return { ...prev, participantIds: prev.participantIds.filter(x => x !== id) };
-      if (prev.participantIds.length >= max) return prev;
+      if (quotaFull || prev.participantIds.length >= max) return prev;
       return { ...prev, participantIds: [...prev.participantIds, id] };
     });
   };
@@ -1725,7 +1729,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     groupStudents.filter(s => !selectedProg?.category || selectedProg.category === "General" || s.category?.toLowerCase() === selectedProg.category?.toLowerCase()).map((s, i) => {
                       const active     = regForm.participantIds.includes(s.id);
                       const registered = alreadyRegistered.has(s.id);
-                      const disabled   = registered || (!active && atMax);
+                      const quota      = getStudentQuotaUsage ? getStudentQuotaUsage(s.id, editTarget) : null;
+                      const quotaFull  = isSolo && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
+                      const disabled   = registered || (!active && (atMax || quotaFull));
                       return (
                         <div
                           key={s.id}
@@ -1742,7 +1748,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                           style={{
                             padding: "12px 14px", display: "flex", alignItems: "center", gap: 12,
                             cursor: disabled ? "not-allowed" : "pointer",
-                            opacity: registered ? 0.35 : (!active && atMax) ? 0.45 : 1,
+                            opacity: registered ? 0.35 : (!active && (atMax || quotaFull)) ? 0.45 : 1,
                             background: active ? (dark ? "rgba(241,77,77,0.1)" : "rgba(241,77,77,0.06)") : "transparent",
                             borderTop: i > 0 ? `1px solid ${border}` : "none",
                             transition: "background 0.12s",
@@ -1754,7 +1760,22 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                           </div>
                           <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, minWidth: 32 }}>{s.chestNo}</span>
                           <span style={{ fontWeight: 600, fontSize: 13, flex: 1, color: dark ? "#f8fafc" : "#0f172a" }}>{s.name}</span>
-                          {registered && <span style={{ fontSize: 10, fontWeight: 800, color: mutedTx, letterSpacing: 0.4 }}>REGISTERED</span>}
+                          {registered ? (
+                            <span style={{ fontSize: 10, fontWeight: 800, color: mutedTx, letterSpacing: 0.4 }}>REGISTERED</span>
+                          ) : quotaFull ? (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 800,
+                              color: "#f43f5e",
+                              background: dark ? "rgba(244, 63, 94, 0.12)" : "rgba(244, 63, 94, 0.08)",
+                              border: "1px solid rgba(244, 63, 94, 0.25)",
+                              padding: "2px 7px",
+                              borderRadius: 6,
+                              letterSpacing: 0.3,
+                            }}>
+                              ⛔ {progSession.toUpperCase()} LIMIT REACHED ({progSession === "Off-Stage" ? quota.offStage : quota.stage}/{progSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage})
+                            </span>
+                          ) : null}
                         </div>
                       );
                     })
