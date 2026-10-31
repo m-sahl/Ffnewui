@@ -10,8 +10,9 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
     if (typeof doLogout === "function") doLogout();
     onClose();
   };
-  const { users, setUsers, activityLogs, clearLogs } = useApp();
+  const { users, setUsers, activityLogs, clearLogs, programLimits, updateProgramLimits } = useApp();
   const [confirming, setConfirming]         = useState(false);
+  const [showAdvanced, setShowAdvanced]     = useState(false);
   const [changingPwd, setChangingPwd]       = useState(false);
   const [newPwd, setNewPwd]                 = useState("");
   const [newPwdConfirm, setNewPwdConfirm]   = useState("");
@@ -206,6 +207,94 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
                   <div className="text-muted" style={{ fontSize: 12 }}>{activityLogs.length} events recorded</div>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={() => setShowLog(true)}>View</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Advanced Settings */}
+        {isAdmin && (
+          <div style={{ marginBottom: 18 }}>
+            <div className="label" style={{ paddingLeft: 4 }}>Advanced Settings</div>
+            <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+              <div style={{ padding: "13px 16px", background: rowBg }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: showAdvanced ? 14 : 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Ic name="sliders" size={16} />
+                  </div>
+                  <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setShowAdvanced(s => !s)}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>Student Participation Limits</div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Stage: {programLimits?.maxStage || 3} · Off-Stage: {programLimits?.maxOffStage || 3}
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setShowAdvanced(s => !s)}>
+                    {showAdvanced ? "Done" : "Configure"}
+                  </button>
+                </div>
+
+                {showAdvanced && (
+                  <div className="anim-fadeIn" style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 14, borderTop: `1px solid ${border}` }}>
+                    <div style={{ fontSize: 12, color: dark ? "#94a3b8" : "#64748b", lineHeight: 1.4 }}>
+                      Set the maximum number of solo events each student can participate in. Group events are not restricted.
+                    </div>
+
+                    {/* Stage Limit Counter */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 11, background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${border}` }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Events</div>
+                        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b" }}>Max solo stage events per student</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ width: 30, height: 30, padding: 0, borderRadius: 8, minWidth: 30, border: `1px solid ${border}` }}
+                          onClick={() => updateProgramLimits({ maxStage: Math.max(1, (programLimits?.maxStage || 3) - 1), maxOffStage: programLimits?.maxOffStage || 3 })}
+                        >-</button>
+                        <span style={{ fontWeight: 800, fontSize: 15, minWidth: 26, textAlign: "center", color: ACCENT }}>
+                          {programLimits?.maxStage || 3}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ width: 30, height: 30, padding: 0, borderRadius: 8, minWidth: 30, border: `1px solid ${border}` }}
+                          onClick={() => updateProgramLimits({ maxStage: (programLimits?.maxStage || 3) + 1, maxOffStage: programLimits?.maxOffStage || 3 })}
+                        >+</button>
+                      </div>
+                    </div>
+
+                    {/* Off-Stage Limit Counter */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 11, background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${border}` }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Events</div>
+                        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b" }}>Max solo off-stage events per student</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ width: 30, height: 30, padding: 0, borderRadius: 8, minWidth: 30, border: `1px solid ${border}` }}
+                          onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: Math.max(1, (programLimits?.maxOffStage || 3) - 1) })}
+                        >-</button>
+                        <span style={{ fontWeight: 800, fontSize: 15, minWidth: 26, textAlign: "center", color: "#3b82f6" }}>
+                          {programLimits?.maxOffStage || 3}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ width: 30, height: 30, padding: 0, borderRadius: 8, minWidth: 30, border: `1px solid ${border}` }}
+                          onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: (programLimits?.maxOffStage || 3) + 1 })}
+                        >+</button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: dark ? "#64748b" : "#94a3b8", marginTop: 2 }}>
+                      <span>Solo events limit</span>
+                      <span style={{ color: "#10b981", fontWeight: 600 }}>✓ Auto-saved to cloud</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
