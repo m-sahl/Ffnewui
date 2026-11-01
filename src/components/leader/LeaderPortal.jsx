@@ -124,6 +124,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [memSearchOpen, setMemSearchOpen] = useState(false);
   const [regModal, setRegModal]           = useState(false);
   const [regForm, setRegForm]             = useState({ programId: "", participantIds: [] });
+  const [regError, setRegError]           = useState("");
+  const [regSaving, setRegSaving]         = useState(false);
   const [editTarget, setEditTarget]       = useState(null);
   const [viewTarget, setViewTarget]       = useState(null);
   const [delConfirm, setDelConfirm]       = useState(null);
@@ -207,6 +209,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   // ── Registration ops ──────────────────────────────────────────────────────
   const openReg = (existing = null) => {
+    setRegError("");
     if (existing) {
       const p = programs.find(pg => pg.id === existing.programId);
       const pType = (p?.type || p?.session || "Stage").toLowerCase();
@@ -221,25 +224,64 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     setRegModal(true);
   };
 
-  const saveReg = () => {
+  const saveReg = async () => {
     if (!regForm.programId) return;
     const p = programs.find(pg => pg.id === regForm.programId);
     const pType = (p?.type || p?.session || "Stage").toLowerCase();
-    if (isLocked(group.id, pType)) return;
+    const pSession = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+    if (isLocked(group.id, pType)) {
+      setRegError(`Registration is locked for ${pSession} session by Admin.`);
+      return;
+    }
 
     const alreadyExists = !editTarget && groupRegs.some(r => r.programId === regForm.programId);
-    if (alreadyExists) return;
-    if (editTarget) {
-      // Use atomic update for existing registration
-      updateRegistration(editTarget, regForm);
-      logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
-    } else {
-      // Use atomic add for new registration
-      const newReg = { id: "r-" + Math.random().toString(36).substr(2, 5), groupId: group.id, ...regForm };
-      addRegistration(newReg);
-      logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
+    if (alreadyExists) {
+      setRegError("Your team is already registered for this program.");
+      return;
     }
-    setRegModal(false);
+
+    // Check student solo quotas before submitting
+    const isSolo = (p?.maxParticipants !== undefined ? Number(p.maxParticipants) : 1) === 1;
+    if (isSolo) {
+      for (const sId of regForm.participantIds) {
+        const quota = getStudentQuotaUsage ? getStudentQuotaUsage(sId, editTarget) : null;
+        if (quota) {
+          const isFull = pSession === "Off-Stage" ? quota.offStageFull : quota.stageFull;
+          if (isFull) {
+            const student = groupStudents.find(s => s.id === sId);
+            const limit = pSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage;
+            setRegError(`Cannot register: ${student?.name || "Student"} has reached the maximum ${pSession} limit (${limit} programs).`);
+            return;
+          }
+        }
+      }
+    }
+
+    setRegSaving(true);
+    setRegError("");
+    try {
+      if (editTarget) {
+        // Use atomic update for existing registration
+        await updateRegistration(editTarget, regForm);
+        logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
+      } else {
+        // Use atomic add for new registration
+        const newReg = { id: "r-" + Math.random().toString(36).substr(2, 5), groupId: group.id, ...regForm };
+        await addRegistration(newReg);
+        logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
+      }
+      setRegModal(false);
+      setRegError("");
+    } catch (err) {
+      const msg = (err?.message || "Registration failed")
+        .replace(/^Uncaught (Error: )?/i, "")
+        .replace(/^\[Request ID: [^\]]+\] (Server Error )?/i, "")
+        .split("\n")[0]
+        .trim();
+      setRegError(msg);
+    } finally {
+      setRegSaving(false);
+    }
   };
 
   const confirmDeleteReg = () => {
@@ -427,7 +469,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
-                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered · Limit: {programLimits?.maxStage || 3} solo/student</div>
               </div>
               <span style={{
                 fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -448,7 +490,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
-                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered</div>
+                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 3} solo/student</div>
               </div>
               <span style={{
                 fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -1784,10 +1826,25 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               </div>
             )}
 
+            {regError && (
+              <div style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: "rgba(244, 63, 94, 0.1)",
+                color: "#f43f5e",
+                fontSize: 12.5,
+                fontWeight: 700,
+                border: "1px solid rgba(244, 63, 94, 0.25)",
+                lineHeight: 1.4
+              }}>
+                {regError}
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
               <button type="button" className="btn btn-ghost" onClick={() => setRegModal(false)} style={{ borderRadius: 12 }}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={!regForm.programId || regForm.participantIds.length === 0} style={{ borderRadius: 12, fontWeight: 800 }}>
-                {editTarget ? "Update Registration" : "Confirm Registration"}
+              <button type="submit" className="btn btn-primary" disabled={!regForm.programId || regForm.participantIds.length === 0 || regSaving} style={{ borderRadius: 12, fontWeight: 800 }}>
+                {regSaving ? "Saving..." : editTarget ? "Update Registration" : "Confirm Registration"}
               </button>
             </div>
           </form>

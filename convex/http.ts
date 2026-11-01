@@ -147,7 +147,7 @@ http.route({
         targetGroupId = "u-qmdps";
       }
 
-      const [allPrograms, allStudents, allRegistrations, allLocks, allMessages, allUsers] =
+      const [allPrograms, allStudents, allRegistrations, allLocks, allMessages, allUsers, programLimits] =
         await Promise.all([
           ctx.runQuery(api.programs.get),
           ctx.runQuery(api.students.get),
@@ -155,6 +155,7 @@ http.route({
           ctx.runQuery(api.locks.get),
           ctx.runQuery(api.messages.get),
           ctx.runQuery(api.users.get),
+          ctx.runQuery(api.settings.getLimits),
         ]);
 
       const groupUser = allUsers.find(
@@ -270,14 +271,57 @@ http.route({
         };
       });
 
+      const maxStage = typeof programLimits?.maxStage === "number" ? programLimits.maxStage : 3;
+      const maxOffStage = typeof programLimits?.maxOffStage === "number" ? programLimits.maxOffStage : 3;
+
+      const soloProgs = (allPrograms || []).filter((p: any) => (p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1) === 1);
+      const stageSoloIds = new Set(
+        soloProgs
+          .filter((p: any) => ((p.type || p.session || "Stage").toLowerCase() !== "off-stage"))
+          .map((p: any) => p.id)
+      );
+      const offStageSoloIds = new Set(
+        soloProgs
+          .filter((p: any) => ((p.type || p.session || "Stage").toLowerCase() === "off-stage"))
+          .map((p: any) => p.id)
+      );
+
+      const enrichedStudents = groupStudents.map((s: any) => {
+        const sId = String(s.id);
+        let sStageCount = 0;
+        let sOffStageCount = 0;
+        for (const r of allRegistrations || []) {
+          if (!Array.isArray(r.participantIds) || !r.participantIds.map(String).includes(sId)) continue;
+          if (stageSoloIds.has(r.programId)) sStageCount++;
+          if (offStageSoloIds.has(r.programId)) sOffStageCount++;
+        }
+        return {
+          ...s,
+          quotaUsage: {
+            stage: sStageCount,
+            offStage: sOffStageCount,
+            maxStage,
+            maxOffStage,
+            stageAvailable: Math.max(0, maxStage - sStageCount),
+            offStageAvailable: Math.max(0, maxOffStage - sOffStageCount),
+            stageFull: sStageCount >= maxStage,
+            offStageFull: sOffStageCount >= maxOffStage,
+          },
+        };
+      });
+
       return jsonResponse({
         success: true,
         data: {
           group: groupUser
             ? { id: groupUser.id, name: groupUser.name, color: groupColor }
             : { id: targetGroupId, name: targetGroupId, color: groupColor },
+          limits: {
+            maxStage,
+            maxOffStage,
+          },
           programs: enrichedPrograms,
-          students: groupStudents,
+          students: enrichedStudents,
           registrations: groupRegistrations,
           locks: lockMap,
           messages: groupMessages || [],
@@ -285,6 +329,109 @@ http.route({
       });
     } catch (err: any) {
       return errorResponse(err?.message || "Failed to fetch leader data", 500);
+    }
+  }),
+});
+
+// ── GET /api/limits & /api/leader/limits ──────────────────────────────────────
+const handleGetLimits = httpAction(async (ctx) => {
+  try {
+    const limits = await ctx.runQuery(api.settings.getLimits);
+    return jsonResponse({
+      success: true,
+      limits: {
+        maxStage: typeof limits?.maxStage === "number" ? limits.maxStage : 3,
+        maxOffStage: typeof limits?.maxOffStage === "number" ? limits.maxOffStage : 3,
+      },
+    });
+  } catch (err: any) {
+    return errorResponse(err?.message || "Failed to fetch limits", 500);
+  }
+});
+
+http.route({ path: "/api/limits", method: "OPTIONS", handler: handleCorsPreflight });
+http.route({ path: "/api/limits", method: "GET", handler: handleGetLimits });
+http.route({ path: "/api/leader/limits", method: "OPTIONS", handler: handleCorsPreflight });
+http.route({ path: "/api/leader/limits", method: "GET", handler: handleGetLimits });
+
+// ── POST /api/leader/validate-registration ──────────────────────────────────
+http.route({
+  path: "/api/leader/validate-registration",
+  method: "OPTIONS",
+  handler: handleCorsPreflight,
+});
+
+http.route({
+  path: "/api/leader/validate-registration",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const { programId, participantIds, groupId, regId } = body;
+      if (!programId || !Array.isArray(participantIds)) {
+        return errorResponse("programId and participantIds are required");
+      }
+
+      const result = await ctx.runQuery(api.registrations.checkQuota, {
+        programId,
+        participantIds,
+        groupId,
+        regId,
+      });
+
+      return jsonResponse({
+        success: result.valid,
+        ...result,
+      });
+    } catch (err: any) {
+      const msg = (err?.message || "Validation failed")
+        .replace(/^Uncaught (Error: )?/i, "")
+        .split("\n")[0]
+        .trim();
+      return errorResponse(msg, 400);
+    }
+  }),
+});
+
+// ── POST /api/admin/limits ──────────────────────────────────────────────────
+http.route({
+  path: "/api/admin/limits",
+  method: "OPTIONS",
+  handler: handleCorsPreflight,
+});
+
+http.route({
+  path: "/api/admin/limits",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const { maxStage, maxOffStage, pin } = body;
+
+      if (typeof maxStage !== "number" || typeof maxOffStage !== "number") {
+        return errorResponse("maxStage and maxOffStage numbers are required");
+      }
+
+      if (pin) {
+        const users = await ctx.runQuery(api.users.get);
+        const admin = users.find((u: any) => u.role === "admin");
+        if (admin && admin.pin !== pin) {
+          return errorResponse("Invalid admin PIN", 401);
+        }
+      }
+
+      const updated = await ctx.runMutation(api.settings.updateLimits, {
+        maxStage: Math.max(1, maxStage),
+        maxOffStage: Math.max(1, maxOffStage),
+      });
+
+      return jsonResponse({
+        success: true,
+        message: "Program limits updated successfully",
+        limits: updated,
+      });
+    } catch (err: any) {
+      return errorResponse(err?.message || "Failed to update limits", 500);
     }
   }),
 });
@@ -314,6 +461,27 @@ http.route({
         targetGroupId = "u-qmdps";
       }
 
+      const allProgs = await ctx.runQuery(api.programs.get);
+      const prog = (allProgs || []).find((p: any) => p.id === programId);
+      if (!prog) {
+        return errorResponse("Program not found", 404);
+      }
+
+      const session = ((prog.type || prog.session || "Stage").toLowerCase() === "off-stage") ? "Off-Stage" : "Stage";
+
+      // Check session locking
+      const allLocks = await ctx.runQuery(api.locks.get);
+      const lockKey = `${targetGroupId}_${session}`.toLowerCase();
+      const isLocked = (allLocks || []).some(
+        (l: any) =>
+          ((l.type && l.type.toLowerCase() === lockKey) ||
+           (l.groupId === targetGroupId && (l.session || "").toLowerCase() === session.toLowerCase())) &&
+          l.locked
+      );
+      if (isLocked) {
+        return errorResponse(`Registration is locked for ${session} session by Admin`, 403);
+      }
+
       const allRegs = await ctx.runQuery(api.registrations.get);
       const existing = (allRegs || []).find(
         (r: any) =>
@@ -336,7 +504,12 @@ http.route({
 
       return jsonResponse({ success: true, id: regId });
     } catch (err: any) {
-      return errorResponse(err?.message || "Registration failed", 500);
+      const msg = (err?.message || "Registration failed")
+        .replace(/^Uncaught (Error: )?/i, "")
+        .replace(/^\[Request ID: [^\]]+\] (Server Error )?/i, "")
+        .split("\n")[0]
+        .trim();
+      return errorResponse(msg, 400);
     }
   }),
 });

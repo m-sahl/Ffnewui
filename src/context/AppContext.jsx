@@ -293,23 +293,30 @@ export const AppProvider = ({ children }) => {
   };
 
   // New atomic add function
-  const addRegistration = (newReg) => {
+  const addRegistration = async (newReg) => {
     setRegistrationsState(prev => [...prev, newReg]);
-    addConvexRegistration({ registration: newReg }).catch(err => {
+    try {
+      return await addConvexRegistration({ registration: newReg });
+    } catch (err) {
       console.error("Convex addRegistration error:", err);
       // Rollback on error
       setRegistrationsState(prev => prev.filter(r => r.id !== newReg.id));
-    });
+      throw err;
+    }
   };
 
   // New atomic update function
-  const updateRegistration = (id, updatedReg) => {
+  const updateRegistration = async (id, updatedReg) => {
+    const prevRegs = registrations;
     setRegistrationsState(prev => prev.map(r => r.id === id ? { ...r, ...updatedReg } : r));
-    updateConvexRegistration({ id, registration: updatedReg }).catch(err => {
+    try {
+      return await updateConvexRegistration({ id, registration: updatedReg });
+    } catch (err) {
       console.error("Convex updateRegistration error:", err);
-      // Rollback - refresh from Convex
-      setRegistrationsState(prev => prev); // Keep current, will sync from live query
-    });
+      // Rollback on error
+      setRegistrationsState(prevRegs);
+      throw err;
+    }
   };
 
   // New atomic remove function
