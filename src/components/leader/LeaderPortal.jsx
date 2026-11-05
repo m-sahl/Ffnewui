@@ -6,8 +6,9 @@ import Modal from "../common/Modal";
 import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
 import { triggerHaptic } from "../../utils/haptics";
 import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
+import { useToast } from "../common/Toast";
 
-const VALID_TABS = ["home", "members", "events", "results"];
+const VALID_TABS = ["home", "members", "events", "results", "settings"];
 
 const Tag = ({ label, dark, variant = "default" }) => {
   const isAccent = variant === "accent";
@@ -42,10 +43,11 @@ const NAV = [
   { id: "members",  icon: "users",   label: "Members"  },
   { id: "events",   icon: "book",    label: "Events"   },
   { id: "results",  icon: "award",   label: "Results"  },
+  { id: "settings", icon: "settings", label: "Settings" },
 ];
 
-const BottomNav = ({ tab, setTab, unread, dark }) => (
-  <div style={{
+const BottomNav = ({ tab, setTab, unread, dark, hasLockedEvents }) => (
+  <div className="leader-mobile-bottom-nav" style={{
     position: "fixed",
     bottom: 16,
     left: "50%",
@@ -87,6 +89,15 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
         >
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Ic name={n.icon} size={19} />
+            {n.id === "events" && hasLockedEvents && (
+              <span style={{
+                position: "absolute",
+                top: -5,
+                right: -8,
+                fontSize: 10,
+                lineHeight: 1,
+              }}>🔒</span>
+            )}
           </div>
           <span style={{
             fontSize: 11,
@@ -111,23 +122,135 @@ const BottomNav = ({ tab, setTab, unread, dark }) => (
   </div>
 );
 
+// ── Desktop Responsive Navigation Header ────────────────────────────────────────────────
+const LeaderDesktopNav = ({ tab, setTab, group, dark, setDark, onSignOut, unreadCount, isStageLocked, isOffStageLocked, onOpenMessages }) => {
+  const border = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
+  const groupColor = group?.color || "#f14d4d";
+
+  return (
+    <header className="leader-desktop-header">
+      <div className="leader-header-inner">
+        {/* Brand & Team Identity */}
+        <div className="leader-brand-wrap" onClick={() => setTab("home")}>
+          <div className="leader-brand-avatar" style={{ background: groupColor }}>
+            {(group?.name || "G").charAt(0).toUpperCase()}
+          </div>
+          <div className="leader-brand-text">
+            <div className="leader-brand-title">{group?.name}</div>
+            <div className="leader-brand-subtitle">Group Leader Portal</div>
+          </div>
+        </div>
+
+        {/* Desktop Navigation Tabs */}
+        <nav className="leader-desktop-tabs">
+          {NAV.map(n => {
+            const active = tab === n.id;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => { triggerHaptic("light"); setTab(n.id); }}
+                className={`leader-desktop-tab-btn ${active ? "active" : ""}`}
+              >
+                <Ic name={n.icon} size={16} />
+                <span>{n.label}</span>
+                {n.id === "events" && (isStageLocked || isOffStageLocked) && (
+                  <span style={{ fontSize: 10, lineHeight: 1 }} title="Registration Locked">🔒</span>
+                )}
+                {n.id === "home" && unreadCount > 0 && (
+                  <span style={{
+                    width: 7, height: 7, borderRadius: "50%", background: "#f14d4d",
+                    boxShadow: "0 0 6px #f14d4d", display: "inline-block"
+                  }} />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Action Controls */}
+        <div className="leader-header-actions">
+          {/* Support Chat with unread badge */}
+          <button
+            type="button"
+            className="leader-header-btn"
+            onClick={() => { triggerHaptic("medium"); onOpenMessages(); }}
+            title="Admin Support Messages"
+          >
+            <Ic name="message" size={17} />
+            {unreadCount > 0 && (
+              <span style={{
+                position: "absolute", top: -3, right: -3,
+                minWidth: 18, height: 18, padding: "0 4px",
+                borderRadius: 10, background: "#f14d4d", color: "#ffffff",
+                fontSize: 10, fontWeight: 900, display: "flex",
+                alignItems: "center", justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(241,77,77,0.4)"
+              }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            type="button"
+            className="leader-header-btn"
+            onClick={() => { triggerHaptic("light"); setDark(d => !d); }}
+            title={dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            <Ic name={dark ? "sun" : "moon"} size={17} />
+          </button>
+
+          {/* Sign Out */}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              height: 38, borderRadius: 12, fontSize: 13, fontWeight: 700,
+              gap: 6, padding: "0 14px",
+              border: `1px solid ${border}`,
+              color: dark ? "#94a3b8" : "#64748b"
+            }}
+            onClick={onSignOut}
+          >
+            <Ic name="logout" size={15} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+};
+
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, isLocked, programLimits, getStudentQuotaUsage } = useApp();
+  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, locks, isLocked, programLimits, getStudentQuotaUsage } = useApp();
+  const showToast = useToast();
 
   const [tab, setTabState]               = useState(() => getHashRoute("leader", "home", VALID_TABS, { programs: "events", messages: "results" }));
-  const setTab                            = useHashSync("leader", tab, setTabState, VALID_TABS, { programs: "events", messages: "results" });
+  const setTabSync                        = useHashSync("leader", tab, setTabState, VALID_TABS, { programs: "events", messages: "results" });
+  const setTab                            = useCallback((t) => { setTabState(t); setTabSync(t); }, [setTabSync]);
 
   const [progType, setProgType]           = useState("Stage");
-  const [catFilter, setCatFilter]         = useState("Sub-Junior");
+  const [catFilter, setCatFilter]         = useState("Low");
   const [eventSubTab, setEventSubTab]     = useState("all");
   const [memSearch, setMemSearch]         = useState("");
   const [memSearchOpen, setMemSearchOpen] = useState(false);
   const [regModal, setRegModal]           = useState(false);
   const [regForm, setRegForm]             = useState({ programId: "", participantIds: [] });
+  const [regError, setRegError]           = useState("");
+  const [regSaving, setRegSaving]         = useState(false);
   const [editTarget, setEditTarget]       = useState(null);
   const [viewTarget, setViewTarget]       = useState(null);
   const [delConfirm, setDelConfirm]       = useState(null);
-  const [showSettings, setShowSettings]   = useState(false);
+  // Settings Tab State
+  const [currentPwd, setCurrentPwd]               = useState("");
+  const [newPwd, setNewPwd]                       = useState("");
+  const [newPwdConfirm, setNewPwdConfirm]         = useState("");
+  const [pwdLoading, setPwdLoading]               = useState(false);
+  const [pwdError, setPwdError]                   = useState("");
+  const [pwdSuccess, setPwdSuccess]               = useState(false);
+  const [confirmSignOut, setConfirmSignOut]       = useState(false);
   const [showCatStatsModal, setShowCatStatsModal] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
 
@@ -138,21 +261,103 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const [resSearch, setResSearch]         = useState("");
   const [resSearchOpen, setResSearchOpen] = useState(false);
 
-  const isAnyModalOpen = regModal || !!delConfirm || !!viewTarget || showSettings || showCatStatsModal || showMessagesModal;
+  const isAnyModalOpen = regModal || !!delConfirm || !!viewTarget || confirmSignOut || showCatStatsModal || showMessagesModal;
   const closeAllModals = useCallback(() => {
     setRegModal(false);
     setDelConfirm(null);
     setViewTarget(null);
-    setShowSettings(false);
+    setConfirmSignOut(false);
     setShowCatStatsModal(false);
     setShowMessagesModal(false);
   }, []);
 
   useModalBackHandler(isAnyModalOpen, closeAllModals);
 
-  const groupStudents = students[group.id] || [];
-  const groupRegs     = registrations.filter(r => r.groupId === group.id);
+  const groupStudents = students[group.id] || students[user?.id] || (user?.groupId && students[user.groupId]) || [];
+  const groupRegs     = registrations.filter(r => r.groupId === group.id || r.groupId === user?.id || (user?.groupId && r.groupId === user.groupId));
+  const isStageLocked = isLocked(group.id, "stage");
+  const isOffStageLocked = isLocked(group.id, "off-stage");
   const locked        = isLocked(group.id, progType);
+
+  
+  const handleLeaderChangePassword = async () => {
+    if (!currentPwd.trim()) {
+      setPwdError("Please enter your current password.");
+      return;
+    }
+    if (!newPwd.trim()) {
+      setPwdError("Please enter a new password.");
+      return;
+    }
+    if (newPwd !== newPwdConfirm) {
+      setPwdError("New password and confirmation do not match.");
+      return;
+    }
+
+    setPwdLoading(true);
+    setPwdError("");
+    setPwdSuccess(false);
+
+    try {
+      const targetGroupId = group?.id || user?.groupId || user?.id;
+      const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || "https://outgoing-sandpiper-663.convex.site";
+      const res = await fetch(`${siteUrl}/api/leader/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupId: targetGroupId,
+          currentPassword: currentPwd.trim(),
+          newPassword: newPwd.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPwdError(data.error || "Failed to update password");
+        setPwdLoading(false);
+        return;
+      }
+
+      setPwdSuccess(true);
+      setPwdError("");
+      setCurrentPwd("");
+      setNewPwd("");
+      setNewPwdConfirm("");
+      showToast("Password updated successfully!", "success");
+      setTimeout(() => {
+        setPwdSuccess(false);
+      }, 3000);
+    } catch (err) {
+      setPwdError(err.message || "Failed to communicate with server");
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
+  const prevStageLock = useRef(isStageLocked);
+  const prevOffStageLock = useRef(isOffStageLocked);
+
+  useEffect(() => {
+    if (prevStageLock.current !== isStageLocked) {
+      if (isStageLocked) {
+        showToast("Stage registration has been locked by Admin. Please meet the admin to unlock.", "error");
+      } else {
+        showToast("Stage registration has been unlocked by Admin.", "success");
+      }
+      prevStageLock.current = isStageLocked;
+    }
+  }, [isStageLocked, showToast]);
+
+  useEffect(() => {
+    if (prevOffStageLock.current !== isOffStageLocked) {
+      if (isOffStageLocked) {
+        showToast("Off-Stage registration has been locked by Admin. Please meet the admin to unlock.", "error");
+      } else {
+        showToast("Off-Stage registration has been unlocked by Admin.", "success");
+      }
+      prevOffStageLock.current = isOffStageLocked;
+    }
+  }, [isOffStageLocked, showToast]);
 
   const mutedTx  = dark ? "#94a3b8" : "#64748b";
   const border   = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
@@ -207,46 +412,94 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   // ── Registration ops ──────────────────────────────────────────────────────
   const openReg = (existing = null) => {
+    setRegError("");
     if (existing) {
       const p = programs.find(pg => pg.id === existing.programId);
       const pType = (p?.type || p?.session || "Stage").toLowerCase();
-      if (isLocked(group.id, pType)) return;
+      const pSession = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+      if (isLocked(group.id, pSession)) { showToast(`Registration is locked for ${pSession} session. Please meet the admin to unlock.`, "error"); return; }
       setEditTarget(existing.id);
       setRegForm({ programId: existing.programId, participantIds: [...existing.participantIds] });
     } else {
-      if (isLocked(group.id, progType)) return;
+      if (isLocked(group.id, progType)) { showToast(`Registration is locked for ${progType} session. Please meet the admin to unlock.`, "error"); return; }
       setEditTarget(null);
       setRegForm({ programId: "", participantIds: [] });
     }
     setRegModal(true);
   };
 
-  const saveReg = () => {
+  const saveReg = async () => {
     if (!regForm.programId) return;
     const p = programs.find(pg => pg.id === regForm.programId);
     const pType = (p?.type || p?.session || "Stage").toLowerCase();
-    if (isLocked(group.id, pType)) return;
+    const pSession = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+    if (isLocked(group.id, pType) || isLocked(group.id, pSession)) {
+      const lockMsg = `Registration is locked for ${pSession} session. Please meet the admin to unlock.`;
+      setRegError(lockMsg);
+      showToast(lockMsg, "error");
+      return;
+    }
 
     const alreadyExists = !editTarget && groupRegs.some(r => r.programId === regForm.programId);
-    if (alreadyExists) return;
-    if (editTarget) {
-      // Use atomic update for existing registration
-      updateRegistration(editTarget, regForm);
-      logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
-    } else {
-      // Use atomic add for new registration
-      const newReg = { id: "r-" + Math.random().toString(36).substr(2, 5), groupId: group.id, ...regForm };
-      addRegistration(newReg);
-      logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
+    if (alreadyExists) {
+      setRegError("Your team is already registered for this program.");
+      return;
     }
-    setRegModal(false);
+
+    // Check student solo quotas before submitting
+    const isSolo = (p?.maxParticipants !== undefined ? Number(p.maxParticipants) : 1) === 1;
+    if (isSolo) {
+      for (const sId of regForm.participantIds) {
+        const quota = getStudentQuotaUsage ? getStudentQuotaUsage(sId, editTarget) : null;
+        if (quota) {
+          const isFull = pSession === "Off-Stage" ? quota.offStageFull : quota.stageFull;
+          if (isFull) {
+            const student = groupStudents.find(s => s.id === sId);
+            const limit = pSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage;
+            setRegError(`Cannot register: ${student?.name || "Student"} has reached the maximum ${pSession} limit (${limit} programs).`);
+            return;
+          }
+        }
+      }
+    }
+
+    setRegSaving(true);
+    setRegError("");
+    try {
+      if (editTarget) {
+        // Use atomic update for existing registration
+        await updateRegistration(editTarget, regForm);
+        logActivity(user.name, "Updated registration", `${p?.name} for ${group.name}`);
+      } else {
+        // Use atomic add for new registration
+        const newReg = { id: "r-" + Math.random().toString(36).substr(2, 5), groupId: group.id, ...regForm };
+        await addRegistration(newReg);
+        logActivity(user.name, "Registered", `${p?.name} for ${group.name}`);
+      }
+      setRegModal(false);
+      setRegError("");
+    } catch (err) {
+      const msg = (err?.message || "Registration failed")
+        .replace(/^Uncaught (Error: )?/i, "")
+        .replace(/^\[Request ID: [^\]]+\] (Server Error )?/i, "")
+        .split("\n")[0]
+        .trim();
+      setRegError(msg);
+    } finally {
+      setRegSaving(false);
+    }
   };
 
   const confirmDeleteReg = () => {
     const reg = groupRegs.find(r => r.id === delConfirm);
     const p   = programs.find(pg => pg.id === reg?.programId);
     const pType = (p?.type || p?.session || "Stage").toLowerCase();
-    if (isLocked(group.id, pType)) return;
+    const pSession = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+    if (isLocked(group.id, pType) || isLocked(group.id, pSession)) {
+      showToast(`Registration is locked for ${pSession} session. Please meet the admin to unlock.`, "error");
+      setDelConfirm(null);
+      return;
+    }
 
     // Use atomic remove function
     removeRegistration(delConfirm);
@@ -290,14 +543,14 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     const stageRegs = groupRegs.filter(r => stageProgs.some(p => p.id === r.programId));
     const offStageRegs = groupRegs.filter(r => offStageProgs.some(p => p.id === r.programId));
 
-    const isStageLocked = isLocked(group.id, "stage");
-    const isOffStageLocked = isLocked(group.id, "off-stage");
+
+
 
     const solidBg = dark ? "rgba(255,255,255,0.04)" : "#f8fafc";
     const solidCardShadow = dark ? "none" : "0 4px 16px rgba(0,0,0,0.02)";
 
     return (
-      <div className="anim-fadeIn" style={{ padding: "24px 16px 110px", maxWidth: 600, margin: "0 auto" }}>
+      <div className="anim-fadeIn leader-page-container">
         {/* Header - Group Name & Settings Gear */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -311,14 +564,22 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               {group.name}
             </div>
 
-            <button onClick={() => setShowSettings(true)} style={{
-              width: 40, height: 40, borderRadius: 12, border: `1px solid ${border}`,
-              background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-              color: dark ? "#f8fafc" : "#0f172a", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s ease"
-            }} title="Settings">
-              <Ic name="settings" size={18} />
+            <button
+              type="button"
+              className="leader-mobile-only"
+              onClick={() => { triggerHaptic("light"); setTab("settings"); }}
+              style={{
+                width: 42, height: 42, borderRadius: 14, border: `1px solid ${border}`,
+                background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                color: tab === "settings" ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s ease",
+                boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.03)"
+              }}
+              title="Settings"
+            >
+              <Ic name="settings" size={19} />
             </button>
           </div>
 
@@ -374,114 +635,192 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           )}
         </div>
 
-        {/* Solid Borderless Primary Stat Cards Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          {/* Card 1: Team Members */}
-          <div style={{
-            padding: "20px 18px", borderRadius: 18, border: "none",
-            background: solidBg, boxShadow: solidCardShadow
-          }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px" }}>
-              Total Members
+        {/* Responsive Dashboard Grid */}
+        <div className="leader-home-grid">
+          {/* Column 1: Stats & Main Actions */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Primary Stat Cards Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {/* Card 1: Team Members */}
+              <div style={{
+                padding: "20px 18px", borderRadius: 18, border: "none",
+                background: solidBg, boxShadow: solidCardShadow
+              }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+                  Total Members
+                </div>
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 34,
+                  color: dark ? "#f8fafc" : "#0f172a", marginTop: 4
+                }}>
+                  {groupStudents.length}
+                </div>
+              </div>
+
+              {/* Card 2: Total Registrations */}
+              <div style={{
+                padding: "20px 18px", borderRadius: 18, border: "none",
+                background: solidBg, boxShadow: solidCardShadow
+              }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+                  Registrations
+                </div>
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 34,
+                  color: ACCENT, marginTop: 4
+                }}>
+                  {totalRegs}
+                </div>
+              </div>
             </div>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 34,
-              color: dark ? "#f8fafc" : "#0f172a", marginTop: 4
+
+            {/* Primary Action Button */}
+            <button onClick={() => {
+              triggerHaptic("medium");
+              if (isStageLocked && isOffStageLocked) {
+                showToast("Registration is locked. Please meet the admin to unlock.", "error");
+              }
+              setTab("events");
+            }} style={{
+              width: "100%", padding: "16px", borderRadius: 16, border: "none", cursor: "pointer",
+              background: "linear-gradient(135deg, #f14d4d 0%, #e11d48 100%)", color: "#ffffff",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 15,
+              boxShadow: "0 8px 24px rgba(241, 77, 77, 0.35)", transition: "all 0.15s ease"
             }}>
-              {groupStudents.length}
+              {isStageLocked && isOffStageLocked ? (
+                <>🔒 Registration Locked · Meet Admin</>
+              ) : (
+                <><Ic name="plus" size={18} /> Register for Events</>
+              )}
+            </button>
+
+            {/* Quick Navigation Cards (PC & Mobile) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div
+                onClick={() => { triggerHaptic("light"); setTab("members"); }}
+                style={{
+                  padding: "14px 16px", borderRadius: 14, cursor: "pointer",
+                  background: solidBg, border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: dark ? "#f8fafc" : "#0f172a" }}>Team Roster</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 2 }}>{groupStudents.length} Students</div>
+                </div>
+                <Ic name="chevronRight" size={14} color={mutedTx} />
+              </div>
+
+              <div
+                onClick={() => { triggerHaptic("light"); setTab("results"); }}
+                style={{
+                  padding: "14px 16px", borderRadius: 14, cursor: "pointer",
+                  background: solidBg, border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: dark ? "#f8fafc" : "#0f172a" }}>Standings</div>
+                  <div style={{ fontSize: 11, color: mutedTx, marginTop: 2 }}>View Results</div>
+                </div>
+                <Ic name="chevronRight" size={14} color={mutedTx} />
+              </div>
             </div>
           </div>
 
-          {/* Card 2: Total Registrations */}
-          <div style={{
-            padding: "20px 18px", borderRadius: 18, border: "none",
-            background: solidBg, boxShadow: solidCardShadow
-          }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px" }}>
-              Registrations
-            </div>
+          {/* Column 2: Session Status & Lock Notifications */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Session Status Card */}
             <div style={{
-              fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 34,
-              color: ACCENT, marginTop: 4
+              padding: "18px 20px", borderRadius: 18, border: "none",
+              background: solidBg, boxShadow: solidCardShadow
             }}>
-              {totalRegs}
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
+                Session Status
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {/* Stage Session */}
+                <div onClick={() => { triggerHaptic("light"); setProgType("Stage"); setTab("events"); }} style={{
+                  padding: "12px 14px", borderRadius: 14, cursor: "pointer",
+                  background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  border: `1px solid ${border}`
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered · Limit: {programLimits?.maxStage || 3} solo/student</div>
+                  </div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
+                    background: isStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
+                    color: isStageLocked ? "#f43f5e" : "#10b981",
+                    border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                  }}>
+                    {isStageLocked ? "🔒 Locked" : "Open"}
+                  </span>
+                </div>
+
+                {/* Off-Stage Session */}
+                <div onClick={() => { triggerHaptic("light"); setProgType("Off-Stage"); setTab("events"); }} style={{
+                  padding: "12px 14px", borderRadius: 14, cursor: "pointer",
+                  background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  border: `1px solid ${border}`
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 3} solo/student</div>
+                  </div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
+                    background: isOffStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
+                    color: isOffStageLocked ? "#f43f5e" : "#10b981",
+                    border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                  }}>
+                    {isOffStageLocked ? "🔒 Locked" : "Open"}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {/* Lock Notice if locked */}
+            {(isStageLocked || isOffStageLocked) && (
+              <div style={{
+                padding: "14px 16px", borderRadius: 16,
+                background: dark ? "rgba(244,63,94,0.12)" : "rgba(244,63,94,0.08)",
+                border: "1px solid rgba(244,63,94,0.25)",
+                display: "flex", alignItems: "flex-start", gap: 12
+              }}>
+                <span style={{ fontSize: 22, lineHeight: 1 }}>🔒</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, color: "#f43f5e" }}>
+                    {isStageLocked && isOffStageLocked
+                      ? "Stage & Off-Stage Registrations Locked"
+                      : isStageLocked
+                      ? "Stage Registration Locked"
+                      : "Off-Stage Registration Locked"}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: dark ? "#fecdd3" : "#e11d48", marginTop: 3, lineHeight: 1.4 }}>
+                    Registration has been locked by Admin. Please meet the admin to unlock.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Solid Borderless Session Status Card (Mobile Friendly) */}
-        <div style={{
-          padding: "18px 20px", borderRadius: 18, border: "none",
-          background: solidBg, boxShadow: solidCardShadow, marginBottom: 20
-        }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
-            Session Status
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* Stage Session */}
-            <div onClick={() => { triggerHaptic("light"); setProgType("Stage"); setTab("events"); }} style={{
-              padding: "12px 14px", borderRadius: 14, cursor: "pointer",
-              background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              border: `1px solid ${border}`
-            }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
-                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered</div>
-              </div>
-              <span style={{
-                fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
-                background: isStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
-                color: isStageLocked ? "#f43f5e" : "#10b981",
-                border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
-              }}>
-                {isStageLocked ? "Locked" : "Open"}
-              </span>
-            </div>
-
-            {/* Off-Stage Session */}
-            <div onClick={() => { triggerHaptic("light"); setProgType("Off-Stage"); setTab("events"); }} style={{
-              padding: "12px 14px", borderRadius: 14, cursor: "pointer",
-              background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              border: `1px solid ${border}`
-            }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
-                <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered</div>
-              </div>
-              <span style={{
-                fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
-                background: isOffStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
-                color: isOffStageLocked ? "#f43f5e" : "#10b981",
-                border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
-              }}>
-                {isOffStageLocked ? "Locked" : "Open"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Primary Action Button */}
-        <button onClick={() => { triggerHaptic("medium"); setTab("events"); }} style={{
-          width: "100%", padding: "16px", borderRadius: 16, border: "none", cursor: "pointer",
-          background: "linear-gradient(135deg, #f14d4d 0%, #e11d48 100%)", color: "#ffffff",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 15,
-          boxShadow: "0 8px 24px rgba(241, 77, 77, 0.35)", transition: "all 0.15s ease"
-        }}>
-          <Ic name="plus" size={18} /> Register for Events
-        </button>
       </div>
     );
   };
 
   // ── MEMBERS TAB ────────────────────────────────────────────────────────────
   const renderMembers = () => (
-    <div className="anim-fadeIn" style={{ padding: "20px 16px 110px", maxWidth: 600, margin: "0 auto" }}>
+    <div className="anim-fadeIn leader-page-container">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 20 }}>Team Roster</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 22 }}>Team Roster</div>
           <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>{filtStudents.length} of {groupStudents.length} members shown</div>
         </div>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { setMemSearchOpen(o => !o); setMemSearch(""); }} style={{ color: memSearchOpen ? ACCENT : mutedTx }}>
@@ -518,7 +857,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               background: catFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
               color: catFilter === cat ? "#ffffff" : mutedTx, transition: "all 0.15s ease"
             }}>
-            {cat === "Sub-Junior" ? "Sub" : cat}
+            {cat}
           </button>
         ))}
       </div>
@@ -529,15 +868,20 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           <div style={{ fontSize: 13 }}>No student records registered in {catFilter}</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="leader-members-grid">
           {filtStudents.map(s => {
             const isLeader = s.groupRole === "Leader";
             const isAsst   = s.groupRole === "Asst. Leader";
             return (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}` }}>
+              <div key={s.id} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "13px 16px",
+                borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
+                transition: "all 0.18s ease",
+                boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
+              }}>
                 <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13.5, minWidth: 36 }}>#{s.chestNo}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>{s.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.name}>{s.name}</div>
                   <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>{s.category}</div>
                 </div>
                 {isLeader && (
@@ -560,7 +904,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   // ── EVENTS TAB ─────────────────────────────────────────────────────────────
   const renderEvents = () => (
-    <div className="anim-fadeIn" style={{ padding: "16px 14px 100px", maxWidth: 540, margin: "0 auto" }}>
+    <div className="anim-fadeIn leader-page-container">
       {/* Page Header & Stage Switcher */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
@@ -573,16 +917,16 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         {/* Stage / Off-Stage Segmented Toggle */}
         <div style={{ display: "flex", background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", borderRadius: 10, padding: 3 }}>
           {["Stage", "Off-Stage"].map(t => (
-            <button key={t} onClick={() => { triggerHaptic("light"); setProgType(t); setCatFilter("Sub-Junior"); }}
+            <button key={t} onClick={() => { triggerHaptic("light"); setProgType(t); setCatFilter("Low"); }}
               style={{
-                padding: "5px 12px", border: "none", cursor: "pointer", borderRadius: 8,
-                fontFamily: "inherit", fontSize: 11.5, fontWeight: 800,
+                padding: "6px 14px", border: "none", cursor: "pointer", borderRadius: 8,
+                fontFamily: "inherit", fontSize: 12, fontWeight: 800,
                 background: progType === t ? (dark ? "rgba(255,255,255,0.14)" : "#ffffff") : "transparent",
                 color: progType === t ? (dark ? "#f8fafc" : "#0f172a") : mutedTx,
                 boxShadow: progType === t ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                 transition: "all 0.15s ease",
               }}>
-              {t}
+              {isLocked(group.id, t) && <span style={{ marginRight: 4 }}>🔒</span>}{t}
             </button>
           ))}
         </div>
@@ -597,7 +941,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           display: "flex", alignItems: "center", gap: 8
         }}>
           <span style={{ fontSize: 14 }}>🔒</span>
-          <span>{progType} registrations are currently locked by Admin</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 13 }}>{progType} Registration is Locked</div>
+            <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 2, opacity: 0.95, lineHeight: 1.4 }}>
+              Registration for {progType.toLowerCase()} events has been locked. Please meet the admin to unlock.
+            </div>
+          </div>
         </div>
       )}
 
@@ -620,7 +969,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
         }}>Registered ({filtRegs.length})</button>
       </div>
 
-      {/* Standard Mobile Category Tab Bar */}
+      {/* Standard Category Tab Bar */}
       <div style={{
         display: "flex",
         borderBottom: `1px solid ${border}`,
@@ -629,7 +978,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       }}>
         {CATS.map(cat => {
           const stats = getCatStats(cat, progType);
-          const catLabel = cat === "Sub-Junior" ? "Sub-Jr" : cat;
+          const catLabel = cat;
           const isSelected = catFilter === cat;
           return (
             <button key={cat} onClick={() => { triggerHaptic("light"); setCatFilter(cat); }}
@@ -685,20 +1034,27 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <div style={{ fontSize: 12 }}>No {progType} programs found in {catFilter}</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="leader-events-grid">
             {filtProgs.map(p => {
               const reg = groupRegs.find(r => r.programId === p.id);
               return (
-                <div key={p.id} onClick={() => reg ? setViewTarget(reg) : null} style={{
-                  padding: "12px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
+                <div key={p.id} onClick={() => {
+                  if (reg) {
+                    setViewTarget(reg);
+                  } else if (locked) {
+                    triggerHaptic("light");
+                    showToast(`Registration is locked for ${progType} session. Please meet the admin to unlock.`, "error");
+                  }
+                }} style={{
+                  padding: "14px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
                   cursor: reg ? "pointer" : "default",
-                  transition: "all 0.15s ease",
+                  transition: "all 0.18s ease",
                   boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `#${p.order}` : ""}</span>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p?.name}>{p?.name}</div>
                   </div>
                   <div style={{ flexShrink: 0 }}>
                     {reg ? (
@@ -725,19 +1081,19 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <div style={{ fontSize: 12 }}>Switch to "All Programs" above to register your team</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 80 }}>
+          <div className="leader-events-grid">
             {filtRegs.map(r => {
               const p = programs.find(pg => pg.id === r.programId);
               return (
                 <div key={r.id} onClick={() => { triggerHaptic("light"); setViewTarget(r); }} style={{
-                  padding: "12px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
+                  padding: "14px 16px", borderRadius: 14, background: cardBg, border: `1px solid ${border}`,
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer",
-                  transition: "all 0.15s ease",
+                  transition: "all 0.18s ease",
                   boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `#${p.order}` : ""}</span>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p?.name}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p?.name}>{p?.name}</span>
                   </div>
                   <div style={{ flexShrink: 0 }}>
                     <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981", background: "rgba(16,185,129,0.12)", padding: "4px 10px", borderRadius: 9, border: "1px solid rgba(16,185,129,0.2)", display: "inline-flex", alignItems: "center", gap: 3 }}>
@@ -971,7 +1327,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   // ── RESULTS TAB ────────────────────────────────────────────────────────────
   const renderResults = () => (
-    <div className="anim-fadeIn" style={{ maxWidth: 540, margin: "0 auto", padding: "20px 16px 120px" }}>
+    <div className="anim-fadeIn leader-page-container">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
         <div>
@@ -1008,12 +1364,14 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           </button>
 
           <button
-            onClick={() => setShowSettings(true)}
+            type="button"
+            className="leader-mobile-only"
+            onClick={() => { triggerHaptic("light"); setTab("settings"); }}
             style={{
               width: 40, height: 40, borderRadius: 12, border: `1px solid ${border}`,
-              background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-              color: dark ? "#f8fafc" : "#0f172a", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              background: tab === "settings" ? (dark ? "rgba(241,77,77,0.15)" : "rgba(241,77,77,0.1)") : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+              color: tab === "settings" ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
               transition: "all 0.15s ease"
             }}
             title="Settings"
@@ -1193,7 +1551,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   transition: "all 0.15s ease",
                 }}
               >
-                {cat === "Sub-Junior" ? "Sub" : cat}
+                {cat}
               </button>
             ))}
           </div>
@@ -1223,7 +1581,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
       {/* Content: Standings Leaderboard OR Events List */}
       {resView === "leaderboard" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 460px), 1fr))", gap: 10 }}>
           {groupScores.map((s, idx) => {
             const isMe = s.group.id === group.id;
             const rank = idx + 1;
@@ -1321,9 +1679,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           })}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))", gap: 14 }}>
           {filteredPublishedProgs.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 16px", color: mutedTx }}>
+            <div style={{ textAlign: "center", padding: "48px 16px", color: mutedTx, gridColumn: "1 / -1" }}>
               <div style={{ fontSize: 44, marginBottom: 12 }}>🏆</div>
               <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>
                 {resView === "mine"
@@ -1557,18 +1915,497 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
     </div>
   );
 
-  const renderViews = { home: renderHome, members: renderMembers, events: renderEvents, results: renderResults };
+  
+  // ── SETTINGS TAB (Full Page View) ──────────────────────────────────────────
+    // ── SETTINGS TAB (Full Page View) ──────────────────────────────────────────
+  const renderSettings = () => {
+    const leaderStudent = groupStudents.find(s => s.groupRole === "Leader");
+    const asstStudent   = groupStudents.find(s => s.groupRole === "Asst. Leader");
+    const stageRegs     = groupRegs.filter(r => programs.some(p => p.id === r.programId && (p.type || p.session || "Stage").toLowerCase() === "stage"));
+    const offStageRegs  = groupRegs.filter(r => programs.some(p => p.id === r.programId && (p.type || p.session || "Stage").toLowerCase() === "off-stage"));
+
+    const solidBg = dark ? "rgba(255,255,255,0.04)" : "#f8fafc";
+    const solidCardShadow = dark ? "none" : "0 4px 16px rgba(0,0,0,0.02)";
+
+    return (
+      <div className="anim-fadeIn leader-page-container">
+        
+        {/* Top Header */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button
+              type="button"
+              className="leader-mobile-only"
+              onClick={() => { triggerHaptic("light"); setTab("home"); }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 12px 6px 10px", borderRadius: 12,
+                background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                border: `1px solid ${border}`,
+                color: mutedTx, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                transition: "all 0.15s ease"
+              }}
+            >
+              <Ic name="back" size={14} /> Back
+            </button>
+            <span style={{
+              fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 8,
+              background: "rgba(241, 77, 77, 0.12)", color: ACCENT,
+              border: "1px solid rgba(241, 77, 77, 0.2)"
+            }}>
+              Leader Settings
+            </span>
+          </div>
+
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 900,
+            fontSize: 28,
+            letterSpacing: "-0.6px",
+            color: dark ? "#f8fafc" : "#0f172a"
+          }}>
+            Settings
+          </div>
+          <div style={{ fontSize: 12.5, color: mutedTx, marginTop: 4, fontWeight: 500 }}>
+            Account configuration & preferences for <strong style={{ color: dark ? "#f8fafc" : "#0f172a" }}>{group.name}</strong>
+          </div>
+        </div>
+
+        {/* Responsive Settings Grid */}
+        <div className="leader-settings-grid">
+          {/* Column 1: Team Profile & Appearance & Sign Out */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Card 1: Team & Account Profile */}
+            <div style={{
+              padding: "18px 20px", borderRadius: 18, border: "none",
+              background: solidBg, boxShadow: solidCardShadow
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 14 }}>
+                Team Profile
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 50, height: 50, borderRadius: 16,
+                  background: group.color ? `${group.color}15` : "rgba(241,77,77,0.12)",
+                  color: group.color || ACCENT,
+                  border: `1.5px solid ${group.color ? `${group.color}40` : "rgba(241,77,77,0.3)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20
+                }}>
+                  {(group.name || "G").charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: dark ? "#f8fafc" : "#0f172a" }}>{group.name}</div>
+                  <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>
+                    Group Portal · Code: <code style={{ fontFamily: "monospace", fontWeight: 700, color: ACCENT }}>{group.id}</code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leaders badges */}
+              {(leaderStudent || asstStudent) && (
+                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                  {leaderStudent && (
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "4px 10px 4px 8px", borderRadius: 20,
+                      background: dark ? "rgba(241, 77, 77, 0.1)" : "rgba(241, 77, 77, 0.06)",
+                      border: "1px solid rgba(241, 77, 77, 0.2)",
+                      fontSize: 11.5, fontWeight: 700, color: dark ? "#f8fafc" : "#0f172a"
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f14d4d", boxShadow: "0 0 6px rgba(241, 77, 77, 0.6)" }} />
+                      <span style={{ fontSize: 10, fontWeight: 900, color: "#f14d4d", textTransform: "uppercase", letterSpacing: "0.4px" }}>Leader</span>
+                      <span>{leaderStudent.name}</span>
+                    </div>
+                  )}
+                  {asstStudent && (
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "4px 10px 4px 8px", borderRadius: 20,
+                      background: dark ? "rgba(59, 130, 246, 0.1)" : "rgba(59, 130, 246, 0.06)",
+                      border: "1px solid rgba(59, 130, 246, 0.2)",
+                      fontSize: 11.5, fontWeight: 700, color: dark ? "#f8fafc" : "#0f172a"
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6", boxShadow: "0 0 6px rgba(59, 130, 246, 0.6)" }} />
+                      <span style={{ fontSize: 10, fontWeight: 900, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.4px" }}>Asst</span>
+                      <span>{asstStudent.name}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Stats Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
+                <div style={{
+                  padding: "12px 14px", borderRadius: 14,
+                  background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                  border: `1px solid ${border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx, textTransform: "uppercase" }}>Members</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20, marginTop: 2, color: dark ? "#f8fafc" : "#0f172a" }}>
+                    {groupStudents.length}
+                  </div>
+                </div>
+                <div style={{
+                  padding: "12px 14px", borderRadius: 14,
+                  background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                  border: `1px solid ${border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx, textTransform: "uppercase" }}>Registrations</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 20, marginTop: 2, color: ACCENT }}>
+                    {groupRegs.length}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Appearance & Theme */}
+            <div style={{
+              padding: "18px 20px", borderRadius: 18, border: "none",
+              background: solidBg, boxShadow: solidCardShadow
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
+                Appearance
+              </div>
+
+              <div style={{
+                padding: "14px 16px", borderRadius: 14,
+                background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                border: `1px solid ${border}`,
+                display: "flex", alignItems: "center", justifyContent: "space-between"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 11,
+                    background: dark ? "rgba(241, 77, 77, 0.15)" : "rgba(241, 77, 77, 0.08)",
+                    color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center"
+                  }}>
+                    <Ic name={dark ? "sun" : "moon"} size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>Theme Mode</div>
+                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 1 }}>{dark ? "Dark mode active" : "Light mode active"}</div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { triggerHaptic("light"); setDark(d => !d); }}
+                  style={{
+                    width: 50, height: 28, borderRadius: 14, position: "relative", cursor: "pointer",
+                    border: "none", background: dark ? "linear-gradient(135deg, #f14d4d, #dc2626)" : "rgba(0,0,0,0.13)",
+                    transition: "background 0.3s ease", flexShrink: 0
+                  }}
+                >
+                  <div style={{
+                    width: 22, height: 22, borderRadius: "50%", background: "#ffffff",
+                    position: "absolute", top: 3,
+                    left: dark ? 25 : 3,
+                    transition: "left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)"
+                  }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Card 5: Session & Sign Out */}
+            <div style={{
+              padding: "18px 20px", borderRadius: 18, border: "none",
+              background: solidBg, boxShadow: solidCardShadow
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
+                Account Session
+              </div>
+
+              <div style={{
+                padding: "14px 16px", borderRadius: 14,
+                background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                border: `1px solid ${border}`,
+                display: "flex", alignItems: "center", justifyContent: "space-between"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 11,
+                    background: "rgba(225, 29, 72, 0.1)", color: "#e11d48",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}>
+                    <Ic name="logout" size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>Sign Out</div>
+                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 1 }}>End your current session as {group.name}</div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  style={{ borderRadius: 10, padding: "7px 14px", fontWeight: 700 }}
+                  onClick={() => setConfirmSignOut(true)}
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Column 2: Security (Password) & Session Limits */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Card 3: Security / Change Password */}
+            <div style={{
+              padding: "18px 20px", borderRadius: 18, border: "none",
+              background: solidBg, boxShadow: solidCardShadow
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
+                Security & Login
+              </div>
+
+              <div style={{
+                padding: "14px 16px", borderRadius: 14,
+                background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                border: `1px solid ${border}`,
+                display: "flex", alignItems: "center", gap: 12, marginBottom: 14
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11,
+                  background: "rgba(245, 158, 11, 0.12)", color: "#f59e0b",
+                  display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                  <Ic name="lock" size={18} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>Change Password</div>
+                  <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 1 }}>Update your leader portal sign-in PIN</div>
+                </div>
+              </div>
+
+              <form onSubmit={e => { e.preventDefault(); handleLeaderChangePassword(); }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <label className="label">Current Password</label>
+                  <input
+                    type="password"
+                    className="input"
+                    placeholder="Enter current password to verify"
+                    value={currentPwd}
+                    onChange={e => { setCurrentPwd(e.target.value); setPwdError(""); }}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">New Password</label>
+                  <input
+                    type="password"
+                    className="input"
+                    placeholder="Enter new password"
+                    value={newPwd}
+                    onChange={e => { setNewPwd(e.target.value); setPwdError(""); }}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Confirm New Password</label>
+                  <input
+                    type="password"
+                    className="input"
+                    placeholder="Confirm new password"
+                    value={newPwdConfirm}
+                    onChange={e => { setNewPwdConfirm(e.target.value); setPwdError(""); }}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
+                  />
+                </div>
+
+                {pwdError && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 12,
+                    background: "rgba(225, 29, 72, 0.08)", border: "1px solid rgba(225, 29, 72, 0.2)",
+                    color: "#e11d48", fontSize: 12.5, fontWeight: 600
+                  }}>
+                    {pwdError}
+                  </div>
+                )}
+
+                {pwdSuccess && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 12,
+                    background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)",
+                    color: "#10b981", fontSize: 12.5, fontWeight: 700
+                  }}>
+                    ✓ Password updated successfully!
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    height: 46, borderRadius: 14, fontWeight: 800, fontSize: 14, marginTop: 4,
+                    boxShadow: "0 6px 20px rgba(241, 77, 77, 0.35)"
+                  }}
+                  disabled={pwdLoading}
+                >
+                  {pwdLoading ? "Saving to Database..." : "Save New Password"}
+                </button>
+              </form>
+            </div>
+
+            {/* Card 4: Session Status & Limits */}
+            <div style={{
+              padding: "18px 20px", borderRadius: 18, border: "none",
+              background: solidBg, boxShadow: solidCardShadow
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>
+                Registration Status & Limits
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{
+                  padding: "12px 14px", borderRadius: 14,
+                  background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                  border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Events</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
+                      {stageRegs.length} Registered · Solo Limit: {programLimits?.maxStage || 3}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8,
+                    background: isStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
+                    color: isStageLocked ? "#f43f5e" : "#10b981",
+                    border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                  }}>
+                    {isStageLocked ? "🔒 Locked" : "✓ Open"}
+                  </span>
+                </div>
+
+                <div style={{
+                  padding: "12px 14px", borderRadius: 14,
+                  background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                  border: `1px solid ${border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Events</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
+                      {offStageRegs.length} Registered · Solo Limit: {programLimits?.maxOffStage || 3}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8,
+                    background: isOffStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
+                    color: isOffStageLocked ? "#f43f5e" : "#10b981",
+                    border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                  }}>
+                    {isOffStageLocked ? "🔒 Locked" : "✓ Open"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* System Info */}
+        <div style={{ textAlign: "center", padding: "20px 0 24px", color: mutedTx, fontSize: 12 }}>
+          <div style={{ fontWeight: 700, color: dark ? "#94a3b8" : "#64748b" }}>FestFlow Cultural & Arts Manager</div>
+          <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>Version 1.0 · Connected to Real-Time Cloud</div>
+        </div>
+
+        {/* Sign Out Confirmation Modal */}
+        {confirmSignOut && (
+          <div
+            className="modal-bg"
+            onClick={() => setConfirmSignOut(false)}
+            style={{
+              position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+              background: "rgba(0, 0, 0, 0.7)", zIndex: 9999,
+              display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+            }}
+          >
+            <div
+              className="modal"
+              onClick={e => e.stopPropagation()}
+              style={{
+                maxWidth: 380, width: "100%", borderRadius: 20, padding: 24,
+                background: dark ? "#111322" : "#ffffff",
+                border: `1px solid ${border}`, textAlign: "center"
+              }}
+            >
+              <div style={{
+                width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px",
+                background: "rgba(225, 29, 72, 0.12)", color: "#e11d48",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Ic name="logout" size={24} />
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: dark ? "#f8fafc" : "#0f172a" }}>
+                Sign Out?
+              </div>
+              <div style={{ fontSize: 13, color: mutedTx, marginTop: 6, marginBottom: 20 }}>
+                Are you sure you want to end your session as {group.name}?
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ flex: 1, height: 42, borderRadius: 12 }}
+                  onClick={() => setConfirmSignOut(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ flex: 1, height: 42, borderRadius: 12, background: "#e11d48", color: "#ffffff", fontWeight: 700 }}
+                  onClick={() => { setConfirmSignOut(false); onBack(); }}
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    );
+  };
+
+  const renderViews = { home: renderHome, members: renderMembers, events: renderEvents, results: renderResults, settings: renderSettings };
 
   return (
     <div className="anim-fadeIn" style={{ minHeight: "100vh" }}>
+      <LeaderDesktopNav
+        tab={tab}
+        setTab={setTab}
+        group={group}
+        dark={dark}
+        setDark={setDark}
+        onSignOut={() => setConfirmSignOut(true)}
+        unreadCount={unreadCount}
+        isStageLocked={isStageLocked}
+        isOffStageLocked={isOffStageLocked}
+        onOpenMessages={() => setShowMessagesModal(true)}
+      />
+
       {renderViews[tab] ? renderViews[tab]() : renderViews.home()}
 
-      <BottomNav tab={tab} setTab={setTab} dark={dark} />
+      <BottomNav tab={tab} setTab={setTab} dark={dark} hasLockedEvents={isStageLocked || isOffStageLocked} />
 
       {/* ── Messages Floating Action Button (FAB) on all pages except results ── */}
-      {tab !== "results" && (
+      {tab !== "results" && tab !== "settings" && (
         <button
           type="button"
+          className="leader-mobile-fab"
           onClick={() => {
             triggerHaptic("medium");
             setShowMessagesModal(true);
@@ -1633,36 +2470,16 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       {/* ── Messages Modal Sheet ── */}
       {showMessagesModal && (
         <div
-          className="anim-fadeIn"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.65)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-          }}
+          className="anim-fadeIn chat-modal-overlay"
           onClick={e => {
             if (e.target === e.currentTarget) setShowMessagesModal(false);
           }}
         >
           <div
+            className="chat-modal-container"
             style={{
-              width: "100%",
-              maxWidth: 580,
-              height: "92vh",
-              maxHeight: 760,
-              borderRadius: "24px 24px 0 0",
               background: dark ? "#0a0c16" : "#ffffff",
               border: `1px solid ${border}`,
-              borderBottom: "none",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: "0 -10px 40px rgba(0,0,0,0.4)",
             }}
             onClick={e => e.stopPropagation()}
           >
@@ -1682,7 +2499,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       )}
 
       {/* ── Settings modal ── */}
-      {showSettings && (
+      {false && (
         <Topbar
           _settingsOnly
           _forceOpen={true}
@@ -1711,18 +2528,42 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               <select className="input select" value={regForm.programId} onChange={e => setRegForm({ programId: e.target.value, participantIds: [] })} style={{ borderRadius: 12 }}>
                 <option value="">Choose a program…</option>
                 {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.order ? `#${p.order} ` : ""}{p.name} · {p.category} ({p.type || p.session || "Stage"})</option>
+                  (() => {
+                    const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+                    const pLocked = isLocked(group.id, pSess);
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.order ? `#${p.order} ` : ""}{p.name} · {p.category} ({pSess}){pLocked ? " 🔒 [Locked - Meet Admin]" : ""}
+                      </option>
+                    );
+                  })()
                 ))}
               </select>
             </div>
 
             {regForm.programId && (
               <div className="anim-fadeIn">
+                {selectedProg && isLocked(group.id, progSession) && (
+                  <div style={{
+                    marginBottom: 14, padding: "12px 14px", borderRadius: 12,
+                    background: dark ? "rgba(244, 63, 94, 0.12)" : "rgba(244, 63, 94, 0.08)",
+                    border: "1px solid rgba(244, 63, 94, 0.25)",
+                    color: "#f43f5e", display: "flex", alignItems: "flex-start", gap: 10
+                  }}>
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>🔒</span>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 13 }}>Registration Locked for {progSession} Session</div>
+                      <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 2, opacity: 0.95, lineHeight: 1.4 }}>
+                        Registration is locked. Please meet the admin to unlock.
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <label className="label" style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>Select Participants <span style={{ color: ACCENT, fontWeight: 800 }}>({regForm.participantIds.length}/{max})</span></span>
                   {atMax && <span style={{ fontSize: 10, fontWeight: 800, color: mutedTx, letterSpacing: 0.5 }}>MAX REACHED</span>}
                 </label>
-                <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}`, maxHeight: 280, overflowY: "auto" }}>
+                <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}`, maxHeight: 280, overflowY: "auto", opacity: isLocked(group.id, progSession) ? 0.45 : 1, pointerEvents: isLocked(group.id, progSession) ? "none" : "auto" }}>
                   {groupStudents.filter(s => !selectedProg?.category || selectedProg.category === "General" || s.category?.toLowerCase() === selectedProg.category?.toLowerCase()).length === 0 ? (
                     <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: mutedTx }}>No students available in {selectedProg?.category || "General"} category</div>
                   ) : (
@@ -1784,10 +2625,25 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               </div>
             )}
 
+            {regError && (
+              <div style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: "rgba(244, 63, 94, 0.1)",
+                color: "#f43f5e",
+                fontSize: 12.5,
+                fontWeight: 700,
+                border: "1px solid rgba(244, 63, 94, 0.25)",
+                lineHeight: 1.4
+              }}>
+                {regError}
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
               <button type="button" className="btn btn-ghost" onClick={() => setRegModal(false)} style={{ borderRadius: 12 }}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={!regForm.programId || regForm.participantIds.length === 0} style={{ borderRadius: 12, fontWeight: 800 }}>
-                {editTarget ? "Update Registration" : "Confirm Registration"}
+              <button type="submit" className="btn btn-primary" disabled={!regForm.programId || regForm.participantIds.length === 0 || regSaving || isLocked(group.id, progSession)} style={{ borderRadius: 12, fontWeight: 800 }}>
+                {regSaving ? "Saving..." : isLocked(group.id, progSession) ? "🔒 Locked (Meet Admin)" : editTarget ? "Update Registration" : "Confirm Registration"}
               </button>
             </div>
           </form>
@@ -1796,7 +2652,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
       {/* Registered Program Details & Edit Modal */}
       {viewTarget && (
-        <Modal title="Registration Details" onClose={() => setViewTarget(null)}>
+        <Modal title="Program Entry Details" onClose={() => setViewTarget(null)}>
           {(() => {
             const p = programs.find(pg => pg.id === viewTarget.programId);
             const pSession = p?.type || p?.session || progType || "Stage";
@@ -1819,26 +2675,111 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   </div>
                 </div>
 
-                {/* Student details list */}
+                {/* Student details table */}
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: mutedTx, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 6 }}>
-                    Registered Students ({parts.length})
+                  <div style={{ fontSize: 11, fontWeight: 800, color: mutedTx, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
+                    Registered Participants ({parts.length})
                   </div>
-                  <div>
-                    {parts.length === 0 ? (
-                      <div style={{ padding: "12px 0", fontSize: 13, color: mutedTx }}>No students attached</div>
-                    ) : parts.map((s, i) => (
-                      <div key={s.id} style={{
-                        display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
-                        borderBottom: i < parts.length - 1 ? `1px solid ${border}` : "none"
-                      }}>
-                        <span style={{ color: ACCENT, fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, minWidth: 36 }}>#{s.chestNo}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>{s.name}</div>
+                  <div style={{
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    border: `1px solid ${border}`,
+                    background: dark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.7)",
+                  }}>
+                    <div style={{ overflowX: "auto" }}>
+                      <div style={{ minWidth: 420 }}>
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: "130px 85px 1fr 110px",
+                          gap: 10,
+                          alignItems: "center",
+                          padding: "10px 14px",
+                          background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                          borderBottom: `1px solid ${border}`,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          letterSpacing: 0.7,
+                          textTransform: "uppercase",
+                          color: mutedTx,
+                        }}>
+                          <div>Team</div>
+                          <div>Chest #</div>
+                          <div>Student</div>
+                          <div>Category</div>
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: mutedTx }}>{s.category}</span>
+
+                        {parts.length === 0 ? (
+                          <div style={{ padding: "24px 0", textAlign: "center", fontSize: 13, color: mutedTx }}>No students registered</div>
+                        ) : (
+                          parts.map((s, i) => (
+                            <div
+                              key={s.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "130px 85px 1fr 110px",
+                                gap: 10,
+                                alignItems: "center",
+                                padding: "11px 14px",
+                                borderTop: i > 0 ? `1px solid ${border}` : "none",
+                                background: i % 2 === 0 ? cardBg : "transparent",
+                              }}
+                            >
+                              {/* Team */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                                <span style={{
+                                  width: 7,
+                                  height: 7,
+                                  borderRadius: "50%",
+                                  background: group.color || ACCENT,
+                                  display: "inline-block",
+                                  flexShrink: 0
+                                }} />
+                                <span style={{ fontWeight: 700, fontSize: 12.5, color: dark ? "#e8e8f5" : "#1f2937", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {group.name}
+                                </span>
+                              </div>
+
+                              {/* Chest # */}
+                              <div>
+                                <span style={{
+                                  color: ACCENT,
+                                  fontFamily: "'Plus Jakarta Sans',sans-serif",
+                                  fontWeight: 800,
+                                  fontSize: 12.5,
+                                  background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
+                                  padding: "2px 7px",
+                                  borderRadius: 6,
+                                  display: "inline-block"
+                                }}>
+                                  #{s.chestNo}
+                                </span>
+                              </div>
+
+                              {/* Student */}
+                              <div style={{ fontWeight: 700, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {s.name}
+                              </div>
+
+                              {/* Category */}
+                              <div>
+                                <span style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: catColor[s.category] || mutedTx,
+                                  background: `${catColor[s.category] || "#f14d4d"}15`,
+                                  border: `1px solid ${catColor[s.category] || "#f14d4d"}30`,
+                                  padding: "2px 7px",
+                                  borderRadius: 6,
+                                  display: "inline-block",
+                                }}>
+                                  {s.category}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
 
@@ -1855,8 +2796,11 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.18)", textAlign: "center", color: "#f43f5e", fontWeight: 800, fontSize: 12.5 }}>
-                    🔒 Registration for this program is locked by Admin
+                  <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 14, background: dark ? "rgba(244,63,94,0.12)" : "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", textAlign: "center", color: "#f43f5e" }}>
+                    <div style={{ fontWeight: 800, fontSize: 13 }}>🔒 Registration for this program is locked</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, opacity: 0.95 }}>
+                      Modifications are disabled. Please meet the admin to unlock.
+                    </div>
                   </div>
                 )}
               </div>

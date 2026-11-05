@@ -5,6 +5,7 @@ import SplashScreen from "./components/common/SplashScreen";
 import LandingPage from "./components/landing/LandingPage";
 import LeaderPortal from "./components/leader/LeaderPortal";
 import AdminPortal from "./components/admin/AdminPortal";
+import JudgePortal from "./components/judge/JudgePortal";
 import { ToastProvider } from "./components/common/Toast";
 
 import { clearHashRoute, setHashRoute, parseHash } from "./utils/useRouting";
@@ -19,6 +20,27 @@ const AppContent = () => {
   const [user, setUser]       = useState(() => safeGet("ff_user"));
   const [loading, setLoading] = useState(() => !safeGet("ff_user"));
   const [dark, setDark]       = useState(false);
+  const [isJudgeMode, setIsJudgeMode] = useState(() => parseHash().prefix === "judge");
+  const [judgeToken, setJudgeToken]   = useState(() => parseHash().prefix === "judge" ? (parseHash().token || "") : "");
+
+  useEffect(() => {
+    const handleHash = () => {
+      const { prefix, token } = parseHash();
+      if (prefix === "judge") {
+        setIsJudgeMode(true);
+        setJudgeToken(token || "");
+      } else {
+        setIsJudgeMode(false);
+        setJudgeToken("");
+      }
+    };
+    window.addEventListener("hashchange", handleHash);
+    window.addEventListener("popstate", handleHash);
+    return () => {
+      window.removeEventListener("hashchange", handleHash);
+      window.removeEventListener("popstate", handleHash);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user || !users.length) return;
@@ -41,6 +63,7 @@ const AppContent = () => {
   useEffect(() => {
     const enforceRoleRoute = () => {
       const { prefix } = parseHash();
+      if (prefix === "judge") return; // Judge route is public and standalone
       if (!user) {
         if (prefix === "admin" || prefix === "leader") {
           clearHashRoute();
@@ -93,12 +116,26 @@ const AppContent = () => {
     <ToastProvider>
       <GlobalStyles dark={dark} />
       {loading && <SplashScreen onDone={handleSplashDone} />}
-      {!user ? (
+      {isJudgeMode ? (
+        <JudgePortal
+          token={judgeToken}
+          dark={dark}
+          setDark={setDark}
+          onExit={() => {
+            setIsJudgeMode(false);
+            setJudgeToken("");
+            clearHashRoute();
+          }}
+        />
+      ) : !user ? (
         <LandingPage dark={dark} onLeaderLogin={handleLogin} onAdminClick={handleLogin} />
       ) : user.role === "group" ? (
         <LeaderPortal
           user={user}
-          group={groups.find(g => g.id === user.groupId) || { id: user.groupId, name: user.name, color: "#f14d4d" }}
+          group={
+            groups.find(g => (user.groupId && g.id === user.groupId) || g.id === user.id) ||
+            { id: user.groupId || user.id, name: user.name, color: user.color || "#f14d4d" }
+          }
           dark={dark} setDark={setDark} onBack={handleLogout}
         />
       ) : (

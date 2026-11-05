@@ -8,19 +8,23 @@ import MessagesPanel from "./MessagesPanel";
 import ImportStudentsModal from "./ImportStudentsModal";
 import ImportProgramsModal from "./ImportProgramsModal";
 import PublishResultsModal from "./PublishResultsModal";
+import EvaluationReviewModal from "./EvaluationReviewModal";
+import PublishingSection from "./PublishingSection";
 import { CATS, STUDENT_CATS, ACCENT, catColor, ACCENT4 } from "../../styles/DesignTokens";
 import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
 
-const VALID_VIEWS = ["dashboard", "students", "events", "programs", "users", "registrations", "results", "print"];
+const VALID_VIEWS = ["dashboard", "students", "events", "programs", "users", "registrations", "results", "publishing", "print", "settings"];
 
 const NAV = [
-  { id: "dashboard",     icon: "dashboard", label: "Dashboard" },
-  { id: "students",      icon: "users",   label: "Students"  },
-  { id: "events",        icon: "book",    label: "Events"    },
-  { id: "users",         icon: "shield",  label: "Groups"    },
-  { id: "registrations", icon: "list",    label: "Entries"   },
-  { id: "results",       icon: "award",   label: "Results"   },
-  { id: "print",         icon: "printer", label: "Print"     },
+  { id: "dashboard",     icon: "dashboard",   label: "Dashboard"   },
+  { id: "students",      icon: "users",       label: "Students"    },
+  { id: "events",        icon: "book",        label: "Events"      },
+  { id: "users",         icon: "shield",      label: "Groups"      },
+  { id: "registrations", icon: "list",        label: "Entries"     },
+  { id: "results",       icon: "checkCircle", label: "Evaluations" },
+  { id: "publishing",    icon: "award",       label: "Publish"     },
+  { id: "print",         icon: "printer",     label: "Print"       },
+  { id: "settings",      icon: "settings",    label: "Settings"    },
 ];
 
 const Tag = ({ label, dark }) => (
@@ -63,9 +67,37 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage } = useApp();
 
   const [view, setViewState]         = useState(() => getHashRoute("admin", "students", VALID_VIEWS, { programs: "events" }));
-  const setView                       = useHashSync("admin", view, setViewState, VALID_VIEWS, { programs: "events" });
+  const setViewSync                   = useHashSync("admin", view, setViewState, VALID_VIEWS, { programs: "events" });
+  const setView                       = useCallback((v) => { setViewState(v); setViewSync(v); }, [setViewSync]);
 
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
+  const [adminNewPwd, setAdminNewPwd]             = useState("");
+  const [adminNewPwdConfirm, setAdminNewPwdConfirm] = useState("");
+  const [adminPwdSuccess, setAdminPwdSuccess]     = useState(false);
+  const [adminPwdError, setAdminPwdError]         = useState("");
+  const [showLogModal, setShowLogModal]           = useState(false);
+  const [clearLogConfirm, setClearLogConfirm]     = useState(false);
+
+  const handleAdminChangePassword = () => {
+    if (!adminNewPwd.trim()) {
+      setAdminPwdError("Password cannot be empty.");
+      return;
+    }
+    if (adminNewPwd !== adminNewPwdConfirm) {
+      setAdminPwdError("Passwords do not match.");
+      return;
+    }
+    setUsers(prev => prev.map(u => u.role === "admin" ? { ...u, pin: adminNewPwd.trim() } : u));
+    logActivity(user.name, "Changed admin password", "System admin PIN updated");
+    setAdminPwdSuccess(true);
+    setAdminPwdError("");
+    setAdminNewPwd("");
+    setAdminNewPwdConfirm("");
+    setTimeout(() => {
+      setAdminPwdSuccess(false);
+    }, 3000);
+  };
+
   const [progType, setProgType]       = useState("Stage");
   const [catFilter, setCatFilter]     = useState("All");
   const [search, setSearch]           = useState("");
@@ -78,7 +110,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [editProg, setEditProg]       = useState(null);
   const [progForm, setProgForm]       = useState({ name: "", type: "Stage", category: "General", maxParticipants: 1 });
   const [stuModal, setStuModal]       = useState(false);
-  const [stuForm, setStuForm]         = useState({ name: "", category: "Senior" });
+  const [stuForm, setStuForm]         = useState({ name: "", category: "High" });
   const [userModal, setUserModal]         = useState(false);
   const [userForm, setUserForm]           = useState({ name: "", pin: "" });
   const [editUserModal, setEditUserModal] = useState(false);
@@ -93,13 +125,14 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [importModal, setImportModal]             = useState(false);
   const [progImportModal, setProgImportModal]     = useState(false);
   const [selectedEntryInfo, setSelectedEntryInfo] = useState(null);
-  const [resCatFilter, setResCatFilter]         = useState("Sub-Junior");
+  const [resCatFilter, setResCatFilter]         = useState("Low");
   const [resStatusFilter, setResStatusFilter]   = useState("all");
   const [resSearch, setResSearch]               = useState("");
   const [resSearchOpen, setResSearchOpen]       = useState(true);
   const [activeResultProg, setActiveResultProg] = useState(null);
+  const [activeEvalProg, setActiveEvalProg]     = useState(null);
 
-  const isAnyModalOpen = progModal || stuModal || userModal || editUserModal || !!delConfirm || showMessages || importModal || progImportModal || !!selectedEntryInfo || !!activeResultProg;
+  const isAnyModalOpen = progModal || stuModal || userModal || editUserModal || !!delConfirm || showMessages || importModal || progImportModal || !!selectedEntryInfo || !!activeResultProg || !!activeEvalProg;
   const closeAllModals = useCallback(() => {
     setProgModal(false);
     setEditProg(null);
@@ -113,6 +146,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setProgImportModal(false);
     setSelectedEntryInfo(null);
     setActiveResultProg(null);
+    setActiveEvalProg(null);
   }, []);
 
   useModalBackHandler(isAnyModalOpen, closeAllModals);
@@ -137,10 +171,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const saveStudent = () => {
     if (!stuForm.name.trim()) return;
     const sId = "s-" + Math.random().toString(36).substr(2, 5);
-    const newStudent = { id: sId, ...stuForm, groupId: activeGroup, chestNo: nextChestNo(stuForm.category) };
+    const chestNo = stuForm.chestNo?.trim() || nextChestNo(stuForm.category);
+    const newStudent = { id: sId, ...stuForm, groupId: activeGroup, chestNo };
     setStudents(prev => ({ ...prev, [activeGroup]: [...(prev[activeGroup] || []), newStudent] }));
     logActivity(user.name, "Added student", `${newStudent.name} (${newStudent.chestNo}) to ${groups.find(g => g.id === activeGroup)?.name}`);
-    setStuModal(false); setStuForm({ name: "", category: stuCatFilter !== "All" ? stuCatFilter : "Senior" });
+    setStuModal(false); setStuForm({ name: "", chestNo: "", category: stuCatFilter !== "All" ? stuCatFilter : "High" });
   };
   const deleteStudent = (gId, sId, name) => {
     if (registrations.some(r => r.groupId === gId && r.participantIds.includes(sId))) {
@@ -196,6 +231,39 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setDelConfirm({ type: "program", id, label: name });
   };
   const confirmDeleteProg = () => { deleteProgram(delConfirm.id); logActivity(user.name, "Deleted event", delConfirm.label); setDelConfirm(null); };
+  const openProgEntries = (p) => {
+    const progRegs = registrations.filter(r => r.programId === p.id);
+    const teamEntries = progRegs.map(r => {
+      const grp = groups.find(g => g.id === r.groupId) || { id: r.groupId, name: "Team", color: ACCENT };
+      const grpStudents = students[r.groupId] || [];
+      const parts = (r.participantIds || []).map(id => grpStudents.find(s => s.id === id)).filter(Boolean);
+      return { registration: r, group: grp, participants: parts };
+    });
+    const allParticipants = [];
+    for (const te of teamEntries) {
+      for (const st of te.participants) {
+        allParticipants.push({
+          ...st,
+          groupId: te.group.id,
+          groupName: te.group.name,
+          groupColor: te.group.color,
+        });
+      }
+    }
+    allParticipants.sort((a, b) => {
+      const gComp = (a.groupName || "").localeCompare(b.groupName || "");
+      if (gComp !== 0) return gComp;
+      return (Number(a.chestNo) || 0) - (Number(b.chestNo) || 0);
+    });
+
+    setSelectedEntryInfo({
+      isCrossGroup: true,
+      program: p,
+      allParticipants,
+      teamEntries,
+      groupCount: teamEntries.length,
+    });
+  };
   const handleImportPrograms = (newPrograms, mode, mappedCategories, totalCount) => {
     setPrograms(prev => {
       if (mode === "replace") {
@@ -636,7 +704,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             <button
               className="btn btn-primary"
               onClick={() => {
-                setStuForm({ name: "", category: stuCatFilter !== "All" ? stuCatFilter : "Senior" });
+                setStuForm({ name: "", chestNo: "", category: stuCatFilter !== "All" ? stuCatFilter : "High" });
                 setStuModal(true);
               }}
             >
@@ -910,72 +978,6 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         </div>
 
-        {/* Minimal Participation Limits widget */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "8px 14px",
-          borderRadius: 12,
-          background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-          border: `1px solid ${border}`,
-          marginBottom: 16,
-          flexWrap: "wrap",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: mutedTx, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            <span style={{ fontSize: 13 }}>⚙️</span>
-            <span>Student Limits (Solo):</span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Stage:</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
-                onClick={() => updateProgramLimits({ maxStage: Math.max(1, (programLimits?.maxStage || 3) - 1), maxOffStage: programLimits?.maxOffStage || 3 })}
-              >-</button>
-              <span style={{ fontWeight: 800, fontSize: 13, minWidth: 18, textAlign: "center", color: ACCENT }}>
-                {programLimits?.maxStage || 3}
-              </span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
-                onClick={() => updateProgramLimits({ maxStage: (programLimits?.maxStage || 3) + 1, maxOffStage: programLimits?.maxOffStage || 3 })}
-              >+</button>
-            </div>
-          </div>
-
-          <div style={{ width: 1, height: 16, background: border }} />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Off-Stage:</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
-                onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: Math.max(1, (programLimits?.maxOffStage || 3) - 1) })}
-              >-</button>
-              <span style={{ fontWeight: 800, fontSize: 13, minWidth: 18, textAlign: "center", color: "#3b82f6" }}>
-                {programLimits?.maxOffStage || 3}
-              </span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ width: 26, height: 26, padding: 0, borderRadius: 6, minWidth: 26 }}
-                onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: (programLimits?.maxOffStage || 3) + 1 })}
-              >+</button>
-            </div>
-          </div>
-
-          <span style={{ fontSize: 11, color: mutedTx, marginLeft: "auto" }}>
-            Max solo events per student · Auto-saved
-          </span>
-        </div>
-
         {/* Event Type + Category + Search in one toolbar */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 0, borderRadius: 10, overflow: "hidden", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", padding: 3 }}>
@@ -994,7 +996,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             {["All", ...CATS].map(cat => (
               <button key={cat} onClick={() => setCatFilter(cat)} className="btn btn-sm"
                 style={{ fontWeight: 700, background: catFilter === cat ? ACCENT : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: catFilter === cat ? "#0a0b12" : mutedTx }}>
-                {cat === "Sub-Junior" ? "Sub" : cat}
+                {cat}
               </button>
             ))}
           </div>
@@ -1029,25 +1031,53 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
             <div style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
-              {["#", "Event", "Details", ""].map((h, i) => (
+              {["#", "Event", "Entries", ""].map((h, i) => (
                 <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
               ))}
             </div>
-            {filtered.map((p, i) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>#{p.order || (i + 1)}</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    <Tag label={p.category} dark={dark} /><Tag label={p.type || p.session} dark={dark} /><Tag label={`Max ${p.maxParticipants}`} dark={dark} />
+            {filtered.map((p, i) => {
+              const pRegs = registrations.filter(r => r.programId === p.id);
+              const pPartsCount = pRegs.reduce((sum, r) => sum + (r.participantIds?.length || 0), 0);
+              return (
+                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>#{p.order || (i + 1)}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      <Tag label={p.category} dark={dark} /><Tag label={p.type || p.session} dark={dark} /><Tag label={`Max ${p.maxParticipants}`} dark={dark} />
+                    </div>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => openProgEntries(p)}
+                      className="btn btn-ghost btn-sm"
+                      style={{
+                        borderRadius: 8,
+                        border: `1px solid ${pRegs.length > 0 ? (dark ? "rgba(241,77,77,0.3)" : "rgba(241,77,77,0.25)") : border}`,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        height: 32,
+                        padding: "0 10px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: pRegs.length > 0 ? ACCENT : mutedTx,
+                        background: pRegs.length > 0 ? (dark ? "rgba(241,77,77,0.08)" : "rgba(241,77,77,0.05)") : "transparent",
+                        cursor: "pointer",
+                      }}
+                      title="View program entry details"
+                    >
+                      <Ic name="list" size={13} />
+                      <span>{pRegs.length} {pRegs.length === 1 ? "Team" : "Teams"} ({pPartsCount})</span>
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditProg(p)}><Ic name="edit" size={13} /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteProg(p.id, p.name)}><Ic name="trash" size={13} /></button>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditProg(p)}><Ic name="edit" size={13} /></button>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteProg(p.id, p.name)}><Ic name="trash" size={13} /></button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1072,12 +1102,48 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+            {["Stage", "Off-Stage"].map(t => {
+              const nonAdminUsers = users.filter(u => u.role !== "admin");
+              const allLocked = nonAdminUsers.length > 0 && nonAdminUsers.every(u => isLocked(u.id, t));
+              return (
+                <button
+                  key={t}
+                  onClick={() => {
+                    const targetState = !allLocked;
+                    nonAdminUsers.forEach(u => {
+                      if (isLocked(u.id, t) !== targetState) {
+                        toggleLock(u.id, t);
+                      }
+                    });
+                    logActivity(user.name, targetState ? `Locked all ${t} registrations` : `Unlocked all ${t} registrations`, "All groups");
+                  }}
+                  className="btn btn-ghost btn-sm"
+                  style={{
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    border: `1px solid ${allLocked ? "rgba(225,29,72,0.3)" : border}`,
+                    color: allLocked ? "#e11d48" : mutedTx,
+                    background: allLocked ? "rgba(225,29,72,0.06)" : cardBg,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px"
+                  }}
+                >
+                  <span>{allLocked ? "🔒" : "🔓"}</span>
+                  <span>{allLocked ? `Unlock All ${t}` : `Lock All ${t}`}</span>
+                </button>
+              );
+            })}
+          </div>
           {users.filter(u => u.role !== "admin").map((u) => (
             <div key={u.id} style={{ borderRadius: 14, border: `1px solid ${border}`, background: cardBg, padding: "16px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{u.name}</div>
-                  <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>{(students[u.id] || []).length} members</div>
+                  <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>{(students[u.id] || students[u.groupId] || []).length} members</div>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditUser(u)}><Ic name="edit" size={13} /></button>
@@ -1088,7 +1154,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 {["Stage", "Off-Stage"].map(t => {
                   const locked = isLocked(u.id, t);
                   return (
-                    <button key={t} onClick={() => toggleLock(u.id, t)} style={{
+                    <button key={t} onClick={() => {
+                      const willLock = !locked;
+                      toggleLock(u.id, t);
+                      logActivity(user.name, willLock ? "Locked registration" : "Unlocked registration", `${t} for ${u.name}`);
+                    }} style={{
                       flex: 1, padding: "7px 0", borderRadius: 8,
                       border: `1px solid ${locked ? "rgba(225,29,72,0.2)" : "rgba(16,185,129,0.2)"}`,
                       background: locked ? "rgba(225,29,72,0.07)" : "rgba(16,185,129,0.07)",
@@ -1654,6 +1724,24 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const list = [];
     const seenIds = new Set();
 
+    // 0. Include desk participantsHistory with secret code letters first
+    const hist = activeResultProg.participantsHistory || activeResultProg.codeAllocations || [];
+    hist.forEach(h => {
+      const sId = String(h.studentId || h.id);
+      if (sId && !seenIds.has(sId)) {
+        seenIds.add(sId);
+        list.push({
+          id: sId,
+          name: `${h.codeLetter ? `[Code ${h.codeLetter}] ` : ""}${h.chestNo ? `#${h.chestNo} ` : ""}${h.name}${h.groupName ? ` (${h.groupName})` : ""}`,
+          chestNo: h.chestNo,
+          rawName: h.name,
+          codeLetter: h.codeLetter,
+          groupId: h.groupId,
+          groupName: h.groupName,
+        });
+      }
+    });
+
     // 1. Contestants registered for this exact event
     progRegs.forEach(reg => {
       const grp = groups.find(g => g.id === reg.groupId);
@@ -1668,6 +1756,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             name: `${st.chestNo ? `#${st.chestNo} ` : ""}${st.name}${grp ? ` (${grp.name})` : ""}`,
             chestNo: st.chestNo,
             rawName: st.name,
+            groupId: reg.groupId,
+            groupName: grp?.name,
           });
         }
       });
@@ -1684,11 +1774,16 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           name: `${st.chestNo ? `#${st.chestNo} ` : ""}${st.name}${grp ? ` (${grp.name})` : ""}`,
           chestNo: st.chestNo,
           rawName: st.name,
+          groupId: st.groupId,
+          groupName: grp?.name,
         });
       }
     });
 
     list.sort((a, b) => {
+      if (a.codeLetter && b.codeLetter) return a.codeLetter.localeCompare(b.codeLetter);
+      if (a.codeLetter) return -1;
+      if (b.codeLetter) return 1;
       const numA = parseInt(a.chestNo) || 999999;
       const numB = parseInt(b.chestNo) || 999999;
       if (numA !== numB) return numA - numB;
@@ -1702,8 +1797,29 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const progId = event.id;
     const prog = programs.find(p => p.id === progId);
 
-    const lookupStudentDetails = (studentId) => {
-      const sId = String(studentId);
+    const lookupStudentDetails = (studentId, codeLetter) => {
+      const sId = String(studentId || "");
+      const cLetter = codeLetter ? String(codeLetter).trim().toUpperCase() : "";
+
+      // 0. Check participantsHistory / codeAllocations
+      const hist = activeResultProg?.participantsHistory || activeResultProg?.codeAllocations || prog?.participantsHistory || prog?.codeAllocations || [];
+      const histMatch = hist.find(h =>
+        (sId && String(h.studentId) === sId) ||
+        (cLetter && String(h.codeLetter).trim().toUpperCase() === cLetter)
+      );
+      if (histMatch) {
+        const grp = groups.find(g => g.id === histMatch.groupId);
+        return {
+          studentName: histMatch.name,
+          chestNo: histMatch.chestNo || "",
+          groupId: histMatch.groupId || "",
+          groupName: histMatch.groupName || grp?.name || "",
+          groupColor: histMatch.groupColor || grp?.color || "",
+          codeLetter: histMatch.codeLetter || cLetter,
+        };
+      }
+
+      // 1. Check students dictionary
       for (const [gId, stuList] of Object.entries(students || {})) {
         const st = (stuList || []).find(s => String(s.id) === sId);
         if (st) {
@@ -1714,30 +1830,36 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             groupId: st.groupId || gId,
             groupName: grp?.name || "",
             groupColor: grp?.color || "",
+            codeLetter: cLetter,
           };
         }
       }
+
+      // 2. Check candidates
       const cand = currentProgramCandidates.find(c => String(c.id) === sId);
       if (cand) {
         return {
           studentName: cand.rawName || cand.name,
           chestNo: cand.chestNo || "",
-          groupId: "",
-          groupName: "",
+          groupId: cand.groupId || "",
+          groupName: cand.groupName || "",
           groupColor: "",
+          codeLetter: cand.codeLetter || cLetter,
         };
       }
+
       return {
         studentName: "",
         chestNo: "",
         groupId: "",
         groupName: "",
         groupColor: "",
+        codeLetter: cLetter,
       };
     };
 
     const enrichedEntries = (results || []).map(r => {
-      const details = lookupStudentDetails(r.studentId);
+      const details = lookupStudentDetails(r.studentId, r.codeLetter);
       return {
         ...r,
         studentName: details.studentName || r.studentName || "",
@@ -1745,12 +1867,13 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         groupId: details.groupId || r.groupId || "",
         groupName: details.groupName || r.groupName || "",
         groupColor: details.groupColor || r.groupColor || "",
+        codeLetter: details.codeLetter || r.codeLetter || "",
         points: r.points !== undefined && r.points !== "" ? Number(r.points) : 0,
       };
     });
 
     const enrichedOtherGrades = (otherGrades || []).map(o => {
-      const details = lookupStudentDetails(o.studentId);
+      const details = lookupStudentDetails(o.studentId, o.codeLetter);
       return {
         ...o,
         studentName: details.studentName || o.studentName || "",
@@ -1758,6 +1881,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         groupId: details.groupId || o.groupId || "",
         groupName: details.groupName || o.groupName || "",
         groupColor: details.groupColor || o.groupColor || "",
+        codeLetter: details.codeLetter || o.codeLetter || "",
       };
     });
 
@@ -1782,7 +1906,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   };
 
   const renderResults = () => {
-    // 1. Filter by the selected category among the three: Sub-Junior, Junior, Senior
+    // 1. Filter by the selected category among the three: Low, Mid, High
     const catPrograms = programs.filter(p => p.category === resCatFilter);
 
     // 2. Filter by publication status
@@ -1829,7 +1953,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         </div>
 
-        {/* Toolbar: Exactly the three category fields (Sub-Junior, Junior, Senior) on left, Status Dropdown aligned on the right */}
+        {/* Toolbar: Exactly the three category fields (Low, Mid, High) on left, Status Dropdown aligned on the right */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {STUDENT_CATS.map(cat => {
@@ -1981,117 +2105,554 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-            {/* Table Header: Only Code, Program Name, and Category */}
+            {/* Table Header */}
             <div style={{
               display: "grid",
-              gridTemplateColumns: "70px 1fr 130px",
+              gridTemplateColumns: "70px 1fr 180px 110px",
               gap: 16,
               padding: "11px 18px",
               background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
               borderBottom: `1px solid ${border}`
             }}>
-              {["#", "Program Name", "Category"].map((h, i) => (
+              {["#", "Program Name & Evaluation Status", "Judge Link / Actions", "Category"].map((h, i) => (
                 <div key={i} style={{
                   fontSize: 11,
                   fontWeight: 700,
                   letterSpacing: 0.8,
                   textTransform: "uppercase",
                   color: mutedTx,
-                  textAlign: i === 2 ? "right" : "left",
+                  textAlign: i === 3 ? "right" : (i === 2 ? "center" : "left"),
                 }}>
                   {h}
                 </div>
               ))}
             </div>
 
-            {/* Program rows: clicking the program opens the results modal */}
-            {filteredResults.map((p, i) => (
-              <div
-                key={p.id}
-                tabIndex={0}
-                role="button"
-                onClick={() => setActiveResultProg(p)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveResultProg(p);
-                  }
-                }}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "70px 1fr 130px",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "14px 18px",
-                  borderTop: i > 0 ? `1px solid ${border}` : "none",
-                  background: i % 2 === 0 ? cardBg : "transparent",
-                  cursor: "pointer",
-                  transition: "background 0.15s ease",
-                  outline: "none",
-                }}
-                onFocus={e => {
-                  e.currentTarget.style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(241,77,77,0.05)";
-                  e.currentTarget.style.boxShadow = `inset 0 0 0 2px ${ACCENT}`;
-                }}
-                onBlur={e => {
-                  e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = dark ? "rgba(255,255,255,0.05)" : "rgba(241,77,77,0.04)";
-                }}
-                onMouseLeave={e => {
-                  if (document.activeElement !== e.currentTarget) {
+            {/* Program rows: clicking the program opens the evaluation review modal */}
+            {filteredResults.map((p, i) => {
+              const judgeToken = p.judgeToken || p.id;
+              const origin = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
+              const customOrigin = (() => {
+                try {
+                  const saved = localStorage.getItem("ff_public_app_url");
+                  if (saved && saved.trim()) return saved.trim().replace(/\/+$/, "");
+                } catch {}
+                return origin ? origin.replace(/\/+$/, "") : "";
+              })();
+              const judgeUrl = `${customOrigin}/#/judge/${judgeToken}`;
+              const isSubmitted = p.evaluationStatus === "submitted" || !!p.judgeSubmission;
+              const isConfirmed = p.evaluationStatus === "confirmed" || !!p.confirmedResults;
+              const isPublished = p.status === "published";
+
+              const handleShareWhatsApp = (e) => {
+                e.stopPropagation();
+                const text = `🏆 *FestFlow Evaluation Sheet*\n\nProgram: *${p.name}* (${p.category})\nJudge Code: *${judgeToken}*\n\nScoring Link:\n${judgeUrl}\n\n_(Note: If the link is not clickable, simply reply 'Hi' or open FestFlow and enter Judge Code: *${judgeToken}*)_`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+              };
+
+              const handleCopy = (e) => {
+                e.stopPropagation();
+                if (navigator?.clipboard) {
+                  navigator.clipboard.writeText(judgeUrl);
+                  logActivity(user.name, "Copied judge link", `${p.name} (#${p.order || ""})`);
+                }
+              };
+
+              return (
+                <div
+                  key={p.id}
+                  tabIndex={0}
+                  role="button"
+                  onClick={() => setActiveEvalProg(p)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveEvalProg(p);
+                    }
+                  }}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "70px 1fr 180px 110px",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: "14px 18px",
+                    borderTop: i > 0 ? `1px solid ${border}` : "none",
+                    background: i % 2 === 0 ? cardBg : "transparent",
+                    cursor: "pointer",
+                    transition: "background 0.15s ease",
+                    outline: "none",
+                  }}
+                  onFocus={e => {
+                    e.currentTarget.style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(241,77,77,0.05)";
+                    e.currentTarget.style.boxShadow = `inset 0 0 0 2px ${ACCENT}`;
+                  }}
+                  onBlur={e => {
                     e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
-                  }
-                }}
-                title="Click or press Enter to view / publish results"
-              >
-                {/* 1. Program Number / Code */}
-                <div>
-                  <span style={{
-                    fontFamily: "'Plus Jakarta Sans',sans-serif",
-                    fontWeight: 800,
-                    color: ACCENT,
-                    fontSize: 13.5,
-                    background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
-                    padding: "3px 8px",
-                    borderRadius: 7,
-                    display: "inline-block",
-                  }}>
-                    #{p.order || (i + 1)}
-                  </span>
-                </div>
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = dark ? "rgba(255,255,255,0.05)" : "rgba(241,77,77,0.04)";
+                  }}
+                  onMouseLeave={e => {
+                    if (document.activeElement !== e.currentTarget) {
+                      e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
+                    }
+                  }}
+                  title="Click to view & evaluate results"
+                >
+                  {/* 1. Program Number / Code */}
+                  <div>
+                    <span style={{
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                      fontWeight: 800,
+                      color: ACCENT,
+                      fontSize: 13.5,
+                      background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
+                      padding: "3px 8px",
+                      borderRadius: 7,
+                      display: "inline-block",
+                    }}>
+                      #{p.order || (i + 1)}
+                    </span>
+                  </div>
 
-                {/* 2. Program Name */}
-                <div style={{ fontWeight: 700, fontSize: 14.5, color: dark ? "#e8e8f5" : "#12121e" }}>
-                  {p.name}
-                </div>
+                  {/* 2. Program Name & Status */}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, fontSize: 14.5, color: dark ? "#e8e8f5" : "#12121e" }}>
+                        {p.name}
+                      </span>
+                      {isPublished ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "1px 7px", borderRadius: 5 }}>
+                          Published
+                        </span>
+                      ) : isConfirmed ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", padding: "1px 7px", borderRadius: 5 }}>
+                          Confirmed
+                        </span>
+                      ) : isSubmitted ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "1px 7px", borderRadius: 5 }}>
+                          Judge Submitted
+                        </span>
+                      ) : (p.codeLetters?.length > 0 || p.codeAllocations?.length > 0) ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", padding: "1px 7px", borderRadius: 5 }}>
+                          Ready for Judge
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: mutedTx, background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)", padding: "1px 7px", borderRadius: 5 }}>
+                          Pending Lots
+                        </span>
+                      )}
+                      {(p.codeLetters?.length > 0 || p.participantsHistory?.length > 0 || p.codeAllocations?.length > 0) && (
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.08)", padding: "1px 6px", borderRadius: 5 }}>
+                          ✨ {(p.codeLetters || p.participantsHistory || p.codeAllocations).length} Coded
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                {/* 3. Category */}
-                <div style={{ textAlign: "right" }}>
-                  <span style={{
-                    display: "inline-block",
-                    padding: "3px 9px",
-                    borderRadius: 6,
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    background: `${catColor[p.category] || ACCENT}15`,
-                    color: catColor[p.category] || ACCENT,
-                    border: `1px solid ${catColor[p.category] || ACCENT}30`,
-                  }}>
-                    {p.category}
-                  </span>
+                  {/* 3. Judge WhatsApp Link & Actions */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={handleShareWhatsApp}
+                      className="btn btn-sm"
+                      title="Share scoring link via WhatsApp"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        backgroundColor: "#25D366",
+                        color: "#ffffff",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <Ic n="whatsapp" s={13} />
+                      <span>WhatsApp</span>
+                    </button>
+
+                    <button
+                      onClick={handleCopy}
+                      className="btn btn-sm btn-ghost"
+                      title="Copy Judge link"
+                      style={{
+                        padding: "5px 8px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        border: `1px solid ${border}`,
+                        color: mutedTx,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Ic n="copy" s={13} />
+                    </button>
+                  </div>
+
+                  {/* 4. Category */}
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{
+                      display: "inline-block",
+                      padding: "3px 9px",
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      background: `${catColor[p.category] || ACCENT}15`,
+                      color: catColor[p.category] || ACCENT,
+                      border: `1px solid ${catColor[p.category] || ACCENT}30`,
+                    }}>
+                      {p.category}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     );
   };
 
-  const renderViews = { dashboard: renderDashboard, students: renderStudents, events: renderEvents, programs: renderEvents, users: renderGroups, registrations: renderRegistrations, results: renderResults };
+  
+  // ── RENDER: Settings (Full Page View) ───────────────────────────────────
+  const renderSettings = () => {
+    const rowBg = dark ? "rgba(255,255,255,0.03)" : "#f8fafc";
+    const cardBorder = `1px solid ${border}`;
+
+    return (
+      <div className="anim-fadeIn" style={{ maxWidth: 880, margin: "0 auto", paddingBottom: 60 }}>
+        {/* Header */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.5px" }}>
+            Settings & System Configuration
+          </div>
+          <div style={{ fontSize: 13, color: mutedTx, marginTop: 4 }}>
+            Manage festival participation limits, theme appearance, administrative security, and activity audit logs.
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
+          
+          {/* Card 1: Theme & Appearance */}
+          <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(241,77,77,0.1)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic name={dark ? "sun" : "moon"} size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>Appearance & Theme</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Switch between light and dark visual themes</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: 12, background: rowBg, border: cardBorder }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>Interface Mode</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Currently using {dark ? "Dark mode" : "Light mode"}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDark(d => !d)}
+                style={{
+                  width: 52, height: 30, borderRadius: 15, position: "relative", cursor: "pointer",
+                  border: "none", background: dark ? "linear-gradient(135deg, #f14d4d, #dc2626)" : "rgba(0,0,0,0.13)",
+                  transition: "background 0.3s ease", flexShrink: 0
+                }}
+              >
+                <div style={{
+                  width: 24, height: 24, borderRadius: "50%", background: "#ffffff",
+                  position: "absolute", top: 3,
+                  left: dark ? 25 : 3,
+                  transition: "left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.25)"
+                }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Card 2: Student Participation Limits */}
+          <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic name="sliders" size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>Participation Limits</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Max solo events per student (Stage / Off-Stage)</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Stage Counter */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 12, background: rowBg, border: cardBorder }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>Stage Solo Events</div>
+                  <div style={{ fontSize: 11.5, color: mutedTx }}>Maximum solo stage items per student</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ width: 32, height: 32, padding: 0, borderRadius: 8, minWidth: 32, border: cardBorder }}
+                    onClick={() => updateProgramLimits({ maxStage: Math.max(1, (programLimits?.maxStage || 3) - 1), maxOffStage: programLimits?.maxOffStage || 3 })}
+                  >-</button>
+                  <span style={{ fontWeight: 800, fontSize: 16, minWidth: 28, textAlign: "center", color: ACCENT }}>
+                    {programLimits?.maxStage || 3}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ width: 32, height: 32, padding: 0, borderRadius: 8, minWidth: 32, border: cardBorder }}
+                    onClick={() => updateProgramLimits({ maxStage: (programLimits?.maxStage || 3) + 1, maxOffStage: programLimits?.maxOffStage || 3 })}
+                  >+</button>
+                </div>
+              </div>
+
+              {/* Off-Stage Counter */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 12, background: rowBg, border: cardBorder }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>Off-Stage Solo Events</div>
+                  <div style={{ fontSize: 11.5, color: mutedTx }}>Maximum solo off-stage items per student</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ width: 32, height: 32, padding: 0, borderRadius: 8, minWidth: 32, border: cardBorder }}
+                    onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: Math.max(1, (programLimits?.maxOffStage || 3) - 1) })}
+                  >-</button>
+                  <span style={{ fontWeight: 800, fontSize: 16, minWidth: 28, textAlign: "center", color: "#3b82f6" }}>
+                    {programLimits?.maxOffStage || 3}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ width: 32, height: 32, padding: 0, borderRadius: 8, minWidth: 32, border: cardBorder }}
+                    onClick={() => updateProgramLimits({ maxStage: programLimits?.maxStage || 3, maxOffStage: (programLimits?.maxOffStage || 3) + 1 })}
+                  >+</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 11, color: "#10b981", fontWeight: 600 }}>
+                ✓ Synced across all devices & cloud
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Admin Security */}
+          <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(245,158,11,0.1)", color: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic name="lock" size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>Admin Security</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Change master password for administrator access</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <label className="label">New Admin Password</label>
+                <input
+                  type="password"
+                  className="input"
+                  placeholder="Enter new master password"
+                  value={adminNewPwd}
+                  onChange={e => { setAdminNewPwd(e.target.value); setAdminPwdError(""); }}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                />
+              </div>
+
+              <div>
+                <label className="label">Confirm New Password</label>
+                <input
+                  type="password"
+                  className="input"
+                  placeholder="Confirm new password"
+                  value={adminNewPwdConfirm}
+                  onChange={e => { setAdminNewPwdConfirm(e.target.value); setAdminPwdError(""); }}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                />
+              </div>
+
+              {adminPwdError && (
+                <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.2)", color: "#e11d48", fontSize: 12 }}>
+                  {adminPwdError}
+                </div>
+              )}
+
+              {adminPwdSuccess && (
+                <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", fontSize: 12, fontWeight: 700 }}>
+                  ✓ Admin password updated successfully
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ height: 40, borderRadius: 10, fontWeight: 700, marginTop: 4 }}
+                onClick={handleAdminChangePassword}
+              >
+                Update Admin Password
+              </button>
+            </div>
+          </div>
+
+          {/* Card 4: Activity Log */}
+          <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(16,185,129,0.1)", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic name="list" size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>Activity Log & Audit</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Track user logins, registrations, and modifications</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ padding: "14px 16px", borderRadius: 12, background: rowBg, border: cardBorder, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 18, color: ACCENT }}>{activityLogs.length}</div>
+                  <div style={{ fontSize: 12, color: mutedTx }}>Total logged events recorded</div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ borderRadius: 8 }} onClick={() => setShowLogModal(true)}>
+                    Browse Logs
+                  </button>
+                  <button type="button" className="btn btn-danger btn-sm" style={{ borderRadius: 8 }} onClick={() => setClearLogConfirm(true)}>
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, color: mutedTx, lineHeight: 1.5 }}>
+                Audit logs capture group creations, registration changes, and locking events in real time.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* System & Session Card */}
+        <div style={{ marginTop: 20, borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>Admin Session</div>
+            <div style={{ fontSize: 12, color: mutedTx }}>Signed in as System Administrator ({user.name})</div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-danger"
+            style={{ borderRadius: 10, padding: "9px 18px", fontWeight: 700 }}
+            onClick={onBack}
+          >
+            <Ic name="logout" size={15} /> Sign Out of Admin
+          </button>
+        </div>
+
+        {/* Browse Logs Modal */}
+        {showLogModal && (
+          <div className="modal-bg" onClick={() => setShowLogModal(false)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column", borderRadius: 20, padding: 24, background: dark ? "#111322" : "#ffffff", border: cardBorder }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 18 }}>System Activity Logs</div>
+                  <div style={{ fontSize: 12, color: mutedTx }}>{activityLogs.length} events recorded</div>
+                </div>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowLogModal(false)}><Ic name="x" size={16} /></button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: "auto", border: cardBorder, borderRadius: 12, padding: 8 }}>
+                {activityLogs.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 30, color: mutedTx, fontSize: 13 }}>No activity recorded yet</div>
+                ) : (
+                  activityLogs.map((log, idx) => (
+                    <div key={log.id || idx} style={{ padding: "8px 12px", borderBottom: cardBorder, fontSize: 12.5, display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div>
+                        <span style={{ fontWeight: 700, color: ACCENT }}>{log.user}: </span>
+                        <span>{log.action}</span>
+                        {log.details && <span style={{ color: mutedTx, marginLeft: 6 }}>({log.details})</span>}
+                      </div>
+                      <span style={{ color: mutedTx, fontSize: 11, flexShrink: 0 }}>
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Clear Log Confirmation Modal */}
+        {clearLogConfirm && (
+          <div className="modal-bg" onClick={() => setClearLogConfirm(false)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", borderRadius: 20, padding: 24, background: dark ? "#111322" : "#ffffff", border: cardBorder, textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8 }}>Clear Activity Log?</div>
+              <div style={{ fontSize: 13, color: mutedTx, marginBottom: 20 }}>
+                This will permanently remove all {activityLogs.length} log entries from the database.
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" className="btn btn-ghost" style={{ flex: 1, height: 42, borderRadius: 12 }} onClick={() => setClearLogConfirm(false)}>
+                  Cancel
+                </button>
+                <button type="button" className="btn" style={{ flex: 1, height: 42, borderRadius: 12, background: "#e11d48", color: "#ffffff", fontWeight: 700 }} onClick={() => { clearLogs(); setClearLogConfirm(false); }}>
+                  Clear Logs
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    );
+  };
+
+  const renderPublishing = () => (
+    <PublishingSection
+      programs={programs}
+      groups={groups}
+      students={students}
+      onPublishResults={(progId, resultsData) => {
+        updateProgram(progId, {
+          status: "published",
+          evaluationStatus: "published",
+          results: resultsData,
+        });
+        const prog = programs.find(p => p.id === progId);
+        logActivity(user.name, "Published results", `${prog?.name || ""} (#${prog?.order || ""})`);
+      }}
+      onUnpublishResults={(progId) => {
+        updateProgram(progId, {
+          status: "draft",
+          evaluationStatus: "confirmed",
+        });
+        const prog = programs.find(p => p.id === progId);
+        logActivity(user.name, "Unpublished results", `${prog?.name || ""} (#${prog?.order || ""})`);
+      }}
+      dark={dark}
+    />
+  );
+
+  const renderViews = {
+    dashboard: renderDashboard,
+    students: renderStudents,
+    events: renderEvents,
+    programs: renderEvents,
+    users: renderGroups,
+    registrations: renderRegistrations,
+    results: renderResults,
+    publishing: renderPublishing,
+    settings: renderSettings,
+  };
 
   const unreadCount = (messages || []).filter(m => m.to === "admin" && !m.read).length;
 
@@ -2123,15 +2684,32 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             <Ic name="message" size={15} />
             {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: ACCENT, color: "#ffffff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
           </button>
-          <SettingsBtn dark={dark} setDark={setDark} userPin={user.pin} onLogout={onBack} />
+          <button
+            type="button"
+            onClick={() => setView("settings")}
+            title="Settings"
+            style={{
+              position: "relative", width: 34, height: 34, borderRadius: 9,
+              border: `1px solid ${view === "settings" ? ACCENT : border}`,
+              background: view === "settings" ? (dark ? "rgba(241,77,77,0.15)" : "rgba(241,77,77,0.1)") : "transparent",
+              color: view === "settings" ? ACCENT : mutedTx,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)"; }}
+            onMouseLeave={e => { if (view !== "settings") { e.currentTarget.style.color = mutedTx; e.currentTarget.style.borderColor = border; } }}
+          >
+            <Ic name="settings" size={15} />
+          </button>
+          
         </div>
       </div>
 
       {/* ── Main layout ── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="admin-layout-wrapper" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
         {/* ── Sidebar ── */}
-        <div style={{
+        <div className="admin-sidebar-responsive" style={{
           width: 220, flexShrink: 0, borderRight: `1px solid ${border}`,
           background: sideBg, display: "flex", flexDirection: "column",
           padding: "20px 12px", gap: 2, position: "sticky", top: 58, height: "calc(100vh - 58px)", overflowY: "auto",
@@ -2171,7 +2749,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         </div>
 
         {/* ── Content ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 60px" }}>
+        <div className="admin-content-responsive" style={{ flex: 1, overflowY: "auto", padding: "28px 32px 60px" }}>
           {view === "print" ? <PrintSection dark={dark} /> : renderViews[view]?.()}
         </div>
       </div>
@@ -2183,6 +2761,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         <Modal title="Add Student" onClose={() => setStuModal(false)}>
           <form onSubmit={e => { e.preventDefault(); if (stuForm.name.trim()) saveStudent(); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div><label className="label">Group</label><select className="input select" value={activeGroup} onChange={e => setActiveGroup(e.target.value)}>{groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
+            <div><label className="label">Chest No</label><input type="text" className="input" placeholder="e.g. 101" value={stuForm.chestNo || ""} onChange={e => setStuForm({ ...stuForm, chestNo: e.target.value })} /></div>
             <div><label className="label">Name</label><input type="text" className="input" placeholder="Full name" value={stuForm.name} onChange={e => setStuForm({ ...stuForm, name: e.target.value })} autoFocus /></div>
             <div><label className="label">Category</label><select className="input select" value={stuForm.category} onChange={e => setStuForm({ ...stuForm, category: e.target.value })}>{STUDENT_CATS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
@@ -2280,192 +2859,298 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         />
       )}
 
-      {selectedEntryInfo && (
-        <Modal
-          title={selectedEntryInfo.isCrossGroup ? "Program Entry Details (All Teams)" : "Program Entry Details"}
-          onClose={() => setSelectedEntryInfo(null)}
-          wide
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            {/* Header info card */}
-            <div style={{
-              padding: "16px",
-              borderRadius: 12,
-              background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-              border: `1px solid ${border}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 16,
-              flexWrap: "wrap",
-            }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>
-                    {selectedEntryInfo.program?.order ? `#${selectedEntryInfo.program.order}` : ""}
-                  </span>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 18, color: dark ? "#e8e8f5" : "#0f172a" }}>
-                    {selectedEntryInfo.program?.name || "Program Details"}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
-                  {selectedEntryInfo.program?.category && (
-                    <Tag label={selectedEntryInfo.program.category} dark={dark} />
-                  )}
-                  {selectedEntryInfo.program?.session && (
-                    <Tag label={selectedEntryInfo.program.session} dark={dark} />
-                  )}
-                  <span style={{ fontSize: 12, color: mutedTx, marginLeft: 4 }}>
-                    {selectedEntryInfo.isCrossGroup ? (
-                      <>Teams: <strong style={{ color: dark ? "#e8e8f5" : "#0f172a" }}>All Teams ({selectedEntryInfo.groupCount || 0} teams registered)</strong></>
-                    ) : (
-                      <>Team: <strong style={{ color: dark ? "#e8e8f5" : "#0f172a" }}>{selectedEntryInfo.group?.name}</strong></>
-                    )}
-                  </span>
-                </div>
-              </div>
+      {selectedEntryInfo && (() => {
+        const participantsList = selectedEntryInfo.isCrossGroup
+          ? (selectedEntryInfo.allParticipants || [])
+          : (selectedEntryInfo.participants || []).map(p => ({
+              ...p,
+              groupName: p.groupName || selectedEntryInfo.group?.name || "Team",
+              groupColor: p.groupColor || selectedEntryInfo.group?.color || ACCENT,
+            }));
 
+        const teamsCount = selectedEntryInfo.isCrossGroup
+          ? (selectedEntryInfo.groupCount || new Set(participantsList.map(s => s.groupId)).size)
+          : 1;
+
+        const histMap = new Map();
+        (selectedEntryInfo.program?.participantsHistory || selectedEntryInfo.program?.codeAllocations || []).forEach(h => {
+          if (h.studentId) histMap.set(String(h.studentId), h.codeLetter);
+          if (h.id) histMap.set(String(h.id), h.codeLetter);
+          if (h.chestNo) histMap.set(String(h.chestNo), h.codeLetter);
+        });
+        const hasCodeLetters = histMap.size > 0;
+        const gridCols = hasCodeLetters ? "140px 85px 85px 1fr 110px" : "150px 95px 1fr 120px";
+
+        return (
+          <Modal
+            title="Program Entry Details"
+            onClose={() => setSelectedEntryInfo(null)}
+            wide
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Header info card */}
               <div style={{
-                textAlign: "right",
-                fontSize: 12,
-                color: mutedTx,
-                background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
-                padding: "8px 12px",
-                borderRadius: 8,
+                padding: "16px 18px",
+                borderRadius: 14,
+                background: dark ? "rgba(255,255,255,0.035)" : "rgba(0,0,0,0.025)",
+                border: `1px solid ${border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 16,
+                flexWrap: "wrap",
               }}>
-                {selectedEntryInfo.isCrossGroup ? (
-                  <>
-                    <div style={{ fontWeight: 700, color: ACCENT, fontSize: 14 }}>
-                      {(selectedEntryInfo.allParticipants || []).length} Enrolled
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    {selectedEntryInfo.program?.order && (
+                      <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: ACCENT }}>
+                        #{selectedEntryInfo.program.order}
+                      </span>
+                    )}
+                    <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 18, color: dark ? "#f8fafc" : "#0f172a" }}>
+                      {selectedEntryInfo.program?.name || "Program Details"}
                     </div>
-                    <div>Across {selectedEntryInfo.groupCount || 0} Teams</div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontWeight: 700, color: ACCENT, fontSize: 14 }}>
-                      {(selectedEntryInfo.participants || []).length} / {selectedEntryInfo.program?.maxParticipants || 1}
-                    </div>
-                    <div>Participants Enrolled</div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Participants list */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>
-                  Registered Participants (
-                  {selectedEntryInfo.isCrossGroup
-                    ? (selectedEntryInfo.allParticipants || []).length
-                    : (selectedEntryInfo.participants || []).length}
-                  )
-                </span>
-              </div>
-
-              {((selectedEntryInfo.isCrossGroup ? selectedEntryInfo.allParticipants : selectedEntryInfo.participants) || []).length === 0 ? (
-                <div style={{ textAlign: "center", padding: "30px 0", color: mutedTx, fontSize: 13 }}>
-                  No participants registered for this program.
-                </div>
-              ) : (
-                <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${border}` }}>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: selectedEntryInfo.isCrossGroup ? "130px 80px 1fr 110px 100px" : "80px 1fr 110px 100px",
-                    gap: 0,
-                    padding: "10px 16px",
-                    background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
-                    borderBottom: `1px solid ${border}`,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: 0.8,
-                    textTransform: "uppercase",
-                    color: mutedTx,
-                  }}>
-                    {selectedEntryInfo.isCrossGroup && <div>Team</div>}
-                    <div>Chest #</div>
-                    <div>Student Name</div>
-                    <div>Category</div>
-                    <div>Role</div>
                   </div>
-
-                  {((selectedEntryInfo.isCrossGroup ? selectedEntryInfo.allParticipants : selectedEntryInfo.participants) || []).map((s, idx) => (
-                    <div
-                      key={s.id || idx}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: selectedEntryInfo.isCrossGroup ? "130px 80px 1fr 110px 100px" : "80px 1fr 110px 100px",
-                        alignItems: "center",
-                        padding: "12px 16px",
-                        borderTop: idx > 0 ? `1px solid ${border}` : "none",
-                        background: idx % 2 === 0 ? cardBg : "transparent",
-                      }}
-                    >
-                      {selectedEntryInfo.isCrossGroup && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: s.groupColor || ACCENT,
-                            display: "inline-block",
-                            flexShrink: 0
-                          }} />
-                          <span style={{ fontWeight: 700, fontSize: 13, color: dark ? "#e8e8f5" : "#1f2937" }}>
-                            {s.groupName}
-                          </span>
-                        </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
+                    {selectedEntryInfo.program?.category && (
+                      <Tag label={selectedEntryInfo.program.category} dark={dark} />
+                    )}
+                    {selectedEntryInfo.program?.session && (
+                      <Tag label={selectedEntryInfo.program.session} dark={dark} />
+                    )}
+                    {selectedEntryInfo.program?.maxParticipants && (
+                      <Tag label={`Max ${selectedEntryInfo.program.maxParticipants}`} dark={dark} />
+                    )}
+                    {hasCodeLetters && (
+                      <span style={{
+                        borderRadius: 9999,
+                        border: "1px solid rgba(16,185,129,0.35)",
+                        padding: "3px 10px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#10b981",
+                        background: "rgba(16,185,129,0.08)",
+                      }}>
+                        ✨ {histMap.size} Coded (Desk Sealed)
+                      </span>
+                    )}
+                    <span style={{ fontSize: 12, color: mutedTx, marginLeft: 4 }}>
+                      {selectedEntryInfo.isCrossGroup ? (
+                        <>Teams: <strong style={{ color: dark ? "#e8e8f5" : "#0f172a" }}>All Teams ({teamsCount} registered)</strong></>
+                      ) : (
+                        <>Team: <strong style={{ color: dark ? "#e8e8f5" : "#0f172a" }}>{selectedEntryInfo.group?.name || "Team"}</strong></>
                       )}
-                      <div>
-                        <span style={{
-                          fontFamily: "'Plus Jakarta Sans',sans-serif",
-                          fontWeight: 800,
-                          color: ACCENT,
-                          fontSize: 13,
-                          background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
-                          padding: "2px 7px",
-                          borderRadius: 6,
-                          display: "inline-block",
-                        }}>
-                          {s.chestNo}
-                        </span>
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>
-                        {s.name}
-                      </div>
-                      <div>
-                        <span style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: catColor[s.category] || mutedTx,
-                          background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
-                          padding: "2px 7px",
-                          borderRadius: 6,
-                        }}>
-                          {s.category}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: s.groupRole === "Leader" ? ACCENT : mutedTx, fontWeight: s.groupRole === "Leader" ? 700 : 500 }}>
-                        {s.groupRole || "Member"}
-                      </div>
-                    </div>
-                  ))}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Modal close action */}
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-              <button
-                className="btn btn-primary"
-                style={{ height: 42, padding: "0 24px" }}
-                onClick={() => setSelectedEntryInfo(null)}
-              >
-                Close
-              </button>
+                <div style={{
+                  textAlign: "right",
+                  padding: "8px 14px",
+                  borderRadius: 10,
+                  background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                  border: `1px solid ${border}`,
+                }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 15 }}>
+                    {participantsList.length} Enrolled
+                  </div>
+                  <div style={{ fontSize: 11, color: mutedTx, fontWeight: 600 }}>
+                    Across {teamsCount} {teamsCount === 1 ? "Team" : "Teams"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Participants list */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>Registered Participants ({participantsList.length})</span>
+                </div>
+
+                <div style={{
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  border: `1px solid ${border}`,
+                  background: dark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.7)",
+                }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <div style={{ minWidth: 460 }}>
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: gridCols,
+                        gap: 12,
+                        alignItems: "center",
+                        padding: "11px 16px",
+                        background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                        borderBottom: `1px solid ${border}`,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.7,
+                        textTransform: "uppercase",
+                        color: mutedTx,
+                      }}>
+                        <div>Team</div>
+                        <div>Chest #</div>
+                        {hasCodeLetters && <div>Code</div>}
+                        <div>Student</div>
+                        <div>Category</div>
+                      </div>
+
+                      {participantsList.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "36px 0", color: mutedTx, fontSize: 13 }}>
+                          No participants registered for this program.
+                        </div>
+                      ) : (
+                        participantsList.map((s, idx) => {
+                          const codeLetter = histMap.get(String(s.id)) || histMap.get(String(s.chestNo)) || s.codeLetter;
+                          return (
+                          <div
+                            key={s.id || idx}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: gridCols,
+                              gap: 12,
+                              alignItems: "center",
+                              padding: "12px 16px",
+                              borderTop: idx > 0 ? `1px solid ${border}` : "none",
+                              background: idx % 2 === 0 ? cardBg : "transparent",
+                              transition: "background 0.12s ease",
+                            }}
+                          >
+                            {/* 1. Team */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                              <span style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: s.groupColor || selectedEntryInfo.group?.color || ACCENT,
+                                display: "inline-block",
+                                flexShrink: 0,
+                              }} />
+                              <span style={{
+                                fontWeight: 700,
+                                fontSize: 13,
+                                color: dark ? "#e8e8f5" : "#1f2937",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}>
+                                {s.groupName || selectedEntryInfo.group?.name || "Team"}
+                              </span>
+                            </div>
+
+                            {/* 2. Chest # */}
+                            <div>
+                              <span style={{
+                                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                                fontWeight: 800,
+                                color: ACCENT,
+                                fontSize: 12.5,
+                                background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
+                                padding: "3px 8px",
+                                borderRadius: 6,
+                                display: "inline-block",
+                                letterSpacing: "0.2px",
+                              }}>
+                                #{s.chestNo || "—"}
+                              </span>
+                            </div>
+
+                            {/* 2b. Code Letter (if coded) */}
+                            {hasCodeLetters && (
+                              <div>
+                                {codeLetter ? (
+                                  <span style={{
+                                    fontFamily: "'Plus Jakarta Sans',sans-serif",
+                                    fontWeight: 800,
+                                    color: "#10b981",
+                                    fontSize: 12,
+                                    background: dark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)",
+                                    border: "1px solid rgba(16,185,129,0.3)",
+                                    padding: "2px 8px",
+                                    borderRadius: 6,
+                                    display: "inline-block",
+                                  }}>
+                                    Code {codeLetter}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: mutedTx, fontSize: 11 }}>—</span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 3. Student Name */}
+                            <div style={{
+                              fontWeight: 600,
+                              fontSize: 13.5,
+                              color: dark ? "#f8fafc" : "#0f172a",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}>
+                              {s.name}
+                            </div>
+
+                            {/* 4. Category */}
+                            <div>
+                              <span style={{
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                color: catColor[s.category] || mutedTx,
+                                background: `${catColor[s.category] || "#f14d4d"}15`,
+                                border: `1px solid ${catColor[s.category] || "#f14d4d"}30`,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                display: "inline-block",
+                              }}>
+                                {s.category || "—"}
+                              </span>
+                            </div>
+                          </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal close action */}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ height: 42, padding: "0 24px" }}
+                  onClick={() => setSelectedEntryInfo(null)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          </div>
-        </Modal>
+          </Modal>
+        );
+      })()}
+
+      {activeEvalProg && (
+        <EvaluationReviewModal
+          open={!!activeEvalProg}
+          onClose={() => setActiveEvalProg(null)}
+          program={activeEvalProg}
+          students={students}
+          groups={groups}
+          registrations={registrations}
+          onConfirm={({ programId, confirmedResults }) => {
+            updateProgram(programId, {
+              confirmedResults,
+              evaluationStatus: "confirmed",
+            });
+            logActivity(
+              user.name,
+              "Confirmed judge evaluation",
+              `${activeEvalProg?.name || ""} (#${activeEvalProg?.order || ""})`
+            );
+          }}
+          onUpdateProgram={updateProgram}
+          dark={dark}
+        />
       )}
 
       {activeResultProg && (
@@ -2479,6 +3164,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             category: activeResultProg.category,
             results: activeResultProg.results,
             status: activeResultProg.status,
+            participantsHistory: activeResultProg.participantsHistory || activeResultProg.codeAllocations || [],
+            codeAllocations: activeResultProg.codeAllocations || activeResultProg.participantsHistory || [],
           }}
           students={currentProgramCandidates}
           onPublish={handlePublishFromModal}

@@ -15,6 +15,13 @@ export default defineSchema({
     results: v.optional(v.any()),
     sortOrder: v.optional(v.number()),
     order: v.optional(v.number()),
+    participantsHistory: v.optional(v.any()),
+    codeAllocations: v.optional(v.any()),
+    judgeToken: v.optional(v.string()),
+    codeLetters: v.optional(v.any()),
+    judgeSubmission: v.optional(v.any()),
+    evaluationStatus: v.optional(v.string()),
+    confirmedResults: v.optional(v.any()),
   }),
 
   students: defineTable({

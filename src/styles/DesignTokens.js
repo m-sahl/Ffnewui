@@ -4,15 +4,19 @@ export const ACCENT2 = "#ff0f0f";          // Vibrant Red — danger/highlight
 export const ACCENT3 = "#3b82f6";          // Sapphire Blue — info
 export const ACCENT4 = "#1dd183";          // Mint Emerald — success
 
-export const CATS = ["Sub-Junior", "Junior", "Senior", "General"];
-export const STUDENT_CATS = ["Sub-Junior", "Junior", "Senior"];
+export const CATS = ["Low", "Mid", "High", "General"];
+export const STUDENT_CATS = ["Low", "Mid", "High"];
 
 // Category colors matching ffcontrol
 export const catColor = {
-  "Sub-Junior": "#f14d4d",   // Coral
-  "Junior": "#3b82f6",       // Sapphire
-  "Senior": "#f59e0b",       // Amber
+  "Low": "#f14d4d",          // Coral (formerly Sub-Junior)
+  "Mid": "#3b82f6",          // Sapphire (formerly Junior)
+  "High": "#f59e0b",         // Amber (formerly Senior)
   "General": "#1dd183",      // Mint Emerald
+  // Legacy aliases for backward compatibility
+  "Sub-Junior": "#f14d4d",
+  "Junior": "#3b82f6",
+  "Senior": "#f59e0b",
 };
 
 export const GROUP_COLORS = [
