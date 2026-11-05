@@ -3,7 +3,7 @@ import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
-import { CATS, STUDENT_CATS, ACCENT } from "../../styles/DesignTokens";
+import { CATS, STUDENT_CATS, ACCENT, catColor } from "../../styles/DesignTokens";
 import { triggerHaptic } from "../../utils/haptics";
 import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
 import { useToast } from "../common/Toast";
