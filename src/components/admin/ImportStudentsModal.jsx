@@ -7,9 +7,9 @@ import { ACCENT, STUDENT_CATS, catColor } from "../../styles/DesignTokens";
 const normalizeCategory = (cat) => {
   if (!cat) return null;
   const str = String(cat).trim().toLowerCase();
-  if (str.includes("sub") || str === "sj") return "Sub-Junior";
-  if (str.includes("jun") || str === "jr") return "Junior";
-  if (str.includes("sen") || str === "sr") return "Senior";
+  if (str.includes("low") || str.includes("sub") || str === "sj") return "Low";
+  if (str.includes("mid") || str.includes("jun") || str === "jr") return "Mid";
+  if (str.includes("high") || str.includes("sen") || str === "sr") return "High";
   return null;
 };
 
@@ -40,15 +40,16 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
     const wb = XLSX.utils.book_new();
     const targetGroups = groups.length > 0 ? groups : [{ id: "g-1", name: "Group A" }, { id: "g-2", name: "Group B" }];
 
-    targetGroups.forEach(g => {
+    targetGroups.forEach((g, gIdx) => {
+      const baseNum = (gIdx + 1) * 100;
       const sheetData = [
-        ["Name", "Category", "Role"],
-        ["Aisha Rahman", "Sub-Junior", "Member"],
-        ["Zayan Ahmed", "Junior", "Leader"],
-        ["Rohan Varma", "Senior", "Member"],
+        ["Chest No", "Name", "Category", "Role"],
+        [String(baseNum + 1), "Aisha Rahman", "Low", "Member"],
+        [String(baseNum + 2), "Zayan Ahmed", "Mid", "Leader"],
+        [String(baseNum + 3), "Rohan Varma", "High", "Member"],
       ];
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
-      ws["!cols"] = [{ wch: 24 }, { wch: 16 }, { wch: 16 }];
+      ws["!cols"] = [{ wch: 14 }, { wch: 24 }, { wch: 16 }, { wch: 16 }];
       const safeSheetName = (g.name || "Group").replace(/[:\\/?*\[\]]/g, "").slice(0, 31).trim() || "Group";
       XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
     });
@@ -90,21 +91,30 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
 
           // Find header row or default to row 0
           let headerIdx = -1;
-          let nameCol = 0;
-          let catCol = 1;
-          let roleCol = 2;
+          let chestCol = 0;
+          let nameCol = 1;
+          let catCol = 2;
+          let roleCol = 3;
 
           for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
             const row = rawRows[i];
             if (!Array.isArray(row)) continue;
             const rowStr = row.map(c => String(c).toLowerCase().trim());
-            const nIdx = rowStr.findIndex(c => c.includes("name") || c.includes("student"));
-            if (nIdx !== -1) {
+            const nIdx = rowStr.findIndex(c => c.includes("name") || c.includes("student") || c.includes("participant"));
+            const chestIdx = rowStr.findIndex(c => {
+              if (c.includes("chest")) return true;
+              if (/^test(\s|_|-)?(no|num|number)?$/i.test(c) || c.startsWith("test no") || c.startsWith("test num")) return true;
+              if (/^(c\.?no|c_no|cno|c#|chest#|chest_no)$/i.test(c)) return true;
+              return false;
+            });
+            const cIdx = rowStr.findIndex(c => c.includes("cat") || c.includes("section") || c.includes("grade") || c.includes("class"));
+            const rIdx = rowStr.findIndex(c => c.includes("role") || c.includes("designation") || c.includes("position"));
+
+            if (nIdx !== -1 || chestIdx !== -1) {
               headerIdx = i;
-              nameCol = nIdx;
-              const cIdx = rowStr.findIndex(c => c.includes("cat") || c.includes("section"));
+              nameCol = nIdx !== -1 ? nIdx : nameCol;
+              chestCol = chestIdx !== -1 ? chestIdx : -1;
               if (cIdx !== -1) catCol = cIdx;
-              const rIdx = rowStr.findIndex(c => c.includes("role") || c.includes("designation"));
               if (rIdx !== -1) roleCol = rIdx;
               break;
             }
@@ -117,25 +127,43 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
             const row = rawRows[r];
             if (!Array.isArray(row) || row.length === 0) continue;
 
-            const rawName = row[nameCol] !== undefined ? String(row[nameCol]).trim() : "";
-            const rawCat = row[catCol] !== undefined ? String(row[catCol]).trim() : "";
-            const rawRole = row[roleCol] !== undefined ? String(row[roleCol]).trim() : "";
+            let rawChest = chestCol !== -1 && row[chestCol] !== undefined && row[chestCol] !== null
+              ? String(row[chestCol]).trim()
+              : "";
+            if (rawChest.endsWith(".0")) {
+              rawChest = rawChest.slice(0, -2);
+            }
+
+            const rawName = nameCol !== -1 && row[nameCol] !== undefined && row[nameCol] !== null
+              ? String(row[nameCol]).trim()
+              : "";
+            const rawCat = catCol !== -1 && row[catCol] !== undefined && row[catCol] !== null
+              ? String(row[catCol]).trim()
+              : "";
+            const rawRole = roleCol !== -1 && row[roleCol] !== undefined && row[roleCol] !== null
+              ? String(row[roleCol]).trim()
+              : "";
 
             // Ignore totally empty rows
-            if (!rawName && !rawCat && !rawRole) continue;
+            if (!rawChest && !rawName && !rawCat && !rawRole) continue;
 
             const category = normalizeCategory(rawCat);
             const role = normalizeRole(rawRole);
             let error = null;
 
-            if (!rawName) {
+            if (chestCol === -1) {
+              error = "Missing Chest No column in Excel header";
+            } else if (!rawChest) {
+              error = "Missing chest number";
+            } else if (!rawName) {
               error = "Missing student name";
             } else if (!category) {
-              error = `Invalid category "${rawCat || "blank"}" (must be Sub-Junior, Junior, or Senior)`;
+              error = `Invalid category "${rawCat || "blank"}" (must be Low, Mid, or High)`;
             }
 
             rows.push({
               rowNum: r + 1,
+              chestNo: rawChest,
               name: rawName,
               rawCategory: rawCat,
               category,
@@ -168,15 +196,11 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
     reader.readAsArrayBuffer(file);
   };
 
-  // 3. Calculate prospective chest numbers and final student objects
+  // 3. Process and validate student records from uploaded file (no auto-generated chest numbers)
   const { previewStudents, stats } = useMemo(() => {
     if (!fileData) return { previewStudents: [], stats: { total: 0, valid: 0, invalid: 0, groupsCount: 0 } };
 
-    // Determine baseline chest numbers based on mode
-    const base = { "Sub-Junior": 100, "Junior": 200, "Senior": 300 };
-    const currentCounters = { ...base };
-
-    // Get current students to calculate existing max chest numbers
+    // Get current students to check existing chest numbers against collisions
     const activeTargetGroupIds = new Set(Object.values(sheetMappings).filter(Boolean));
     const allExistingStudents = Object.entries(students).flatMap(([gId, stList]) => {
       // If replace mode, ignore existing students in groups that are being replaced!
@@ -186,12 +210,14 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
       return stList || [];
     });
 
-    STUDENT_CATS.forEach(cat => {
-      const inCat = allExistingStudents.filter(s => s.category === cat);
-      const maxUsed = inCat.reduce((max, s) => Math.max(max, parseInt(s.chestNo) || 0), base[cat]);
-      currentCounters[cat] = maxUsed;
+    const existingChestMap = new Map();
+    allExistingStudents.forEach(s => {
+      if (s.chestNo) {
+        existingChestMap.set(String(s.chestNo).trim().toLowerCase(), s.name);
+      }
     });
 
+    const fileChestMap = new Map(); // Tracks lowercase chestNo -> student name in this file
     const list = [];
     let validCount = 0;
     let invalidCount = 0;
@@ -209,21 +235,36 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
       const groupObj = groups.find(g => g.id === targetGroupId);
 
       rows.forEach(r => {
-        if (!r.isValid) {
+        let rowError = r.error;
+        const cleanChest = String(r.chestNo || "").trim();
+        const lowerChest = cleanChest.toLowerCase();
+
+        if (!rowError) {
+          if (!cleanChest) {
+            rowError = "Missing chest number";
+          } else if (fileChestMap.has(lowerChest)) {
+            rowError = `Duplicate chest #${cleanChest} in file (already used by ${fileChestMap.get(lowerChest)})`;
+          } else if (existingChestMap.has(lowerChest)) {
+            rowError = `Chest #${cleanChest} already exists (used by ${existingChestMap.get(lowerChest)})`;
+          }
+        }
+
+        if (rowError) {
           invalidCount++;
           list.push({
             ...r,
             sheetName,
             groupId: targetGroupId,
             groupName: groupObj?.name || "Unknown",
-            chestNo: "—",
+            chestNo: cleanChest || "—",
+            isValid: false,
+            error: rowError,
           });
           return;
         }
 
+        fileChestMap.set(lowerChest, r.name || "another student");
         validCount++;
-        currentCounters[r.category] += 1;
-        const assignedChestNo = currentCounters[r.category].toString();
 
         // Prevent multiple leaders in same import
         let finalRole = r.role;
@@ -251,7 +292,7 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
           groupRole: finalRole,
           groupId: targetGroupId,
           groupName: groupObj?.name || targetGroupId,
-          chestNo: assignedChestNo,
+          chestNo: cleanChest,
           sheetName,
           isValid: true,
           error: null,
@@ -275,7 +316,7 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
     if (!searchFilter.trim()) return previewStudents;
     const q = searchFilter.toLowerCase();
     return previewStudents.filter(
-      s => s.name?.toLowerCase().includes(q) || s.groupName?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q) || s.chestNo?.includes(q)
+      s => s.name?.toLowerCase().includes(q) || s.groupName?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q) || s.chestNo?.toLowerCase().includes(q)
     );
   }, [previewStudents, searchFilter]);
 
@@ -329,8 +370,8 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
           gap: 12,
         }}>
           <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-            <span style={{ fontWeight: 700, color: ACCENT }}>Automated Setup: </span>
-            Each sheet in your Excel file represents one Group. Chest numbers are <strong>automatically generated</strong> per category (Sub-Junior: 101+, Junior: 201+, Senior: 301+). No chest number column is required in the file!
+            <span style={{ fontWeight: 700, color: ACCENT }}>Template Setup: </span>
+            Each sheet represents one Group. Specify <strong>Chest No</strong>, <strong>Name</strong>, <strong>Category</strong> (Low, Mid, High), and optional <strong>Role</strong> in your file. Download the sample template below to get started.
           </div>
           <button
             onClick={handleDownloadTemplate}
@@ -557,7 +598,7 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
               }}>
-                <div>Auto Chest #</div>
+                <div>Chest #</div>
                 <div>Target Group</div>
                 <div>Student Name</div>
                 <div>Category</div>
@@ -584,7 +625,7 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
                         background: !s.isValid ? (dark ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.05)") : idx % 2 === 0 ? "transparent" : (dark ? "rgba(255,255,255,0.01)" : "rgba(0,0,0,0.01)"),
                       }}
                     >
-                      {/* Auto Chest No */}
+                      {/* Chest No */}
                       <div>
                         {s.isValid ? (
                           <span style={{
@@ -599,7 +640,9 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
                             {s.chestNo}
                           </span>
                         ) : (
-                          <span style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }}>Error</span>
+                          <span style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }}>
+                            {s.chestNo && s.chestNo !== "—" ? s.chestNo : "—"}
+                          </span>
                         )}
                       </div>
 

@@ -7,9 +7,22 @@ const cleanDoc = (obj: any) => {
   return rest;
 };
 
+const normalizeCategory = (cat?: string): string => {
+  if (!cat) return "";
+  const c = String(cat).trim().toLowerCase();
+  if (c.includes("sub") || c === "sj" || c === "low") return "Low";
+  if (c.includes("jun") || c === "jr" || c === "mid") return "Mid";
+  if (c.includes("sen") || c === "sr" || c === "high") return "High";
+  return cat;
+};
+
 export const get = query({
   handler: async (ctx) => {
-    return await ctx.db.query("students").collect();
+    const list = await ctx.db.query("students").collect();
+    return list.map((s) => ({
+      ...s,
+      category: normalizeCategory(s.category) || s.category,
+    }));
   },
 });
 

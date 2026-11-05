@@ -15,13 +15,19 @@ export const setLock = mutation({
     type: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const lockType = (args.type || `${args.groupId}_${args.session}`).toLowerCase();
+    const normSession = (args.session || "").toLowerCase().includes("off") ? "off-stage" : "stage";
+    const displaySession = normSession === "off-stage" ? "Off-Stage" : "Stage";
+    const lockType = (args.type || `${args.groupId}_${normSession}`).toLowerCase();
 
     // Query all lock records and delete any matching existing entries for this group & session
     const existing = await ctx.db.query("locks").collect();
     for (const doc of existing) {
       const docType = (doc.type || `${doc.groupId}_${doc.session}`).toLowerCase();
-      if (docType === lockType || (doc.groupId === args.groupId && doc.session === args.session)) {
+      const docSess = (doc.session || "").toLowerCase().includes("off") ? "off-stage" : (doc.session ? "stage" : "");
+      if (
+        docType === lockType ||
+        (doc.groupId?.toLowerCase() === args.groupId.toLowerCase() && (docSess === normSession || !docSess))
+      ) {
         await ctx.db.delete(doc._id);
       }
     }
@@ -29,7 +35,7 @@ export const setLock = mutation({
     // Insert fresh record
     await ctx.db.insert("locks", {
       groupId: args.groupId,
-      session: args.session,
+      session: displaySession,
       type: lockType,
       locked: args.locked,
     });

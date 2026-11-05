@@ -7,6 +7,70 @@ const cleanDoc = (obj: any) => {
   return rest;
 };
 
+async function validateLock(ctx: any, registration: any) {
+  if (registration?.adminOverride === true) return;
+  if (!registration?.programId) return;
+
+  const program = await ctx.db
+    .query("programs")
+    .filter((q: any) => q.eq(q.field("id"), registration.programId))
+    .first();
+
+  if (!program) return;
+
+  const progType = (program.type || program.session || "Stage").toLowerCase();
+  const sessionType = progType.includes("off") ? "off-stage" : "stage";
+  const displaySession = sessionType === "off-stage" ? "Off-Stage" : "Stage";
+
+  const allLocks = await ctx.db.query("locks").collect();
+  const allUsers = await ctx.db.query("users").collect();
+
+  const reqGroupId = String(registration.groupId || "").trim().toLowerCase();
+  const user = allUsers.find(
+    (u: any) =>
+      (u.id && u.id.toLowerCase() === reqGroupId) ||
+      (u.groupId && u.groupId.toLowerCase() === reqGroupId) ||
+      (u.name && u.name.trim().toLowerCase() === reqGroupId)
+  );
+
+  const groupIds = new Set<string>();
+  if (reqGroupId) groupIds.add(reqGroupId);
+  if (user) {
+    if (user.id) groupIds.add(user.id.toLowerCase());
+    if (user.groupId) groupIds.add(user.groupId.toLowerCase());
+    if (user.name) groupIds.add(user.name.trim().toLowerCase());
+  }
+
+  const isLocked = allLocks.some((l: any) => {
+    if (!l.locked) return false;
+    const lSess = (l.session || "").toLowerCase().includes("off") ? "off-stage" : (l.session ? "stage" : "");
+    const lType = (l.type || "").toLowerCase();
+
+    // Global session locks
+    if (lType === `all_${sessionType}` || lType === `global_${sessionType}` || lType === sessionType) {
+      return true;
+    }
+    if ((!l.groupId || l.groupId === "all" || l.groupId === "global") && lSess === sessionType) {
+      return true;
+    }
+
+    // Check specific group locks
+    if (lSess && lSess !== sessionType) return false;
+    if (l.groupId && groupIds.has(l.groupId.toLowerCase())) {
+      return true;
+    }
+    for (const gid of groupIds) {
+      if (lType === `${gid}_${sessionType}`) return true;
+    }
+
+    return false;
+  });
+
+  if (isLocked) {
+    throw new Error(`Registration is locked for ${displaySession} session. Please meet the admin to unlock.`);
+  }
+}
+
 async function validateQuota(ctx: any, registration: any) {
   if (registration?.adminOverride === true) return;
   if (!registration?.programId || !Array.isArray(registration?.participantIds) || registration.participantIds.length === 0) {
@@ -162,6 +226,7 @@ export const add = mutation({
   args: { registration: v.any() },
   handler: async (ctx, args) => {
     try {
+      await validateLock(ctx, args.registration);
       await validateQuota(ctx, args.registration);
       const doc = cleanDoc(args.registration);
       await ctx.db.insert("registrations", doc);
@@ -180,6 +245,7 @@ export const addRegistration = mutation({
       if (!args.registration || !args.registration.id) {
         throw new Error("Registration must have an id");
       }
+      await validateLock(ctx, args.registration);
       await validateQuota(ctx, args.registration);
       const doc = cleanDoc(args.registration);
       await ctx.db.insert("registrations", doc);
@@ -196,6 +262,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     try {
       const regWithId = { ...args.registration, id: args.id };
+      await validateLock(ctx, regWithId);
       await validateQuota(ctx, regWithId);
       const existing = await ctx.db
         .query("registrations")
@@ -218,7 +285,7 @@ export const update = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.string() },
+  args: { id: v.string(), adminOverride: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     try {
       const existing = await ctx.db
@@ -226,6 +293,9 @@ export const remove = mutation({
         .filter((q) => q.eq(q.field("id"), args.id))
         .first();
       if (existing) {
+        if (!args.adminOverride) {
+          await validateLock(ctx, existing);
+        }
         await ctx.db.delete(existing._id);
         return { success: true, id: args.id };
       }

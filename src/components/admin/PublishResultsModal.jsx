@@ -4,12 +4,12 @@ import { createPortal } from "react-dom";
 const PLACES = ["1st", "2nd", "3rd"];
 const GRADES = ["A", "B", "C", "—"];
 
-const emptyEntry = { studentId: "", points: "", grade: "" };
+const emptyEntry = { studentId: "", codeLetter: "", points: "", grade: "" };
 
 export default function PublishResultsModal({
   open: openProp,
   onClose,
-  event = { code: 1, name: "Event", category: "Junior" },
+  event = { code: 1, name: "Event", category: "Mid" },
   students = [],
   onPublish,
   dark = false,
@@ -23,6 +23,30 @@ export default function PublishResultsModal({
   const [others, setOthers] = useState([]);
   const [touched, setTouched] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Extract participants roster with secret code letters assigned by desk (ffcontrol)
+  const historyList = useMemo(() => {
+    const raw = event?.participantsHistory || event?.codeAllocations || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [event]);
+
+  const codedParticipants = useMemo(() => {
+    return historyList
+      .filter((h) => h && h.codeLetter)
+      .map((h) => ({
+        studentId: String(h.studentId || h.id),
+        chestNo: String(h.chestNo || ""),
+        name: h.name || "",
+        groupId: h.groupId || "",
+        groupName: h.groupName || "",
+        groupColor: h.groupColor || "",
+        codeLetter: String(h.codeLetter).trim().toUpperCase(),
+      }))
+      .sort((a, b) => a.codeLetter.localeCompare(b.codeLetter));
+  }, [historyList]);
+
+  const hasCodeLetters = codedParticipants.length > 0;
+  const [useCodeLetters, setUseCodeLetters] = useState(true);
 
   // Palette matching FestFlow admin theme (light & dark)
   const theme = useMemo(() => {
@@ -61,21 +85,34 @@ export default function PublishResultsModal({
       setStep(0);
       setTouched(false);
       setDone(false);
+      setUseCodeLetters(hasCodeLetters);
 
       if (event?.results?.entries && Array.isArray(event.results.entries) && event.results.entries.length >= 3) {
         setEntries(
-          event.results.entries.map((e) => ({
-            studentId: e.studentId ? String(e.studentId) : "",
-            points: e.points !== undefined && e.points !== null ? String(e.points) : "",
-            grade: e.grade || "",
-          }))
+          event.results.entries.map((e) => {
+            const hist = codedParticipants.find(
+              (h) => String(h.studentId) === String(e.studentId) || (e.codeLetter && h.codeLetter === e.codeLetter)
+            );
+            return {
+              studentId: e.studentId ? String(e.studentId) : (hist?.studentId || ""),
+              codeLetter: e.codeLetter || hist?.codeLetter || "",
+              points: e.points !== undefined && e.points !== null ? String(e.points) : "",
+              grade: e.grade || "",
+            };
+          })
         );
         setOthers(
           Array.isArray(event.results.otherGrades)
-            ? event.results.otherGrades.map((o) => ({
-                studentId: o.studentId ? String(o.studentId) : "",
-                grade: o.grade || "",
-              }))
+            ? event.results.otherGrades.map((o) => {
+                const hist = codedParticipants.find(
+                  (h) => String(h.studentId) === String(o.studentId) || (o.codeLetter && h.codeLetter === o.codeLetter)
+                );
+                return {
+                  studentId: o.studentId ? String(o.studentId) : (hist?.studentId || ""),
+                  codeLetter: o.codeLetter || hist?.codeLetter || "",
+                  grade: o.grade || "",
+                };
+              })
             : []
         );
       } else {
@@ -83,11 +120,34 @@ export default function PublishResultsModal({
         setOthers([]);
       }
     }
-  }, [open, event]);
+  }, [open, event, hasCodeLetters, codedParticipants]);
 
   const preview = step === PLACES.length;
   const current = entries[Math.min(step, PLACES.length - 1)];
   const isLast = step === PLACES.length - 1;
+
+  // Resolve currently selected contestant for display
+  const resolvedStudent = useMemo(() => {
+    if (current.codeLetter) {
+      const match = codedParticipants.find((c) => c.codeLetter === current.codeLetter);
+      if (match) return match;
+    }
+    if (current.studentId) {
+      const match = codedParticipants.find((c) => String(c.studentId) === String(current.studentId));
+      if (match) return match;
+      const st = students.find((s) => String(s.id) === String(current.studentId));
+      if (st) {
+        return {
+          studentId: st.id,
+          name: st.name || st.rawName || `Contestant #${st.id}`,
+          chestNo: st.chestNo,
+          groupName: st.groupName,
+          codeLetter: current.codeLetter,
+        };
+      }
+    }
+    return null;
+  }, [current, codedParticipants, students]);
 
   // Students already placed in other positions can't be picked twice
   const takenIds = useMemo(
@@ -102,21 +162,48 @@ export default function PublishResultsModal({
   const updateOther = (i, patch) =>
     setOthers((prev) => prev.map((o, idx) => (idx === i ? { ...o, ...patch } : o)));
   const removeOther = (i) => setOthers((prev) => prev.filter((_, idx) => idx !== i));
-  const addOther = () => setOthers((prev) => [...prev, { studentId: "", grade: "" }]);
-  const othersValid = others.every((o) => o.studentId && o.grade);
+  const addOther = () => setOthers((prev) => [...prev, { studentId: "", codeLetter: "", grade: "" }]);
+  const othersValid = others.every((o) => (o.studentId || o.codeLetter) && o.grade);
 
   const update = (patch) =>
     setEntries((prev) => prev.map((e, i) => (i === step ? { ...e, ...patch } : e)));
 
-  const valid = current.studentId && current.points !== "" && current.grade;
-  const stepComplete = (i) => entries[i].studentId && entries[i].points !== "" && entries[i].grade;
+  const valid = (current.studentId || current.codeLetter) && current.points !== "" && current.grade;
+  const stepComplete = (i) => (entries[i].studentId || entries[i].codeLetter) && entries[i].points !== "" && entries[i].grade;
 
   const next = () => {
     if (preview) {
       onPublish?.({
         event,
-        results: entries.map((e, i) => ({ place: i + 1, ...e, studentId: String(e.studentId) })),
-        otherGrades: others.map((o) => ({ ...o, studentId: String(o.studentId) })),
+        results: entries.map((e, i) => {
+          const hist = codedParticipants.find(
+            (c) => String(c.studentId) === String(e.studentId) || (e.codeLetter && c.codeLetter === e.codeLetter)
+          );
+          return {
+            place: i + 1,
+            ...e,
+            studentId: String(e.studentId || hist?.studentId || ""),
+            codeLetter: e.codeLetter || hist?.codeLetter || "",
+            studentName: hist?.name || "",
+            chestNo: hist?.chestNo || "",
+            groupId: hist?.groupId || "",
+            groupName: hist?.groupName || "",
+          };
+        }),
+        otherGrades: others.map((o) => {
+          const hist = codedParticipants.find(
+            (c) => String(c.studentId) === String(o.studentId) || (o.codeLetter && c.codeLetter === o.codeLetter)
+          );
+          return {
+            ...o,
+            studentId: String(o.studentId || hist?.studentId || ""),
+            codeLetter: o.codeLetter || hist?.codeLetter || "",
+            studentName: hist?.name || "",
+            chestNo: hist?.chestNo || "",
+            groupId: hist?.groupId || "",
+            groupName: hist?.groupName || "",
+          };
+        }),
       });
       close();
       return;
@@ -403,7 +490,7 @@ export default function PublishResultsModal({
 
             {preview ? (
               <div key="preview" className="ff-anim" style={{ animation: "ff-step .3s ease both" }}>
-                <Summary entries={entries} others={others} students={students} />
+                <Summary entries={entries} others={others} students={students} codedParticipants={codedParticipants} />
                 <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
                   <button
                     type="button"
@@ -455,18 +542,216 @@ export default function PublishResultsModal({
                 style={{ animation: "ff-step .3s ease both" }}
               >
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <Field label={`${PLACES[step]} place`} error={touched && !current.studentId && "Select a student"}>
-                    <SearchableStudentSelect
-                      value={current.studentId}
-                      onChange={(val) => update({ studentId: val })}
-                      students={students}
-                      disabledIds={takenIds}
-                      error={touched && !current.studentId}
-                      placeholder="Select student"
-                      theme={theme}
-                      ariaLabel={`${PLACES[step]} place student`}
-                    />
-                  </Field>
+                  {hasCodeLetters && useCodeLetters ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ff-primary-text)" }}>
+                          {PLACES[step]} Place: Judge Code Letter
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setUseCodeLetters(false)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            color: "var(--ff-muted)",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            padding: 0,
+                          }}
+                        >
+                          Manual student search
+                        </button>
+                      </div>
+
+                      {/* Code Letter Buttons */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                        {codedParticipants.map((cp) => {
+                          const isCurrent = current.codeLetter === cp.codeLetter;
+                          const takenByStep = entries.findIndex((e, i) => i !== step && e.codeLetter === cp.codeLetter);
+                          const takenByOther = others.some((o) => o.codeLetter === cp.codeLetter);
+                          const isTaken = takenByStep >= 0 || takenByOther;
+
+                          return (
+                            <button
+                              key={cp.codeLetter}
+                              type="button"
+                              disabled={isTaken}
+                              onClick={() => {
+                                update({
+                                  codeLetter: cp.codeLetter,
+                                  studentId: cp.studentId,
+                                });
+                              }}
+                              style={{
+                                minWidth: 44,
+                                height: 42,
+                                padding: "0 12px",
+                                borderRadius: 12,
+                                border: isCurrent
+                                  ? "2px solid var(--ff-primary)"
+                                  : isTaken
+                                  ? "1px dashed var(--ff-border)"
+                                  : "1px solid var(--ff-border)",
+                                background: isCurrent
+                                  ? "rgba(241,77,77,0.18)"
+                                  : isTaken
+                                  ? "var(--ff-surface-2)"
+                                  : "var(--ff-surface)",
+                                color: isCurrent
+                                  ? "var(--ff-primary-text)"
+                                  : isTaken
+                                  ? "var(--ff-muted)"
+                                  : "var(--ff-text)",
+                                fontSize: 13.5,
+                                fontWeight: 800,
+                                cursor: isTaken ? "not-allowed" : "pointer",
+                                opacity: isTaken ? 0.45 : 1,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 4,
+                                transition: "all 0.15s ease",
+                                boxShadow: isCurrent ? "0 0 0 3px rgba(241,77,77,0.2)" : "none",
+                              }}
+                            >
+                              <span>{cp.codeLetter}</span>
+                              {takenByStep >= 0 && (
+                                <span style={{ fontSize: 9.5, opacity: 0.75, fontWeight: 700 }}>
+                                  ({PLACES[takenByStep]})
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Contestant Identity Mapping / Reveal Card */}
+                      {resolvedStudent ? (
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            background: "var(--ff-surface-2)",
+                            border: "1px solid var(--ff-border)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span
+                              style={{
+                                display: "grid",
+                                placeItems: "center",
+                                width: 30,
+                                height: 30,
+                                borderRadius: 8,
+                                background: "linear-gradient(135deg,var(--ff-primary-2),var(--ff-primary))",
+                                color: "var(--ff-on-primary)",
+                                fontWeight: 900,
+                                fontSize: 13.5,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {resolvedStudent.codeLetter}
+                            </span>
+                            <div>
+                              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ff-text)" }}>
+                                {resolvedStudent.name}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: "var(--ff-muted)", display: "flex", gap: 6, alignItems: "center" }}>
+                                {resolvedStudent.chestNo && <span>Chest #{resolvedStudent.chestNo}</span>}
+                                {resolvedStudent.chestNo && resolvedStudent.groupName && <span>·</span>}
+                                {resolvedStudent.groupName && (
+                                  <span style={{ color: resolvedStudent.groupColor || "var(--ff-primary-text)", fontWeight: 600 }}>
+                                    {resolvedStudent.groupName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => update({ codeLetter: "", studentId: "" })}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "var(--ff-muted)",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                            }}
+                            title="Clear selection"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            background: "var(--ff-surface-2)",
+                            border: `1px dashed ${touched && !current.codeLetter ? "var(--ff-danger)" : "var(--ff-border)"}`,
+                            fontSize: 12,
+                            color: touched && !current.codeLetter ? "var(--ff-danger)" : "var(--ff-muted)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <span>💡 Tap the Code Letter evaluated by judges for {PLACES[step]} place</span>
+                        </div>
+                      )}
+                      {touched && !current.studentId && !current.codeLetter && (
+                        <span style={{ display: "block", marginTop: 4, fontSize: 12, color: "var(--ff-danger)", fontWeight: 500 }}>
+                          Select a Code Letter or contestant
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <Field label={`${PLACES[step]} place`} error={touched && !current.studentId && "Select a student"}>
+                      {hasCodeLetters && (
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                          <button
+                            type="button"
+                            onClick={() => setUseCodeLetters(true)}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              color: "var(--ff-primary-text)",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              padding: 0,
+                            }}
+                          >
+                            ← Use Code Letters (Judge evaluation)
+                          </button>
+                        </div>
+                      )}
+                      <SearchableStudentSelect
+                        value={current.studentId}
+                        onChange={(val) => {
+                          const hist = codedParticipants.find((c) => String(c.studentId) === String(val));
+                          update({ studentId: val, codeLetter: hist?.codeLetter || "" });
+                        }}
+                        students={students}
+                        disabledIds={takenIds}
+                        error={touched && !current.studentId}
+                        placeholder="Select student"
+                        theme={theme}
+                        ariaLabel={`${PLACES[step]} place student`}
+                      />
+                    </Field>
+                  )}
 
                   <Field label="Points" error={touched && current.points === "" && "Enter points"}>
                     <input
@@ -520,31 +805,66 @@ export default function PublishResultsModal({
 
                       <div style={{ maxHeight: 176, overflowY: "auto", paddingRight: 4, display: "flex", flexDirection: "column", gap: 8 }}>
                         {others.map((o, i) => {
-                          const incomplete = touched && (!o.studentId || !o.grade);
+                          const incomplete = touched && (!o.studentId && !o.codeLetter || !o.grade);
                           return (
                             <div
                               key={i}
                               className="ff-anim"
                               style={{ animation: "ff-step .25s ease both", display: "flex", alignItems: "center", gap: 8 }}
                             >
-                              <SearchableStudentSelect
-                                ariaLabel="Student"
-                                value={o.studentId}
-                                onChange={(val) => updateOther(i, { studentId: val })}
-                                students={students}
-                                disabledIds={[
-                                  ...placedIds,
-                                  ...others
-                                    .filter((_, xi) => xi !== i)
-                                    .map((x) => String(x.studentId))
-                                    .filter(Boolean),
-                                ]}
-                                error={incomplete && !o.studentId}
-                                placeholder="Select student"
-                                height={44}
-                                style={{ flex: 1, minWidth: 0 }}
-                                theme={theme}
-                              />
+                              {hasCodeLetters ? (
+                                <select
+                                  aria-label="Code Letter"
+                                  value={o.codeLetter || ""}
+                                  onChange={(e) => {
+                                    const code = e.target.value;
+                                    const matched = codedParticipants.find((c) => c.codeLetter === code);
+                                    updateOther(i, {
+                                      codeLetter: code,
+                                      studentId: matched ? matched.studentId : "",
+                                    });
+                                  }}
+                                  className="ff-input"
+                                  style={{
+                                    flex: 1,
+                                    height: 44,
+                                    padding: "0 10px",
+                                    fontSize: 13,
+                                    borderColor: incomplete && !o.codeLetter ? "var(--ff-danger)" : "var(--ff-border)",
+                                  }}
+                                >
+                                  <option value="">Select Code...</option>
+                                  {codedParticipants.map((cp) => {
+                                    const isSelectedHere = o.codeLetter === cp.codeLetter;
+                                    const isPlaced = placedIds.includes(cp.studentId) || others.some((x, xi) => xi !== i && x.codeLetter === cp.codeLetter);
+                                    if (isPlaced && !isSelectedHere) return null;
+                                    return (
+                                      <option key={cp.codeLetter} value={cp.codeLetter}>
+                                        Code {cp.codeLetter} · {cp.name} (#{cp.chestNo})
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              ) : (
+                                <SearchableStudentSelect
+                                  ariaLabel="Student"
+                                  value={o.studentId}
+                                  onChange={(val) => updateOther(i, { studentId: val })}
+                                  students={students}
+                                  disabledIds={[
+                                    ...placedIds,
+                                    ...others
+                                      .filter((_, xi) => xi !== i)
+                                      .map((x) => String(x.studentId))
+                                      .filter(Boolean),
+                                  ]}
+                                  error={incomplete && !o.studentId}
+                                  placeholder="Select student"
+                                  height={44}
+                                  style={{ flex: 1, minWidth: 0 }}
+                                  theme={theme}
+                                />
+                              )}
                               <select
                                 aria-label="Grade"
                                 value={o.grade}
@@ -1260,7 +1580,7 @@ function Field({ label, error, children }) {
   );
 }
 
-function Success({ event, onClose, entries, others, students }) {
+function Success({ event, onClose, entries, others, students, codedParticipants = [] }) {
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", padding: "36px 24px 24px", textAlign: "center" }}>
       <div
@@ -1285,7 +1605,7 @@ function Success({ event, onClose, entries, others, students }) {
         {event.name} · {event.category} is now live.
       </p>
       <div style={{ marginTop: 20, width: "100%", textAlign: "left" }}>
-        <Summary entries={entries} others={others} students={students} />
+        <Summary entries={entries} others={others} students={students} codedParticipants={codedParticipants} />
       </div>
       <button
         type="button"
@@ -1311,12 +1631,28 @@ function Success({ event, onClose, entries, others, students }) {
 }
 
 /* Read-only results list: 1st/2nd/3rd + other grades */
-function Summary({ entries, others, students }) {
-  const nameOf = (id) => students.find((s) => String(s.id) === String(id))?.name ?? "—";
+function Summary({ entries, others, students, codedParticipants = [] }) {
+  const getEntryDetails = (entry) => {
+    if (entry?.codeLetter) {
+      const match = codedParticipants.find((c) => c.codeLetter === entry.codeLetter);
+      if (match) return match;
+    }
+    const matchById = codedParticipants.find((c) => String(c.studentId) === String(entry?.studentId));
+    if (matchById) return matchById;
+    const st = students.find((s) => String(s.id) === String(entry?.studentId));
+    return {
+      name: st?.name || st?.rawName || "—",
+      chestNo: st?.chestNo || "",
+      groupName: st?.groupName || "",
+      codeLetter: entry?.codeLetter || "",
+    };
+  };
+
   const chip = {
     background: "rgba(241,77,77,.1)",
     color: "var(--ff-primary-text)",
   };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ul
@@ -1329,56 +1665,86 @@ function Summary({ entries, others, students }) {
           border: "1px solid var(--ff-border)",
         }}
       >
-        {PLACES.map((p, i) => (
-          <li
-            key={p}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "12px 16px",
-              background: "var(--ff-surface-2)",
-              borderTop: i > 0 ? "1px solid var(--ff-border)" : "none",
-            }}
-          >
-            <span
+        {PLACES.map((p, i) => {
+          const det = getEntryDetails(entries[i]);
+          return (
+            <li
+              key={p}
               style={{
-                display: "grid",
-                placeItems: "center",
-                height: 32,
-                width: 40,
-                flexShrink: 0,
-                borderRadius: 8,
-                fontSize: 11.5,
-                fontWeight: 800,
-                background: "linear-gradient(135deg,var(--ff-primary-2),var(--ff-primary))",
-                color: "var(--ff-on-primary)",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                background: "var(--ff-surface-2)",
+                borderTop: i > 0 ? "1px solid var(--ff-border)" : "none",
               }}
             >
-              {p}
-            </span>
-            <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13.5, fontWeight: 600 }}>
-              {nameOf(entries[i].studentId)}
-            </span>
-            <span style={{ fontSize: 12, color: "var(--ff-muted)", fontVariantNumeric: "tabular-nums" }}>
-              {entries[i].points} pts
-            </span>
-            <span
-              style={{
-                display: "grid",
-                placeItems: "center",
-                height: 28,
-                width: 28,
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 800,
-                ...chip,
-              }}
-            >
-              {entries[i].grade}
-            </span>
-          </li>
-        ))}
+              <span
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  height: 32,
+                  width: 40,
+                  flexShrink: 0,
+                  borderRadius: 8,
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  background: "linear-gradient(135deg,var(--ff-primary-2),var(--ff-primary))",
+                  color: "var(--ff-on-primary)",
+                }}
+              >
+                {p}
+              </span>
+              <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                {det.codeLetter && (
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      background: "rgba(16,185,129,0.15)",
+                      color: "#10b981",
+                      border: "1px solid rgba(16,185,129,0.3)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    Code {det.codeLetter}
+                  </span>
+                )}
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  {det.name} {det.chestNo ? `(#${det.chestNo})` : ""}
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: "var(--ff-muted)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+                {entries[i].points} pts
+              </span>
+              <span
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  height: 28,
+                  width: 28,
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  flexShrink: 0,
+                  ...chip,
+                }}
+              >
+                {entries[i].grade}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       {others.length > 0 && (
@@ -1397,36 +1763,58 @@ function Summary({ entries, others, students }) {
               border: "1px solid var(--ff-border)",
             }}
           >
-            {others.map((o, i) => (
-              <li
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 16px",
-                  borderTop: i > 0 ? "1px solid var(--ff-border)" : "none",
-                }}
-              >
-                <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-                  {nameOf(o.studentId)}
-                </span>
-                <span
+            {others.map((o, i) => {
+              const det = getEntryDetails(o);
+              return (
+                <li
+                  key={i}
                   style={{
-                    display: "grid",
-                    placeItems: "center",
-                    height: 28,
-                    width: 28,
-                    borderRadius: 8,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    ...chip,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 16px",
+                    borderTop: i > 0 ? "1px solid var(--ff-border)" : "none",
                   }}
                 >
-                  {o.grade}
-                </span>
-              </li>
-            ))}
+                  <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                    {det.codeLetter && (
+                      <span
+                        style={{
+                          padding: "2px 7px",
+                          borderRadius: 6,
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          background: "rgba(16,185,129,0.15)",
+                          color: "#10b981",
+                          border: "1px solid rgba(16,185,129,0.3)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        Code {det.codeLetter}
+                      </span>
+                    )}
+                    <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
+                      {det.name} {det.chestNo ? `(#${det.chestNo})` : ""}
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      display: "grid",
+                      placeItems: "center",
+                      height: 28,
+                      width: 28,
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                      ...chip,
+                    }}
+                  >
+                    {o.grade}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

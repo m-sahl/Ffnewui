@@ -479,7 +479,7 @@ http.route({
           l.locked
       );
       if (isLocked) {
-        return errorResponse(`Registration is locked for ${session} session by Admin`, 403);
+        return errorResponse(`Registration is locked for ${session} session. Please meet the admin to unlock.`, 403);
       }
 
       const allRegs = await ctx.runQuery(api.registrations.get);
@@ -746,6 +746,68 @@ http.route({
     } catch (err: any) {
       const msg = (err?.message || "Failed to change password").replace(/^Uncaught (Error: )?/i, "").split("\n")[0].trim();
       return errorResponse(msg, 400);
+    }
+  }),
+});
+
+// ── POST /api/programs/code-letters ──────────────────────────────────────────
+http.route({
+  path: "/api/programs/code-letters",
+  method: "OPTIONS",
+  handler: handleCorsPreflight,
+});
+
+http.route({
+  path: "/api/programs/code-letters",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const programCode = body.programCode ?? body.programId ?? body.code;
+      const entries = body.entries || body.codeLetters || [];
+
+      if (!programCode) {
+        return errorResponse("programCode or programId is required");
+      }
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return errorResponse("entries array with codeLetter and chestNo is required");
+      }
+
+      // Find the program by ID or code/order
+      const programs = await ctx.runQuery(api.programs.get);
+      const prog = programs.find(
+        (p: any) =>
+          String(p.id) === String(programCode) ||
+          String(p.code) === String(programCode) ||
+          String(p.order) === String(programCode) ||
+          String(p.name).toLowerCase() === String(programCode).toLowerCase()
+      );
+
+      if (!prog) {
+        return errorResponse(`Program not found for identifier: ${programCode}`, 404);
+      }
+
+      // Format codeLetters
+      const formattedLetters = entries.map((e: any) => ({
+        codeLetter: String(e.codeLetter || "").toUpperCase(),
+        chestNo: String(e.chestNo || ""),
+        studentId: e.studentId ? String(e.studentId) : undefined,
+      }));
+
+      const res = await ctx.runMutation(api.programs.saveCodeLetters, {
+        id: prog.id,
+        codeLetters: formattedLetters,
+      });
+
+      return jsonResponse({
+        success: true,
+        programId: prog.id,
+        programName: prog.name,
+        judgeToken: res.judgeToken,
+        judgeUrl: `/#judge/${res.judgeToken}`,
+      });
+    } catch (err: any) {
+      return errorResponse(err?.message || "Failed to process code letters", 500);
     }
   }),
 });

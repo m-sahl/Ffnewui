@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+﻿import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -6,6 +6,16 @@ export const INITIAL_USERS         = [{ id: "u-admin", name: "System Admin", rol
 export const INITIAL_PROGRAMS      = [];
 export const INITIAL_STUDENTS      = {};
 export const INITIAL_REGISTRATIONS = [];
+
+export const normalizeCategoryName = (c) => {
+  if (!c) return c;
+  const s = String(c).trim();
+  const lower = s.toLowerCase();
+  if (lower === "sub-junior" || lower === "sub junior" || lower === "subjunior" || lower === "sj") return "Low";
+  if (lower === "junior" || lower === "jr") return "Mid";
+  if (lower === "senior" || lower === "seniors" || lower === "sr") return "High";
+  return s;
+};
 
 const AppContext = createContext();
 export const useApp = () => useContext(AppContext);
@@ -55,12 +65,27 @@ export const AppProvider = ({ children }) => {
     try {
       const s = localStorage.getItem("ff_programs");
       const parsed = s ? JSON.parse(s) : INITIAL_PROGRAMS;
-      return parsed.map((p, i) => (p.order !== undefined && p.order !== null) ? p : { ...p, order: i + 1 });
+      return parsed.map((p, i) => ({
+        ...p,
+        category: normalizeCategoryName(p.category),
+        order: (p.order !== undefined && p.order !== null) ? p.order : i + 1,
+      }));
     } catch { return INITIAL_PROGRAMS; }
   });
 
   const [students, setStudentsState] = useState(() => {
-    try { const s = localStorage.getItem("ff_students"); return s ? JSON.parse(s) : INITIAL_STUDENTS; } catch { return INITIAL_STUDENTS; }
+    try {
+      const s = localStorage.getItem("ff_students");
+      if (!s) return INITIAL_STUDENTS;
+      const parsed = JSON.parse(s);
+      const normalized = {};
+      for (const [gid, list] of Object.entries(parsed)) {
+        normalized[gid] = Array.isArray(list)
+          ? list.map(st => ({ ...st, category: normalizeCategoryName(st.category) }))
+          : list;
+      }
+      return normalized;
+    } catch { return INITIAL_STUDENTS; }
   });
 
   const [registrations, setRegistrationsState] = useState(() => {
@@ -81,9 +106,7 @@ export const AppProvider = ({ children }) => {
     try { const s = localStorage.getItem("ff_logs"); return s ? JSON.parse(s) : []; } catch { return []; }
   });
 
-  const [locks, setLocksState] = useState(() => {
-    try { const s = localStorage.getItem("ff_locks"); return s ? JSON.parse(s) : {}; } catch { return {}; }
-  });
+  const [optimisticLocks, setOptimisticLocks] = useState({});
 
   const [messages, setMessagesState] = useState(() => {
     try { const s = localStorage.getItem("ff_messages"); return s ? JSON.parse(s) : []; } catch { return []; }
@@ -101,7 +124,11 @@ export const AppProvider = ({ children }) => {
   // Sync Convex Real-Time Queries into Local State when available
   useEffect(() => {
     if (convexPrograms !== undefined && Array.isArray(convexPrograms)) {
-      setProgramsState(convexPrograms.map((p, i) => (p.order !== undefined && p.order !== null) ? p : { ...p, order: i + 1 }));
+      setProgramsState(convexPrograms.map((p, i) => ({
+        ...p,
+        category: normalizeCategoryName(p.category),
+        order: (p.order !== undefined && p.order !== null) ? p.order : i + 1,
+      })));
     }
   }, [convexPrograms]);
 
@@ -110,7 +137,10 @@ export const AppProvider = ({ children }) => {
       const grouped = {};
       for (const st of convexStudents) {
         if (!grouped[st.groupId]) grouped[st.groupId] = [];
-        grouped[st.groupId].push(st);
+        grouped[st.groupId].push({
+          ...st,
+          category: normalizeCategoryName(st.category),
+        });
       }
       setStudentsState(grouped);
     }
@@ -129,17 +159,41 @@ export const AppProvider = ({ children }) => {
     }
   }, [convexUsers]);
 
-  useEffect(() => {
+  const locks = useMemo(() => {
+    const lockMap = {};
     if (convexLocks !== undefined && Array.isArray(convexLocks)) {
-      const lockMap = {};
       for (const l of convexLocks) {
         if (!l) continue;
-        const key = (l.type || `${l.groupId}_${l.session}`).toLowerCase();
-        if (key) {
-          lockMap[key] = !!l.locked;
+        const sess = (l.session || "").toLowerCase().includes("off") ? "off-stage" : "stage";
+        const val = !!l.locked;
+        if (l.type) lockMap[l.type.toLowerCase()] = val;
+        if (l.groupId) {
+          const gid = l.groupId.toLowerCase();
+          lockMap[`${gid}_${sess}`] = val;
+          const matchingUser = (users || []).find(u =>
+            (u.id && u.id.toLowerCase() === gid) ||
+            (u.groupId && u.groupId.toLowerCase() === gid) ||
+            (u.name && u.name.trim().toLowerCase() === gid)
+          );
+          if (matchingUser) {
+            if (matchingUser.id) lockMap[`${matchingUser.id.toLowerCase()}_${sess}`] = val;
+            if (matchingUser.groupId) lockMap[`${matchingUser.groupId.toLowerCase()}_${sess}`] = val;
+            if (matchingUser.name) lockMap[`${matchingUser.name.trim().toLowerCase()}_${sess}`] = val;
+          }
         }
       }
-      setLocksState(lockMap);
+    } else {
+      try {
+        const s = localStorage.getItem("ff_locks");
+        if (s) Object.assign(lockMap, JSON.parse(s));
+      } catch (e) {}
+    }
+    return { ...lockMap, ...optimisticLocks };
+  }, [convexLocks, users, optimisticLocks]);
+
+  useEffect(() => {
+    if (convexLocks !== undefined && Array.isArray(convexLocks)) {
+      setOptimisticLocks({});
     }
   }, [convexLocks]);
 
@@ -213,47 +267,30 @@ export const AppProvider = ({ children }) => {
     setStudentsState(prev => {
       const next = typeof action === "function" ? action(prev) : action;
       if (next) {
-        for (const [gId, stList] of Object.entries(next)) {
-          const cleanList = (stList || []).map(s => ({ ...s, groupId: s.groupId || gId }));
-          setGroupConvexStudents({ groupId: gId, students: cleanList }).catch(err => console.error("Convex setStudents error:", err));
-        }
+        // next is an object { [groupId]: student[] }
+        const flatList = Object.values(next).flat();
+        setGroupConvexStudents({ students: flatList }).catch(err => console.error("Convex setStudents error:", err));
       }
       return next;
     });
   };
 
-  const updateStudent = (groupId, studentId, patch) => {
-    let targetStudent = null;
-    let demotedStudent = null;
-
+  const updateStudent = (idOrGid, updatedDataOrId, maybeData) => {
+    const id = maybeData !== undefined ? updatedDataOrId : idOrGid;
+    const updatedData = maybeData !== undefined ? maybeData : updatedDataOrId;
     setStudentsState(prev => {
-      const list = prev[groupId] || [];
-      const updatedList = list.map(s => {
-        if (s.id === studentId) {
-          targetStudent = { ...s, ...patch };
-          return targetStudent;
+      const next = { ...prev };
+      for (const [gid, list] of Object.entries(next)) {
+        const idx = list.findIndex(s => s.id === id);
+        if (idx !== -1) {
+          next[gid] = [...list];
+          next[gid][idx] = { ...next[gid][idx], ...updatedData };
+          break;
         }
-        if (patch.groupRole === "Leader" && s.groupRole === "Leader") {
-          demotedStudent = { ...s, groupRole: "Member" };
-          return demotedStudent;
-        }
-        if (patch.groupRole === "Asst. Leader" && s.groupRole === "Asst. Leader") {
-          demotedStudent = { ...s, groupRole: "Member" };
-          return demotedStudent;
-        }
-        return s;
-      });
-      return { ...prev, [groupId]: updatedList };
+      }
+      return next;
     });
-
-    if (targetStudent) {
-      updateConvexStudent({ id: studentId, student: { ...targetStudent, groupId } })
-        .catch(err => console.error("Convex updateStudent error:", err));
-    }
-    if (demotedStudent) {
-      updateConvexStudent({ id: demotedStudent.id, student: { ...demotedStudent, groupId } })
-        .catch(err => console.error("Convex demotedStudent update error:", err));
-    }
+    updateConvexStudent({ id, student: updatedData }).catch(err => console.error("Convex updateStudent error:", err));
   };
 
   const setRegistrations = (action) => {
@@ -292,8 +329,13 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  // New atomic add function
+  // Atomic add function with lock validation
   const addRegistration = async (newReg) => {
+    const p = (programs || []).find(pg => pg.id === newReg.programId);
+    const pSess = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+    if (newReg.adminOverride !== true && isLocked(newReg.groupId, pSess)) {
+      throw new Error(`Registration is locked for ${pSess} session. Please meet the admin to unlock.`);
+    }
     setRegistrationsState(prev => [...prev, newReg]);
     try {
       return await addConvexRegistration({ registration: newReg });
@@ -305,8 +347,13 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // New atomic update function
+  // Atomic update function with lock validation
   const updateRegistration = async (id, updatedReg) => {
+    const p = (programs || []).find(pg => pg.id === updatedReg.programId);
+    const pSess = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+    if (updatedReg.adminOverride !== true && isLocked(updatedReg.groupId, pSess)) {
+      throw new Error(`Registration is locked for ${pSess} session. Please meet the admin to unlock.`);
+    }
     const prevRegs = registrations;
     setRegistrationsState(prev => prev.map(r => r.id === id ? { ...r, ...updatedReg } : r));
     try {
@@ -319,10 +366,19 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // New atomic remove function
-  const removeRegistration = (id) => {
+  // Atomic remove function with lock validation
+  const removeRegistration = (id, adminOverride = false) => {
+    const reg = (registrations || []).find(r => r.id === id);
+    if (reg && !adminOverride) {
+      const p = (programs || []).find(pg => pg.id === reg.programId);
+      const pSess = (p?.type || p?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+      if (isLocked(reg.groupId, pSess)) {
+        console.error("Cannot delete locked registration");
+        throw new Error(`Registration is locked for ${pSess} session. Please meet the admin to unlock.`);
+      }
+    }
     setRegistrationsState(prev => prev.filter(r => r.id !== id));
-    removeConvexRegistration({ id }).catch(err => {
+    removeConvexRegistration({ id, adminOverride }).catch(err => {
       console.error("Convex removeRegistration error:", err);
       // On error, refresh from Convex
       setRegistrationsState(prev => prev);
@@ -365,25 +421,62 @@ export const AppProvider = ({ children }) => {
     clearConvexLogs().catch(err => console.error("Convex clearLogs error:", err));
   };
 
+  const isLocked = useCallback((groupId, session) => {
+    if (!groupId || !session) return false;
+    const normSession = String(session).toLowerCase().includes("off") ? "off-stage" : "stage";
+    const normGid = String(groupId).trim().toLowerCase();
+
+    const matchingUser = (users || []).find(u =>
+      (u.id && u.id.toLowerCase() === normGid) ||
+      (u.groupId && u.groupId.toLowerCase() === normGid) ||
+      (u.name && u.name.trim().toLowerCase() === normGid)
+    );
+
+    const candidateKeys = [
+      `${normGid}_${normSession}`,
+      `all_${normSession}`,
+      `global_${normSession}`,
+      normSession,
+    ];
+
+    if (matchingUser) {
+      if (matchingUser.id) candidateKeys.push(`${matchingUser.id.toLowerCase()}_${normSession}`);
+      if (matchingUser.groupId) candidateKeys.push(`${matchingUser.groupId.toLowerCase()}_${normSession}`);
+      if (matchingUser.name) candidateKeys.push(`${matchingUser.name.trim().toLowerCase()}_${normSession}`);
+    }
+
+    return candidateKeys.some(k => !!locks[k]);
+  }, [locks, users]);
+
   const toggleLock = (groupId, session) => {
     if (!groupId || !session) return;
-    const key = `${groupId}_${session}`.toLowerCase();
-    const current = !!locks[key];
+    const normSession = String(session).toLowerCase().includes("off") ? "off-stage" : "stage";
+    const displaySession = normSession === "off-stage" ? "Off-Stage" : "Stage";
+    const current = isLocked(groupId, normSession);
     const newLocked = !current;
 
-    setLocksState(prev => ({
-      ...prev,
-      [key]: newLocked
-    }));
+    const matchingUser = (users || []).find(u =>
+      u.id === groupId || u.groupId === groupId || (u.name && u.name.trim().toLowerCase() === String(groupId).trim().toLowerCase())
+    );
+    const targetId = matchingUser?.id || groupId;
+    const key = `${targetId}_${normSession}`.toLowerCase();
 
-    setConvexLock({ groupId, session, locked: newLocked, type: key })
-      .catch(err => console.error("Convex toggleLock error:", err));
-  };
+    setOptimisticLocks(prev => {
+      const next = { ...prev, [key]: newLocked, [`${groupId}_${normSession}`.toLowerCase()]: newLocked };
+      if (matchingUser?.groupId) {
+        next[`${matchingUser.groupId.toLowerCase()}_${normSession}`] = newLocked;
+      }
+      if (matchingUser?.name) {
+        next[`${matchingUser.name.trim().toLowerCase()}_${normSession}`] = newLocked;
+      }
+      return next;
+    });
 
-  const isLocked = (groupId, session) => {
-    if (!groupId || !session) return false;
-    const key = `${groupId}_${session}`.toLowerCase();
-    return !!locks[key];
+    setConvexLock({ groupId: targetId, session: displaySession, locked: newLocked, type: key })
+      .catch(err => {
+        console.error("Convex toggleLock error:", err);
+        setOptimisticLocks({});
+      });
   };
 
   const sendMessage = (from, fromName, to, text, extra = {}) => {
@@ -408,9 +501,13 @@ export const AppProvider = ({ children }) => {
   };
 
   const nextChestNo = (category) => {
-    const base    = { "Sub-Junior": 100, "Junior": 200, "Senior": 300 };
-    const allInCat = Object.values(students).flat().filter(s => s.category === category);
-    const maxUsed  = allInCat.reduce((max, s) => Math.max(max, parseInt(s.chestNo) || 0), base[category] || 100);
+    const base = {
+      "Low": 100, "Mid": 200, "High": 300,
+      "Sub-Junior": 100, "Junior": 200, "Senior": 300,
+    };
+    const normTarget = normalizeCategoryName(category);
+    const allInCat = Object.values(students).flat().filter(s => normalizeCategoryName(s.category) === normTarget);
+    const maxUsed  = allInCat.reduce((max, s) => Math.max(max, parseInt(s.chestNo) || 0), base[category] || base[normTarget] || 100);
     return (maxUsed + 1).toString();
   };
 

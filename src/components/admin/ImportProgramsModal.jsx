@@ -7,10 +7,10 @@ import { ACCENT, CATS, catColor } from "../../styles/DesignTokens";
 const normalizeCategory = (cat) => {
   if (!cat) return null;
   const str = String(cat).trim().toLowerCase();
-  if (str.includes("sub") || str === "sj") return "Sub-Junior";
+  if (str.includes("low") || str.includes("sub") || str === "sj") return "Low";
   if (str.includes("gen")) return "General";
-  if (str.includes("jun") || str === "jr") return "Junior";
-  if (str.includes("sen") || str === "sr") return "Senior";
+  if (str.includes("mid") || str.includes("jun") || str === "jr") return "Mid";
+  if (str.includes("high") || str.includes("sen") || str === "sr") return "High";
   return null;
 };
 
@@ -40,19 +40,19 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
     const wb = XLSX.utils.book_new();
 
     const sampleDataByCategory = {
-      "Sub-Junior": [
+      "Low": [
         ["Name", "Type", "Max Participants"],
         ["Action Song", "Stage", 1],
         ["Story Telling", "Stage", 1],
         ["Pencil Drawing", "Off-Stage", 1],
       ],
-      "Junior": [
+      "Mid": [
         ["Name", "Type", "Max Participants"],
         ["Elocution English", "Stage", 1],
         ["Group Song", "Stage", 6],
         ["Water Colouring", "Off-Stage", 1],
       ],
-      "Senior": [
+      "High": [
         ["Name", "Type", "Max Participants"],
         ["Debate", "Stage", 2],
         ["Dafmuttu", "Stage", 10],
@@ -329,7 +329,7 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
         }}>
           <div style={{ fontSize: 13, lineHeight: 1.5 }}>
             <span style={{ fontWeight: 700, color: ACCENT }}>Category Organization: </span>
-            Each sheet in your Excel file represents one <strong>Category</strong> (Sub-Junior, Junior, Senior, or General). Events will be automatically assigned sequential <strong>order numbers</strong> across the fest.
+            Each sheet in your Excel file represents one <strong>Category</strong> (Low, Mid, High, or General). Events will be automatically assigned sequential <strong>order numbers</strong> across the fest.
           </div>
           <button
             onClick={handleDownloadTemplate}
@@ -403,7 +403,7 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
               Click or drag your Events Excel file here
             </div>
             <div style={{ fontSize: 12, color: mutedTx }}>
-              Supports .xlsx, .xls containing sheets matching your categories (Sub-Junior, Junior, Senior, General)
+              Supports .xlsx, .xls containing sheets matching your categories (Low, Mid, High, General)
             </div>
           </div>
         ) : (

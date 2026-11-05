@@ -6,13 +6,14 @@ import { useEffect, useRef, useCallback } from "react";
  * E.g., "#/leader/events" -> { prefix: "leader", subroute: "events" }
  */
 export const parseHash = () => {
-  if (typeof window === "undefined") return { prefix: "", subroute: "" };
+  if (typeof window === "undefined") return { prefix: "", subroute: "", token: "" };
   const raw = window.location.hash.replace(/^#\/?/, "").trim();
-  if (!raw) return { prefix: "", subroute: "" };
+  if (!raw) return { prefix: "", subroute: "", token: "" };
   const parts = raw.split("/").filter(Boolean);
   const prefix = parts[0]?.toLowerCase() || "";
   const subroute = parts[1]?.toLowerCase() || "";
-  return { prefix, subroute };
+  const token = parts[1] || "";
+  return { prefix, subroute, token };
 };
 
 /**

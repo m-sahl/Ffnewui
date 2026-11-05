@@ -63,7 +63,7 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
         }} />
       </div>
 
-      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 400 }}>
+      <div className="landing-content-wrap">
 
         {/* Logo block */}
         <div className="anim-fadeUp" style={{ textAlign: "center", marginBottom: 40 }}>
@@ -101,9 +101,9 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
         )}
 
         {/* Group cards with smooth waterfall stagger */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 26 }}>
+        <div className="landing-groups-container">
           {groups.length === 0 ? (
-            <div className="anim-fadeUp" style={{ textAlign: "center", padding: "32px 0", color: mutedTx, animationDelay: "0.1s" }}>
+            <div className="anim-fadeUp" style={{ textAlign: "center", padding: "32px 0", color: mutedTx, animationDelay: "0.1s", gridColumn: "1 / -1" }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>🎭</div>
               <div style={{ fontSize: 13, fontWeight: 600 }}>No groups yet</div>
               <div style={{ fontSize: 12, marginTop: 4 }}>Sign in as Admin to get started</div>
@@ -156,8 +156,36 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
           })}
         </div>
 
-        {/* Admin button */}
-        <div className="anim-fadeUp" style={{ textAlign: "center", animationDelay: `${0.06 * groups.length + 0.18}s` }}>
+        {/* Portals navigation */}
+        <div className="anim-fadeUp" style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap", animationDelay: `${0.06 * groups.length + 0.18}s` }}>
+          <button
+            onClick={() => { window.location.hash = "#/judge"; }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "10px 22px", borderRadius: 50,
+              background: "transparent",
+              border: `1px solid ${border}`,
+              cursor: "pointer", fontFamily: "inherit",
+              fontSize: 12.5, fontWeight: 600,
+              color: mutedTx,
+              transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = "#f14d4d";
+              e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)";
+              e.currentTarget.style.background = "rgba(241,77,77,0.06)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = mutedTx;
+              e.currentTarget.style.borderColor = border;
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            <Ic name="award" size={14} /> Judge Portal
+          </button>
+
           <button onClick={() => setAdminModal(true)} style={{
             display: "inline-flex", alignItems: "center", gap: 7,
             padding: "10px 22px", borderRadius: 50,
