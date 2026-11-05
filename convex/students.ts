@@ -62,19 +62,31 @@ export const remove = mutation({
 });
 
 export const setGroupStudents = mutation({
-  args: { groupId: v.string(), students: v.array(v.any()) },
+  args: { groupId: v.optional(v.string()), students: v.array(v.any()) },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("students")
-      .filter((q) => q.eq(q.field("groupId"), args.groupId))
-      .collect();
-    for (const item of existing) {
-      await ctx.db.delete(item._id);
-    }
-    for (const s of args.students) {
-      if (s && s.id) {
-        const studentDoc = cleanDoc({ ...s, groupId: s.groupId || args.groupId });
-        await ctx.db.insert("students", studentDoc);
+    if (args.groupId) {
+      const existing = await ctx.db
+        .query("students")
+        .filter((q) => q.eq(q.field("groupId"), args.groupId))
+        .collect();
+      for (const item of existing) {
+        await ctx.db.delete(item._id);
+      }
+      for (const s of args.students) {
+        if (s && s.id) {
+          const studentDoc = cleanDoc({ ...s, groupId: s.groupId || args.groupId });
+          await ctx.db.insert("students", studentDoc);
+        }
+      }
+    } else {
+      const all = await ctx.db.query("students").collect();
+      for (const item of all) {
+        await ctx.db.delete(item._id);
+      }
+      for (const s of args.students) {
+        if (s && s.id) {
+          await ctx.db.insert("students", cleanDoc(s));
+        }
       }
     }
   },

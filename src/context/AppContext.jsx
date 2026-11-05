@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -38,6 +38,7 @@ export const AppProvider = ({ children }) => {
   const removeConvexProgram       = useMutation(api.programs.remove);
 
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
+  const setAllConvexStudents      = useMutation(api.students.setAll);
   const addConvexStudent          = useMutation(api.students.add);
   const updateConvexStudent       = useMutation(api.students.update);
   const removeConvexStudent       = useMutation(api.students.remove);
@@ -134,15 +135,32 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     if (convexStudents !== undefined && Array.isArray(convexStudents)) {
-      const grouped = {};
-      for (const st of convexStudents) {
-        if (!grouped[st.groupId]) grouped[st.groupId] = [];
-        grouped[st.groupId].push({
-          ...st,
-          category: normalizeCategoryName(st.category),
-        });
+      if (convexStudents.length > 0) {
+        const grouped = {};
+        for (const st of convexStudents) {
+          if (!grouped[st.groupId]) grouped[st.groupId] = [];
+          grouped[st.groupId].push({
+            ...st,
+            category: normalizeCategoryName(st.category),
+          });
+        }
+        setStudentsState(grouped);
+      } else {
+        // Prevent wiping if we have cached students in local storage:
+        try {
+          const cached = localStorage.getItem("ff_students");
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const flat = Object.values(parsed).flat();
+            if (flat.length > 0) {
+              setAllConvexStudents({ students: flat }).catch(err => console.error("Restore students error:", err));
+              setStudentsState(parsed);
+              return;
+            }
+          }
+        } catch {}
+        setStudentsState({});
       }
-      setStudentsState(grouped);
     }
   }, [convexStudents]);
 
@@ -269,7 +287,7 @@ export const AppProvider = ({ children }) => {
       if (next) {
         // next is an object { [groupId]: student[] }
         const flatList = Object.values(next).flat();
-        setGroupConvexStudents({ students: flatList }).catch(err => console.error("Convex setStudents error:", err));
+        setAllConvexStudents({ students: flatList }).catch(err => console.error("Convex setStudents error:", err));
       }
       return next;
     });
