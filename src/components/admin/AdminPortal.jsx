@@ -111,6 +111,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [progForm, setProgForm]       = useState({ name: "", type: "Stage", category: "General", maxParticipants: 1 });
   const [stuModal, setStuModal]       = useState(false);
   const [stuForm, setStuForm]         = useState({ name: "", category: "High" });
+  const [editNameModal, setEditNameModal] = useState(null);
+  const [editNameValue, setEditNameValue] = useState("");
   const [userModal, setUserModal]         = useState(false);
   const [userForm, setUserForm]           = useState({ name: "", pin: "" });
   const [editUserModal, setEditUserModal] = useState(false);
@@ -192,6 +194,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   };
   const updateStudentRole = (gId, sId, role) => {
     updateStudent(gId, sId, { groupRole: role });
+  };
+  const handleSaveStudentName = () => {
+    if (!editNameModal || !editNameValue.trim()) return;
+    const newName = editNameValue.trim();
+    if (newName !== editNameModal.name) {
+      updateStudent(editNameModal.groupId, editNameModal.id, { name: newName });
+      logActivity(user.name, "Renamed student", `${editNameModal.name} → ${newName} (Chest #${editNameModal.chestNo})`);
+    }
+    setEditNameModal(null);
   };
   const handleImportStudents = (groupedStudents, mode, totalCount) => {
     setStudents(prev => {
@@ -878,13 +889,13 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
             {/* Table header */}
-            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 40px", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 68px", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
               {["Chest", "Name", "Category", "Role", ""].map((h, i) => (
                 <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
               ))}
             </div>
             {groupStudents.map((s, i) => (
-              <div key={s.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 40px", alignItems: "center", padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent", transition: "background 0.12s" }}>
+              <div key={s.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 68px", alignItems: "center", padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent", transition: "background 0.12s" }}>
                 <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 14 }}>{s.chestNo}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
@@ -929,9 +940,31 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   style={{ background: "transparent", border: `1px solid ${border}`, borderRadius: 6, color: dark ? "#e8e8f5" : "#12121e", fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none", padding: "4px 8px" }}>
                   <option>Member</option><option>Leader</option><option>Asst. Leader</option>
                 </select>
-                <button onClick={() => deleteStudent(activeGroup, s.id, s.name)} style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center" }}>
-                  <Ic name="trash" size={14} />
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNameModal({ id: s.id, name: s.name, chestNo: s.chestNo, category: s.category, groupId: activeGroup });
+                      setEditNameValue(s.name);
+                    }}
+                    title="Edit student name"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.color = ACCENT}
+                    onMouseLeave={e => e.currentTarget.style.color = mutedTx}
+                  >
+                    <Ic name="edit" size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteStudent(activeGroup, s.id, s.name)}
+                    title="Delete student"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#e11d48"}
+                    onMouseLeave={e => e.currentTarget.style.color = mutedTx}
+                  >
+                    <Ic name="trash" size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -2757,6 +2790,54 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       {showMessages && <MessagesPanel user={user} dark={dark} onClose={() => setShowMessages(false)} />}
 
       {/* ── Modals ── */}
+      {editNameModal && (
+        <Modal title="Edit Student Name" onClose={() => setEditNameModal(null)}>
+          <form onSubmit={e => {
+            e.preventDefault();
+            handleSaveStudentName();
+          }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              border: `1px solid ${border}`,
+              fontSize: 12.5
+            }}>
+              <div>Chest #: <strong style={{ color: ACCENT }}>{editNameModal.chestNo}</strong></div>
+              <div style={{ color: mutedTx }}>•</div>
+              <div>Category: <strong>{editNameModal.category}</strong></div>
+              <div style={{ color: mutedTx }}>•</div>
+              <div>Team: <strong>{groups.find(g => g.id === editNameModal.groupId)?.name || "Team"}</strong></div>
+            </div>
+            <div>
+              <label className="label">Student Name</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Full name"
+                value={editNameValue}
+                onChange={e => setEditNameValue(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn btn-ghost" style={{ flex: 1, height: 44 }} onClick={() => setEditNameModal(null)}>Cancel</button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ flex: 2, height: 44 }}
+                disabled={!editNameValue.trim() || editNameValue.trim() === editNameModal.name}
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {stuModal && (
         <Modal title="Add Student" onClose={() => setStuModal(false)}>
           <form onSubmit={e => { e.preventDefault(); if (stuForm.name.trim()) saveStudent(); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>

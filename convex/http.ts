@@ -244,7 +244,7 @@ http.route({
           const grp = (allUsers || []).find((u: any) => u.id === (e.groupId || st?.groupId));
           return {
             ...e,
-            studentName: e.studentName || st?.name,
+            studentName: st?.name || e.studentName,
             chestNo: e.chestNo || st?.chestNo,
             groupId: e.groupId || st?.groupId,
             groupName: e.groupName || grp?.name,
@@ -255,7 +255,7 @@ http.route({
           const grp = (allUsers || []).find((u: any) => u.id === (o.groupId || st?.groupId));
           return {
             ...o,
-            studentName: o.studentName || st?.name,
+            studentName: st?.name || o.studentName,
             chestNo: o.chestNo || st?.chestNo,
             groupId: o.groupId || st?.groupId,
             groupName: o.groupName || grp?.name,

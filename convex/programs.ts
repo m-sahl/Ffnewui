@@ -209,7 +209,7 @@ export const getPublishedResults = query({
           place,
           placeLabel,
           studentId: String(e.studentId),
-          studentName: e.studentName || student?.name || `Contestant #${e.studentId}`,
+          studentName: student?.name || e.studentName || `Contestant #${e.studentId}`,
           chestNo: e.chestNo || student?.chestNo || "",
           codeLetter: e.codeLetter || "",
           groupId,
@@ -227,7 +227,7 @@ export const getPublishedResults = query({
 
         return {
           studentId: String(o.studentId),
-          studentName: o.studentName || student?.name || `Contestant #${o.studentId}`,
+          studentName: student?.name || o.studentName || `Contestant #${o.studentId}`,
           chestNo: o.chestNo || student?.chestNo || "",
           codeLetter: o.codeLetter || "",
           groupId,

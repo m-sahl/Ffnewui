@@ -1172,7 +1172,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
     return {
       studentId: item.studentId || st?.id,
-      name: item.studentName || item.rawName || st?.name || (item.studentId ? `Contestant #${item.studentId}` : "—"),
+      name: st?.name || item.studentName || item.rawName || (item.studentId ? `Contestant #${item.studentId}` : "—"),
       chestNo: item.chestNo || st?.chestNo || "",
       groupId: gId,
       groupName: grp.name || item.groupName || "Team",
