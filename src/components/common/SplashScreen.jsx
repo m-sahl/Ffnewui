@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const SplashScreen = ({ onDone }) => {
+const SplashScreen = ({ onDone, dark = false }) => {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 150);
@@ -13,10 +13,10 @@ const SplashScreen = ({ onDone }) => {
     <div style={{
       position: "fixed", inset: 0, display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      backgroundColor: "#fdfaf9",
+      backgroundColor: dark ? "#080912" : "#fdfaf9",
       backgroundImage: `
-        radial-gradient(rgba(241, 77, 77, 0.08) 1.2px, transparent 1.2px),
-        radial-gradient(circle at 50% 0%, rgba(241, 77, 77, 0.06), transparent 70%)
+        radial-gradient(${dark ? "rgba(241, 77, 77, 0.12)" : "rgba(241, 77, 77, 0.08)"} 1.2px, transparent 1.2px),
+        radial-gradient(circle at 50% 0%, ${dark ? "rgba(241, 77, 77, 0.09)" : "rgba(241, 77, 77, 0.06)"}, transparent 70%)
       `,
       backgroundSize: "20px 20px, 100% 100%",
       zIndex: 999, transition: "opacity 0.5s ease", opacity: phase === 2 ? 0 : 1,
@@ -42,16 +42,16 @@ const SplashScreen = ({ onDone }) => {
           fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900,
           fontSize: 34, color: "#ffffff", letterSpacing: -1,
         }}>
-          FF
+          C
         </div>
 
         {/* Title */}
         <div style={{
           fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900, fontSize: 34,
-          color: "#0f172a", letterSpacing: -1.2, lineHeight: 1, marginBottom: 8,
-        }}>FestFlow</div>
+          color: dark ? "#e8e8f5" : "#0f172a", letterSpacing: -1.2, lineHeight: 1, marginBottom: 8,
+        }}>Cognizance</div>
 
-        <div style={{ color: "#94a3b8", fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600 }}>
+        <div style={{ color: dark ? "#64748b" : "#94a3b8", fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600 }}>
           Arts & Cultural Fest
         </div>
 

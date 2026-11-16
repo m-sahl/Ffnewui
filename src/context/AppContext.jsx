@@ -36,6 +36,9 @@ export const AppProvider = ({ children }) => {
   const addConvexProgram          = useMutation(api.programs.add);
   const updateConvexProgram       = useMutation(api.programs.update);
   const removeConvexProgram       = useMutation(api.programs.remove);
+  const revertConvexEvaluation    = useMutation(api.programs.revertEvaluation);
+  const publishConvexResults      = useMutation(api.programs.publishConfirmedResults);
+  const unpublishConvexResults    = useMutation(api.programs.unpublishResults);
 
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
   const setAllConvexStudents      = useMutation(api.students.setAll);
@@ -272,8 +275,137 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateProgram = (id, updatedProg) => {
-    setProgramsState(prev => prev.map(p => p.id === id ? { ...p, ...updatedProg } : p));
+    setProgramsState(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const copy = { ...p, ...updatedProg };
+      if (
+        updatedProg.confirmedResults === null ||
+        (updatedProg.confirmedResults === undefined && "confirmedResults" in updatedProg)
+      ) {
+        delete copy.confirmedResults;
+      }
+      if (
+        updatedProg.results === null ||
+        (updatedProg.results === undefined && "results" in updatedProg)
+      ) {
+        delete copy.results;
+      }
+      return copy;
+    }));
     updateConvexProgram({ id, program: updatedProg }).catch(err => console.error("Convex updateProgram error:", err));
+  };
+
+  const revertEvaluation = async (id) => {
+    const prog = programs.find((p) => p.id === id);
+    const fallbackStatus = prog?.judgeSubmission ? "submitted" : "ready_for_judge";
+    setProgramsState((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const copy = { ...p, status: "draft", evaluationStatus: fallbackStatus };
+        delete copy.confirmedResults;
+        delete copy.results;
+        return copy;
+      })
+    );
+    try {
+      if (revertConvexEvaluation) {
+        await revertConvexEvaluation({ id });
+      } else {
+        await updateConvexProgram({
+          id,
+          program: {
+            confirmedResults: null,
+            results: null,
+            status: "draft",
+            evaluationStatus: fallbackStatus,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Convex revertEvaluation error:", err);
+      await updateConvexProgram({
+        id,
+        program: {
+          confirmedResults: null,
+          results: null,
+          status: "draft",
+          evaluationStatus: fallbackStatus,
+        },
+      });
+    }
+  };
+
+  const publishResults = async (id, resultsPayload) => {
+    setProgramsState((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        return {
+          ...p,
+          status: "published",
+          evaluationStatus: "published",
+          results: resultsPayload,
+        };
+      })
+    );
+    try {
+      if (publishConvexResults) {
+        await publishConvexResults({ id, results: resultsPayload });
+      } else {
+        await updateConvexProgram({
+          id,
+          program: {
+            status: "published",
+            evaluationStatus: "published",
+            results: resultsPayload,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Convex publishConfirmedResults error:", err);
+      await updateConvexProgram({
+        id,
+        program: {
+          status: "published",
+          evaluationStatus: "published",
+          results: resultsPayload,
+        },
+      });
+    }
+  };
+
+  const unpublishResults = async (id) => {
+    setProgramsState((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const copy = { ...p, status: "draft", evaluationStatus: "confirmed" };
+        delete copy.results;
+        return copy;
+      })
+    );
+    try {
+      if (unpublishConvexResults) {
+        await unpublishConvexResults({ id });
+      } else {
+        await updateConvexProgram({
+          id,
+          program: {
+            status: "draft",
+            evaluationStatus: "confirmed",
+            results: null,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Convex unpublishResults error:", err);
+      await updateConvexProgram({
+        id,
+        program: {
+          status: "draft",
+          evaluationStatus: "confirmed",
+          results: null,
+        },
+      });
+    }
   };
 
   const deleteProgram = (id) => {
@@ -583,6 +715,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
+      revertEvaluation, publishResults, unpublishResults,
       students, setStudents, updateStudent,
       registrations, setRegistrations, addRegistration, updateRegistration, removeRegistration,
       users, setUsers, addUser, updateUser, deleteUser,

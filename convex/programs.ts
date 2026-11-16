@@ -42,7 +42,22 @@ export const update = mutation({
       .filter((q) => q.eq(q.field("id"), args.id))
       .first();
     if (existing) {
-      await ctx.db.patch(existing._id, cleanDoc(args.program));
+      const clean = cleanDoc(args.program);
+      const merged: any = { ...existing, ...clean };
+      if (
+        clean.confirmedResults === null ||
+        (clean.confirmedResults === undefined && "confirmedResults" in clean)
+      ) {
+        delete merged.confirmedResults;
+      }
+      if (
+        clean.results === null ||
+        (clean.results === undefined && "results" in clean)
+      ) {
+        delete merged.results;
+      }
+      const { _id, _creationTime, ...rest } = merged;
+      await ctx.db.replace(existing._id, rest);
     } else {
       await ctx.db.insert("programs", cleanDoc(args.program));
     }
@@ -209,7 +224,7 @@ export const getPublishedResults = query({
           place,
           placeLabel,
           studentId: String(e.studentId),
-          studentName: student?.name || e.studentName || `Contestant #${e.studentId}`,
+          studentName: student?.name || e.studentName || `Contestant ${e.studentId}`,
           chestNo: e.chestNo || student?.chestNo || "",
           codeLetter: e.codeLetter || "",
           groupId,
@@ -227,7 +242,7 @@ export const getPublishedResults = query({
 
         return {
           studentId: String(o.studentId),
-          studentName: student?.name || o.studentName || `Contestant #${o.studentId}`,
+          studentName: student?.name || o.studentName || `Contestant ${o.studentId}`,
           chestNo: o.chestNo || student?.chestNo || "",
           codeLetter: o.codeLetter || "",
           groupId,
@@ -554,6 +569,56 @@ export const publishConfirmedResults = mutation({
       status: "published",
       evaluationStatus: "published",
       results: args.results,
+    });
+
+    return { success: true };
+  },
+});
+
+export const revertEvaluation = mutation({
+  args: {
+    id: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("programs")
+      .filter((q) => q.eq(q.field("id"), args.id))
+      .first();
+
+    if (!existing) throw new Error("Program not found");
+
+    const fallbackStatus = existing.judgeSubmission ? "submitted" : "ready_for_judge";
+
+    const { _id, _creationTime, confirmedResults, results, ...rest } = existing;
+
+    await ctx.db.replace(existing._id, {
+      ...rest,
+      status: "draft",
+      evaluationStatus: fallbackStatus,
+    });
+
+    return { success: true };
+  },
+});
+
+export const unpublishResults = mutation({
+  args: {
+    id: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("programs")
+      .filter((q) => q.eq(q.field("id"), args.id))
+      .first();
+
+    if (!existing) throw new Error("Program not found");
+
+    const { _id, _creationTime, results, ...rest } = existing;
+
+    await ctx.db.replace(existing._id, {
+      ...rest,
+      status: "draft",
+      evaluationStatus: "confirmed",
     });
 
     return { success: true };

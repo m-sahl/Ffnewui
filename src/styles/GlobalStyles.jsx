@@ -491,9 +491,6 @@ const GlobalStyles = ({ dark }) => (
       .leader-mobile-bottom-nav {
         display: none !important;
       }
-      .leader-mobile-fab {
-        display: none !important;
-      }
       .leader-mobile-only {
         display: none !important;
       }
@@ -501,6 +498,30 @@ const GlobalStyles = ({ dark }) => (
     @media (max-width: 767px) {
       .leader-desktop-only {
         display: none !important;
+      }
+    }
+
+    /* Responsive Floating Action Buttons (FAB) */
+    .leader-fab {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
+      right: 18px;
+    }
+    @media (min-width: 768px) {
+      .leader-fab {
+        bottom: 24px !important;
+        right: 24px !important;
+      }
+    }
+    .admin-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+    }
+    @media (max-width: 768px) {
+      .admin-fab {
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 20px) !important;
+        right: 18px !important;
       }
     }
 
@@ -636,26 +657,117 @@ const GlobalStyles = ({ dark }) => (
       }
     }
 
-    /* Admin Portal Responsiveness */
+    /* ── Admin Portal Desktop & Responsive Shell ──────── */
+    .admin-portal-shell {
+      height: 100vh;
+      max-height: 100vh;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .admin-topbar-responsive {
+      height: 58px;
+      min-height: 58px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 50;
+    }
+    .admin-layout-wrapper {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      height: calc(100vh - 58px);
+      overflow: hidden;
+      position: relative;
+    }
+    .admin-sidebar-responsive {
+      width: 240px;
+      min-width: 240px;
+      flex-shrink: 0;
+      height: 100%;
+      max-height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .admin-sidebar-responsive::-webkit-scrollbar {
+      width: 4px;
+    }
+    .admin-sidebar-responsive::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .admin-sidebar-responsive::-webkit-scrollbar-thumb {
+      background: ${dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"};
+      border-radius: 4px;
+    }
+    .admin-content-responsive {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .admin-content-responsive::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .admin-content-responsive::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .admin-content-responsive::-webkit-scrollbar-thumb {
+      background: ${dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.16)"};
+      border-radius: 4px;
+    }
+    .admin-content-responsive::-webkit-scrollbar-thumb:hover {
+      background: ${dark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.28)"};
+    }
+
+    /* Mobile / Tablet Overrides for Admin Portal */
     @media (max-width: 768px) {
+      .admin-portal-shell {
+        height: auto !important;
+        max-height: none !important;
+        min-height: 100vh !important;
+        overflow: visible !important;
+      }
       .admin-layout-wrapper {
         flex-direction: column !important;
+        height: auto !important;
+        min-height: calc(100vh - 58px) !important;
+        overflow: visible !important;
       }
       .admin-sidebar-responsive {
         width: 100% !important;
+        min-width: 0 !important;
         height: auto !important;
-        position: static !important;
+        max-height: none !important;
+        position: sticky !important;
+        top: 58px !important;
         flex-direction: row !important;
         overflow-x: auto !important;
+        overflow-y: hidden !important;
         padding: 8px 12px !important;
         border-right: none !important;
         border-bottom: 1px solid ${dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} !important;
+        z-index: 40 !important;
         scrollbar-width: none;
       }
       .admin-sidebar-responsive::-webkit-scrollbar {
         display: none;
       }
+      .admin-sidebar-nav-header,
+      .admin-sidebar-footer {
+        display: none !important;
+      }
       .admin-content-responsive {
+        height: auto !important;
+        overflow: visible !important;
         padding: 16px 14px 60px !important;
       }
     }

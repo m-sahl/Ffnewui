@@ -19,7 +19,17 @@ const AppContent = () => {
 
   const [user, setUser]       = useState(() => safeGet("ff_user"));
   const [loading, setLoading] = useState(() => !safeGet("ff_user"));
-  const [dark, setDark]       = useState(false);
+  const [dark, setDark]       = useState(() => {
+    try {
+      const saved = localStorage.getItem("ff_dark");
+      if (saved !== null) {
+        return saved === "true" || saved === "1";
+      }
+      return window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
+    } catch {
+      return false;
+    }
+  });
   const [isJudgeMode, setIsJudgeMode] = useState(() => parseHash().prefix === "judge");
   const [judgeToken, setJudgeToken]   = useState(() => parseHash().prefix === "judge" ? (parseHash().token || "") : "");
 
@@ -56,7 +66,18 @@ const AppContent = () => {
     }
   }, [users]);
 
-  useEffect(() => { try { localStorage.setItem("ff_dark", dark); } catch {} }, [dark]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("ff_dark", String(dark));
+      if (dark) {
+        document.documentElement.classList.add("dark");
+        document.body.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.body.classList.remove("dark");
+      }
+    } catch {}
+  }, [dark]);
   useEffect(() => { user ? safeSet("ff_user", user) : safeRemove("ff_user"); }, [user]);
 
   // Enforce role route boundary: if user clicks Back into another role/team's URL, intercept it
@@ -115,7 +136,7 @@ const AppContent = () => {
   return (
     <ToastProvider>
       <GlobalStyles dark={dark} />
-      {loading && <SplashScreen onDone={handleSplashDone} />}
+      {loading && <SplashScreen onDone={handleSplashDone} dark={dark} />}
       {isJudgeMode ? (
         <JudgePortal
           token={judgeToken}

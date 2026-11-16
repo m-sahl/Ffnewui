@@ -44,7 +44,20 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
   const [errorMessage, setErrorMessage] = useState("");
 
   const codeLetters = useMemo(() => {
-    return program?.codeLetters || [];
+    if (program?.codeLetters && program.codeLetters.length > 0) {
+      return program.codeLetters;
+    }
+    const raw = program?.participantsHistory || program?.codeAllocations || [];
+    if (raw.length > 0) {
+      return raw
+        .filter((c) => c && c.codeLetter)
+        .map((c) => ({
+          codeLetter: String(c.codeLetter).toUpperCase().trim(),
+          chestNo: String(c.chestNo || ""),
+          studentId: c.studentId ? String(c.studentId) : undefined,
+        }));
+    }
+    return [];
   }, [program]);
 
   // Load existing submission if already submitted
@@ -375,7 +388,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: theme.accent }}>
-                FestFlow Evaluation
+                Cognizance Evaluation
               </div>
               <div style={{ fontSize: 14, fontWeight: 700 }}>Judge Scoring Sheet</div>
             </div>
@@ -621,7 +634,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   </div>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>Code {letter}</div>
-                    <div style={{ fontSize: 12, color: theme.subtext }}>Contestant #{idx + 1}</div>
+                    <div style={{ fontSize: 12, color: theme.subtext }}>Contestant {idx + 1}</div>
                   </div>
                 </div>
 

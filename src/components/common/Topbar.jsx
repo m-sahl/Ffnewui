@@ -372,7 +372,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
           <div className="label" style={{ paddingLeft: 4 }}>About</div>
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
             {[
-              { label: "FestFlow Manager", sub: "Version 1.0 · Arts & Cultural" },
+              { label: "Cognizance Manager", sub: "Version 1.0 · Arts & Cultural" },
               { label: "Built with",       sub: "React + Vite · Hosted on Vercel" },
             ].map((row, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 16px", background: rowBg, borderTop: i > 0 ? `1px solid ${border}` : "none" }}>
@@ -592,12 +592,7 @@ export const Topbar = ({ left, right, dark, setDark, context, onLogout, onBack, 
     <>
       <div className="topbar">
         <div className="topbar-left">{left}</div>
-        <div className="topbar-right">
-          {right}
-          <button className="btn btn-ghost btn-icon" onClick={() => setSettings(true)}>
-            <Ic name="settings" size={16} />
-          </button>
-        </div>
+        <div className="topbar-right">{right}</div>
       </div>
       {settings && (
         <SettingsPanel dark={dark} setDark={setDark} onClose={handleClose}

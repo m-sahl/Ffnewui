@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../../context/AppContext";
 import { ACCENT } from "../../styles/DesignTokens";
+import { linkifyText } from "../../utils/formatMessage";
 
 const Icon = ({ size = 20, children, fill = "none", stroke = "currentColor", sw = 2 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
@@ -9,6 +10,7 @@ const BackIcon  = ({ s }) => <Icon size={s}><polyline points="15 18 9 12 15 6"/>
 const SendIcon  = ({ s }) => <Icon size={s} fill="currentColor" stroke="none"><polygon points="2 21 23 12 2 3 2 10 17 12 2 14 2 21"/></Icon>;
 const TrashIcon = ({ s }) => <Icon size={s}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></Icon>;
 const DotsIcon  = ({ s }) => <Icon size={s} fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></Icon>;
+const LockIcon  = ({ s = 12 }) => <Icon size={s}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></Icon>;
 const CheckIcon = () => <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l3.5 3.5L13 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 
 const InboxPanel = ({ user, group, dark, onClose }) => {
@@ -102,7 +104,7 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#e8e8f5" }}>Admin</div>
-            <div style={{ fontSize: 11, color: "#6b7280" }}>FestFlow Portal</div>
+            <div style={{ fontSize: 11, color: "#6b7280" }}>Cognizance Portal</div>
           </div>
           <div style={{ position: "relative" }}>
             <button onClick={e => { e.stopPropagation(); setShowMenu(s => !s); }} style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", borderRadius: 10 }}>
@@ -123,8 +125,8 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 3, ...wallpaper }}>
         {threadWithDates.length === 0 ? (
           <div style={{ textAlign: "center", margin: "auto" }}>
-            <div style={{ fontSize: 12, background: dark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.7)", padding: "6px 14px", borderRadius: 12, display: "inline-block", color: mutedTx }}>
-              🔒 Messages are end-to-end secured
+            <div style={{ fontSize: 12, background: dark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.7)", padding: "6px 14px", borderRadius: 12, display: "inline-flex", alignItems: "center", gap: 5, color: mutedTx }}>
+              <LockIcon s={11} /> Messages are end-to-end secured
             </div>
           </div>
         ) : threadWithDates.map(item => {
@@ -151,7 +153,9 @@ const InboxPanel = ({ user, group, dark, onClose }) => {
               }}>
                 <div style={{ position: "absolute", top: 0, [isOwn ? "right" : "left"]: -6, width: 0, height: 0, borderStyle: "solid", borderWidth: isOwn ? "0 0 8px 8px" : "0 8px 8px 0", borderColor: isOwn ? `transparent transparent transparent #dc2626` : `transparent ${bubbleBg} transparent transparent` }} />
                 {!isOwn && <div style={{ fontSize: 11, fontWeight: 700, color: ACCENT, marginBottom: 3 }}>Admin</div>}
-                <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>{m.text}</div>
+                <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>
+                  {linkifyText(m.text, { isOwn })}
+                </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3, marginTop: 3 }}>
                   <span style={{ fontSize: 10, opacity: 0.65 }}>{fmtTime(m.timestamp)}</span>
                   {isOwn && <span style={{ opacity: 0.7 }}><CheckIcon /></span>}

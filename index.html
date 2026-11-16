@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FestFlow</title>
+    <title>Cognizance</title>
+    <script>
+      (function() {
+        try {
+          var d = localStorage.getItem('ff_dark');
+          var isDark = d === 'true' || (d === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            var s = document.createElement('style');
+            s.id = 'ff-pre-dark';
+            s.textContent = 'body { background-color: #080912 !important; color: #e8e8f5 !important; }';
+            document.head.appendChild(s);
+          }
+        } catch(e) {}
+      })();
+    </script>
     <style>
       body { margin: 0; background: #fdfaf9; }
       #fallback {

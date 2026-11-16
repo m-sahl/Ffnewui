@@ -76,7 +76,7 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
       XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
     });
 
-    XLSX.writeFile(wb, "FestFlow_Events_Template.xlsx");
+    XLSX.writeFile(wb, "Cognizance_Events_Template.xlsx");
   };
 
   // 2. Parse file
@@ -562,7 +562,7 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
               }}>
-                <div>Order #</div>
+                <div>Order No.</div>
                 <div>Category</div>
                 <div>Event Name</div>
                 <div>Type</div>
@@ -589,7 +589,7 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
                         background: !p.isValid ? (dark ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.05)") : idx % 2 === 0 ? "transparent" : (dark ? "rgba(255,255,255,0.01)" : "rgba(0,0,0,0.01)"),
                       }}
                     >
-                      {/* Auto Order # */}
+                      {/* Auto Order No */}
                       <div>
                         {p.isValid ? (
                           <span style={{
@@ -601,7 +601,7 @@ const ImportProgramsModal = ({ isOpen, onClose, programs = [], registrations = [
                             padding: "2px 6px",
                             borderRadius: 6,
                           }}>
-                            #{p.order}
+                            {p.order}
                           </span>
                         ) : (
                           <span style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }}>Error</span>
