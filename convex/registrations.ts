@@ -118,7 +118,7 @@ async function validateQuota(ctx: any, registration: any) {
 
   const studentMap = new Map<string, string>();
   for (const s of allStudents) {
-    studentMap.set(String(s.id), s.name || `Chest #${s.chestNo}`);
+    studentMap.set(String(s.id), s.name || `Chest ${s.chestNo}`);
   }
 
   for (const studentId of registration.participantIds) {
@@ -132,7 +132,7 @@ async function validateQuota(ctx: any, registration: any) {
     }
 
     if (count >= maxLimit) {
-      const studentName = studentMap.get(sId) || `Student #${sId}`;
+      const studentName = studentMap.get(sId) || `Student ${sId}`;
       throw new Error(`Quota exceeded: ${studentName} already has ${count} ${sessionType} solo entries (Max allowed: ${maxLimit}).`);
     }
   }
@@ -184,7 +184,7 @@ export const checkQuota = query({
 
     const studentMap = new Map<string, string>();
     for (const s of allStudents) {
-      studentMap.set(String(s.id), s.name || `Chest #${s.chestNo}`);
+      studentMap.set(String(s.id), s.name || `Chest ${s.chestNo}`);
     }
 
     for (const studentId of args.participantIds) {
@@ -199,7 +199,7 @@ export const checkQuota = query({
       }
 
       if (count >= maxLimit) {
-        const studentName = studentMap.get(sId) || `Student #${sId}`;
+        const studentName = studentMap.get(sId) || `Student ${sId}`;
         return {
           valid: false,
           error: `Quota exceeded: ${studentName} already has ${count} ${sessionType} solo entries (Max allowed: ${maxLimit}).`,

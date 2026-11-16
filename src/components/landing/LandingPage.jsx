@@ -77,14 +77,14 @@ const LandingPage = ({ dark, onLeaderLogin, onAdminClick }) => {
               boxShadow: "none",
               fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900,
               fontSize: 28, color: "#ffffff", letterSpacing: -1,
-            }}>FF</div>
+            }}>C</div>
           </div>
 
           <div style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900,
             fontSize: 34, letterSpacing: -1.2, color: dark ? "#e8e8f5" : "#0f172a",
             marginBottom: 6,
-          }}>FestFlow</div>
+          }}>Cognizance</div>
 
           <div style={{ fontSize: 13, color: mutedTx, fontWeight: 500, letterSpacing: 0.3 }}>
             Arts & Cultural Fest Management

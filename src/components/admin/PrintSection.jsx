@@ -324,8 +324,8 @@ const PrintSection = ({ dark }) => {
 
   // ── Sheet HTML Generators ──────────────────────────────────────────────────
   const buildCallList = () => {
-    const festName = "FestFlow";
-    const progName = prog ? `${prog.order ? `#${prog.order} ` : ""}${prog.name}` : "Event Call List";
+    const festName = "Cognizance";
+    const progName = prog ? `${prog.order ? `${prog.order} ` : ""}${prog.name}` : "Event Call List";
     const progCat = prog?.category || "General";
     const progSess = prog?.session || prog?.type || "Stage";
     const total = participants.length;
@@ -378,7 +378,7 @@ const PrintSection = ({ dark }) => {
               <thead>
                 <tr>
                   <th class="c" style="width: 36px;">Sl.</th>
-                  <th style="width: 75px;">Chest #</th>
+                  <th style="width: 75px;">Chest No.</th>
                   <th>Student Name</th>
                   <th style="width: 130px;">Team / Group</th>
                   <th class="c" style="width: 44px;">Call 1</th>
@@ -396,7 +396,7 @@ const PrintSection = ({ dark }) => {
 
         <div>
           <div class="sheet-foot">
-            <div>Total Enrolled: <strong>${total}</strong> &nbsp;|&nbsp; FestFlow Event Management</div>
+            <div>Total Enrolled: <strong>${total}</strong> &nbsp;|&nbsp; Cognizance Event Management</div>
             <div>Stage Coordinator Sign: _____________________ &nbsp;|&nbsp; Time: _________</div>
           </div>
         </div>
@@ -404,8 +404,8 @@ const PrintSection = ({ dark }) => {
   };
 
   const buildCodeSheet = () => {
-    const festName = "FestFlow";
-    const progName = prog ? `${prog.order ? `#${prog.order} ` : ""}${prog.name}` : "Event Code Sheet";
+    const festName = "Cognizance";
+    const progName = prog ? `${prog.order ? `${prog.order} ` : ""}${prog.name}` : "Event Code Sheet";
     const progCat = prog?.category || "General";
     const progSess = prog?.session || prog?.type || "Stage";
     const total = participants.length;
@@ -454,7 +454,7 @@ const PrintSection = ({ dark }) => {
               <thead>
                 <tr>
                   <th class="c" style="width: 36px;">Sl.</th>
-                  <th style="width: 80px;">Chest #</th>
+                  <th style="width: 80px;">Chest No.</th>
                   <th>Student Name</th>
                   <th style="width: 130px;">Team / Group</th>
                   <th class="c" style="width: 85px;">Drawn Code</th>
@@ -478,8 +478,8 @@ const PrintSection = ({ dark }) => {
   };
 
   const buildValuationSheet = (copyIndex = 0) => {
-    const festName = "FestFlow";
-    const progName = prog ? `${prog.order ? `#${prog.order} ` : ""}${prog.name}` : "Valuation Sheet";
+    const festName = "Cognizance";
+    const progName = prog ? `${prog.order ? `${prog.order} ` : ""}${prog.name}` : "Valuation Sheet";
     const progCat = prog?.category || "General";
     const progSess = prog?.session || prog?.type || "Stage";
     const rowCount = participants.length > 0 ? Math.max(participants.length + 2, 8) : 10;
@@ -509,7 +509,7 @@ const PrintSection = ({ dark }) => {
             </div>
             <div class="sheet-fest-box">
               <div class="sheet-fest-name">${festName}</div>
-              <div class="sheet-copy-tag">JUDGE COPY #${copyIndex + 1}</div>
+              <div class="sheet-copy-tag">JUDGE COPY ${copyIndex + 1}</div>
             </div>
           </div>
 
@@ -518,7 +518,7 @@ const PrintSection = ({ dark }) => {
               <thead>
                 <tr>
                   <th class="c" style="width: 36px;">Sl.</th>
-                  <th class="c" style="width: 80px;">Code #</th>
+                  <th class="c" style="width: 80px;">Code No.</th>
                   <th class="c" style="width: 90px;">Marks / 100</th>
                   <th>Judge Remarks / Comments</th>
                   <th class="c" style="width: 80px;">Total</th>
@@ -569,7 +569,7 @@ const PrintSection = ({ dark }) => {
 
   // ── Complete HTML & Print CSS ──────────────────────────────────────────────
   const generateFullHtml = (sheetContents) => {
-    const title = prog ? `${prog.name} - FestFlow Event Sheets` : "FestFlow Sheets";
+    const title = prog ? `${prog.name} - Cognizance Event Sheets` : "Cognizance Sheets";
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -798,7 +798,7 @@ const PrintSection = ({ dark }) => {
             <input
               type="text"
               className="input"
-              placeholder="Search event name or #…"
+              placeholder="Search event name or number…"
               value={progSearch}
               onChange={e => setProgSearch(e.target.value)}
               style={{ fontSize: 13, height: 40 }}
@@ -828,7 +828,7 @@ const PrintSection = ({ dark }) => {
                 const regCount = registrations.filter(r => r.programId === p.id).length;
                 return (
                   <option key={p.id} value={p.id}>
-                    {p.order ? `#${p.order} ` : ""}{p.name} — {p.category} · {p.session || p.type || "Stage"} ({regCount} teams entered)
+                    {p.order ? `${p.order} ` : ""}{p.name} — {p.category} · {p.session || p.type || "Stage"} ({regCount} teams entered)
                   </option>
                 );
               })}
@@ -856,7 +856,7 @@ const PrintSection = ({ dark }) => {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 14, color: mutedTx }}>
-                  {prog.order ? `#${prog.order}` : ""}
+                  {prog.order ? `${prog.order}` : ""}
                 </span>
                 <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 18, color: dark ? "#e8e8f5" : "#0f172a" }}>
                   {prog.name}

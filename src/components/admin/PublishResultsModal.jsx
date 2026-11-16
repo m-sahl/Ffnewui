@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { calculateEntryPoints, simulateLeaderboardImpact } from "../../utils/scoring";
 
 const PLACES = ["1st", "2nd", "3rd"];
 const GRADES = ["A", "B", "C", "—"];
@@ -11,6 +12,10 @@ export default function PublishResultsModal({
   onClose,
   event = { code: 1, name: "Event", category: "Mid" },
   students = [],
+  allPrograms = [],
+  groups = [],
+  allStudents = {},
+  scoringRules = null,
   onPublish,
   dark = false,
 }) {
@@ -23,10 +28,11 @@ export default function PublishResultsModal({
   const [others, setOthers] = useState([]);
   const [touched, setTouched] = useState(false);
   const [done, setDone] = useState(false);
+  const [previewTab, setPreviewTab] = useState("impact");
 
   // Extract participants roster with secret code letters assigned by desk (ffcontrol)
   const historyList = useMemo(() => {
-    const raw = event?.participantsHistory || event?.codeAllocations || [];
+    const raw = event?.codeLetters || event?.participantsHistory || event?.codeAllocations || [];
     return Array.isArray(raw) ? raw : [];
   }, [event]);
 
@@ -48,7 +54,7 @@ export default function PublishResultsModal({
   const hasCodeLetters = codedParticipants.length > 0;
   const [useCodeLetters, setUseCodeLetters] = useState(true);
 
-  // Palette matching FestFlow admin theme (light & dark)
+  // Palette matching Cognizance admin theme (light & dark)
   const theme = useMemo(() => {
     return dark
       ? {
@@ -139,7 +145,7 @@ export default function PublishResultsModal({
       if (st) {
         return {
           studentId: st.id,
-          name: st.name || st.rawName || `Contestant #${st.id}`,
+          name: st.name || st.rawName || `Contestant ${st.id}`,
           chestNo: st.chestNo,
           groupName: st.groupName,
           codeLetter: current.codeLetter,
@@ -168,6 +174,74 @@ export default function PublishResultsModal({
   const update = (patch) =>
     setEntries((prev) => prev.map((e, i) => (i === step ? { ...e, ...patch } : e)));
 
+  // Auto-fill suggested standard points if empty when entering a step
+  useEffect(() => {
+    if (step < PLACES.length) {
+      const cur = entries[step];
+      if (cur && (cur.points === "" || cur.points === undefined)) {
+        const autoPts = calculateEntryPoints(step + 1, cur.grade || "—", event, scoringRules);
+        if (autoPts > 0) {
+          setEntries((prev) =>
+            prev.map((e, idx) => (idx === step && (e.points === "" || e.points === undefined) ? { ...e, points: String(autoPts) } : e))
+          );
+        }
+      }
+    }
+  }, [step, event, scoringRules]);
+
+  const candidateResults = useMemo(() => {
+    return {
+      entries: entries.map((e, i) => {
+        const hist = codedParticipants.find(
+          (c) => String(c.studentId) === String(e.studentId) || (e.codeLetter && c.codeLetter === e.codeLetter)
+        );
+        const st = students.find((s) => String(s.id) === String(e.studentId));
+        const autoPts = calculateEntryPoints(i + 1, e.grade, event, scoringRules);
+        const pts = e.points !== "" && !isNaN(Number(e.points)) ? Number(e.points) : autoPts;
+        return {
+          place: i + 1,
+          placeLabel: PLACES[i],
+          ...e,
+          studentId: String(e.studentId || hist?.studentId || st?.id || ""),
+          codeLetter: e.codeLetter || hist?.codeLetter || "",
+          studentName: hist?.name || st?.name || st?.rawName || `Contestant ${i + 1}`,
+          chestNo: hist?.chestNo || st?.chestNo || "",
+          groupId: hist?.groupId || st?.groupId || "",
+          groupName: hist?.groupName || st?.groupName || "",
+          points: pts,
+          grade: e.grade || "—",
+        };
+      }),
+      otherGrades: others.map((o) => {
+        const hist = codedParticipants.find(
+          (c) => String(c.studentId) === String(o.studentId) || (o.codeLetter && c.codeLetter === o.codeLetter)
+        );
+        const st = students.find((s) => String(s.id) === String(o.studentId));
+        return {
+          ...o,
+          studentId: String(o.studentId || hist?.studentId || st?.id || ""),
+          codeLetter: o.codeLetter || hist?.codeLetter || "",
+          studentName: hist?.name || st?.name || st?.rawName || "Contestant",
+          chestNo: hist?.chestNo || st?.chestNo || "",
+          groupId: hist?.groupId || st?.groupId || "",
+          groupName: hist?.groupName || st?.groupName || "",
+        };
+      }),
+    };
+  }, [entries, others, codedParticipants, students, event, scoringRules]);
+
+  const leaderboardImpact = useMemo(() => {
+    if (!preview) return null;
+    return simulateLeaderboardImpact(
+      allPrograms,
+      groups,
+      event,
+      candidateResults,
+      allStudents,
+      scoringRules
+    );
+  }, [preview, allPrograms, groups, event, candidateResults, allStudents, scoringRules]);
+
   const valid = (current.studentId || current.codeLetter) && current.points !== "" && current.grade;
   const stepComplete = (i) => (entries[i].studentId || entries[i].codeLetter) && entries[i].points !== "" && entries[i].grade;
 
@@ -175,35 +249,8 @@ export default function PublishResultsModal({
     if (preview) {
       onPublish?.({
         event,
-        results: entries.map((e, i) => {
-          const hist = codedParticipants.find(
-            (c) => String(c.studentId) === String(e.studentId) || (e.codeLetter && c.codeLetter === e.codeLetter)
-          );
-          return {
-            place: i + 1,
-            ...e,
-            studentId: String(e.studentId || hist?.studentId || ""),
-            codeLetter: e.codeLetter || hist?.codeLetter || "",
-            studentName: hist?.name || "",
-            chestNo: hist?.chestNo || "",
-            groupId: hist?.groupId || "",
-            groupName: hist?.groupName || "",
-          };
-        }),
-        otherGrades: others.map((o) => {
-          const hist = codedParticipants.find(
-            (c) => String(c.studentId) === String(o.studentId) || (o.codeLetter && c.codeLetter === o.codeLetter)
-          );
-          return {
-            ...o,
-            studentId: String(o.studentId || hist?.studentId || ""),
-            codeLetter: o.codeLetter || hist?.codeLetter || "",
-            studentName: hist?.name || "",
-            chestNo: hist?.chestNo || "",
-            groupId: hist?.groupId || "",
-            groupName: hist?.groupName || "",
-          };
-        }),
+        results: candidateResults.entries,
+        otherGrades: candidateResults.otherGrades,
       });
       close();
       return;
@@ -277,8 +324,9 @@ export default function PublishResultsModal({
           .ff-modal-overlay { align-items: center; padding: 16px; }
         }
         .ff-modal-box {
-          position: relative; width: 100%; max-width: 440px;
-          overflow: hidden; border-top-left-radius: 24px; border-top-right-radius: 24px;
+          position: relative; width: 100%; max-width: 520px;
+          max-height: 92vh; overflow-y: auto;
+          border-top-left-radius: 24px; border-top-right-radius: 24px;
           border: 1px solid var(--ff-border);
           background: var(--ff-surface);
           color: var(--ff-text);
@@ -370,7 +418,7 @@ export default function PublishResultsModal({
             }}
             title="Item number"
           >
-            #{event.code ?? event.order ?? ""}
+            {event.code ?? event.order ?? ""}
           </span>
           <h2
             id="publish-title"
@@ -490,7 +538,78 @@ export default function PublishResultsModal({
 
             {preview ? (
               <div key="preview" className="ff-anim" style={{ animation: "ff-step .3s ease both" }}>
-                <Summary entries={entries} others={others} students={students} codedParticipants={codedParticipants} />
+                {/* Mode Segmented Switch: Live Leaderboard Impact vs Contestant Results */}
+                <div
+                  style={{
+                    display: "flex",
+                    background: "var(--ff-surface-2)",
+                    borderRadius: 12,
+                    padding: 3,
+                    marginBottom: 16,
+                    border: "1px solid var(--ff-border)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab("impact")}
+                    style={{
+                      flex: 1,
+                      padding: "8px 10px",
+                      borderRadius: 9,
+                      border: "none",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: previewTab === "impact" ? "linear-gradient(135deg,var(--ff-primary-2),var(--ff-primary))" : "transparent",
+                      color: previewTab === "impact" ? "var(--ff-on-primary)" : "var(--ff-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span>⚡ Leaderboard Impact</span>
+                    {leaderboardImpact?.hasLeaderChanged && <span style={{ fontSize: 11 }}>👑</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab("podium")}
+                    style={{
+                      flex: 1,
+                      padding: "8px 10px",
+                      borderRadius: 9,
+                      border: "none",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: previewTab === "podium" ? "linear-gradient(135deg,var(--ff-primary-2),var(--ff-primary))" : "transparent",
+                      color: previewTab === "podium" ? "var(--ff-on-primary)" : "var(--ff-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span>🏆 Contestants</span>
+                  </button>
+                </div>
+
+                {previewTab === "impact" ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <LeaderboardImpactPreview impact={leaderboardImpact} dark={dark} />
+                    <div style={{ borderTop: "1px dashed var(--ff-border)", paddingTop: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "var(--ff-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
+                        Event Winners Summary
+                      </div>
+                      <Summary entries={entries} others={others} students={students} codedParticipants={codedParticipants} />
+                    </div>
+                  </div>
+                ) : (
+                  <Summary entries={entries} others={others} students={students} codedParticipants={codedParticipants} />
+                )}
+
                 <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
                   <button
                     type="button"
@@ -664,7 +783,7 @@ export default function PublishResultsModal({
                                 {resolvedStudent.name}
                               </div>
                               <div style={{ fontSize: 11.5, color: "var(--ff-muted)", display: "flex", gap: 6, alignItems: "center" }}>
-                                {resolvedStudent.chestNo && <span>Chest #{resolvedStudent.chestNo}</span>}
+                                {resolvedStudent.chestNo && <span>Chest {resolvedStudent.chestNo}</span>}
                                 {resolvedStudent.chestNo && resolvedStudent.groupName && <span>·</span>}
                                 {resolvedStudent.groupName && (
                                   <span style={{ color: resolvedStudent.groupColor || "var(--ff-primary-text)", fontWeight: 600 }}>
@@ -776,7 +895,13 @@ export default function PublishResultsModal({
                             type="button"
                             role="radio"
                             aria-checked={on}
-                            onClick={() => update({ grade: g })}
+                            onClick={() => {
+                              const autoPts = calculateEntryPoints(step + 1, g, event, scoringRules);
+                              update({
+                                grade: g,
+                                points: current.points === "" || current.points === undefined ? String(autoPts) : current.points,
+                              });
+                            }}
                             style={{
                               height: 44,
                               borderRadius: 12,
@@ -840,7 +965,7 @@ export default function PublishResultsModal({
                                     if (isPlaced && !isSelectedHere) return null;
                                     return (
                                       <option key={cp.codeLetter} value={cp.codeLetter}>
-                                        Code {cp.codeLetter} · {cp.name} (#{cp.chestNo})
+                                        Code {cp.codeLetter} · {cp.name} ({cp.chestNo})
                                       </option>
                                     );
                                   })}
@@ -1630,6 +1755,220 @@ function Success({ event, onClose, entries, others, students, codedParticipants 
   );
 }
 
+/* Thrilling Live Leaderboard Impact Preview: Next standings, rank deltas & leader shift */
+function LeaderboardImpactPreview({ impact, dark = false }) {
+  if (!impact) return null;
+  const { comparison = [], hasLeaderChanged, leaderBefore, leaderAfter, teamsGainingPoints = [] } = impact;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Thrilling Lead Change Banner */}
+      {hasLeaderChanged && (
+        <div
+          style={{
+            padding: "14px 18px",
+            borderRadius: 14,
+            background: "linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(241,77,77,0.18) 100%)",
+            border: "1.5px solid rgba(245,158,11,0.5)",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            boxShadow: "0 8px 24px -4px rgba(245,158,11,0.3)",
+          }}
+        >
+          <span style={{ fontSize: 30, lineHeight: 1 }}>👑</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.6px", color: "#f59e0b" }}>
+              Thrilling Leaderboard Shift!
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ff-text)", marginTop: 2 }}>
+              <span style={{ color: "var(--ff-primary-text)" }}>{leaderAfter}</span> will seize #1 from {leaderBefore}!
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Points Awarded This Event */}
+      {teamsGainingPoints.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--ff-muted)", marginBottom: 8 }}>
+            Points Added In This Event
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {teamsGainingPoints.map((tg) => (
+              <span
+                key={tg.groupId}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 12px",
+                  borderRadius: 10,
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  background: "rgba(241,77,77,0.1)",
+                  color: "var(--ff-primary-text)",
+                  border: "1px solid rgba(241,77,77,0.25)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: tg.groupColor || "var(--ff-primary)",
+                  }}
+                />
+                <span>{tg.groupName}</span>
+                <span style={{ fontWeight: 900, color: "#10b981", marginLeft: 2 }}>+{tg.pointsAdded} pts</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Projected Standings Table */}
+      <div
+        style={{
+          borderRadius: 16,
+          border: "1px solid var(--ff-border)",
+          overflow: "hidden",
+          background: "var(--ff-surface-2)",
+        }}
+      >
+        <div
+          style={{
+            padding: "10px 16px",
+            background: "rgba(0,0,0,0.03)",
+            borderBottom: "1px solid var(--ff-border)",
+            display: "grid",
+            gridTemplateColumns: "42px 1fr 64px 84px",
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+            color: "var(--ff-muted)",
+          }}
+        >
+          <span>Rank</span>
+          <span>Team</span>
+          <span style={{ textAlign: "center" }}>Shift</span>
+          <span style={{ textAlign: "right" }}>Projected</span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {comparison.map((team, idx) => {
+            const isGaining = team.pointsAdded > 0;
+            const rankMovedUp = team.rankDiff > 0;
+            const rankMovedDown = team.rankDiff < 0;
+            const rankMedal = team.projectedRank === 1 ? "🥇" : team.projectedRank === 2 ? "🥈" : team.projectedRank === 3 ? "🥉" : null;
+
+            return (
+              <div
+                key={team.groupId || idx}
+                style={{
+                  padding: "10px 16px",
+                  display: "grid",
+                  gridTemplateColumns: "42px 1fr 64px 84px",
+                  alignItems: "center",
+                  borderTop: idx > 0 ? "1px solid var(--ff-border)" : "none",
+                  background: isGaining ? "rgba(241,77,77,0.07)" : "transparent",
+                  transition: "background 0.2s",
+                }}
+              >
+                {/* Projected Rank */}
+                <span style={{ fontSize: 13.5, fontWeight: 900, display: "flex", alignItems: "center" }}>
+                  {rankMedal || `#${team.projectedRank}`}
+                </span>
+
+                {/* Team Name */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, paddingRight: 6 }}>
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: team.groupColor || "var(--ff-primary)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: isGaining ? 800 : 600,
+                      color: isGaining ? "var(--ff-primary-text)" : "var(--ff-text)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {team.groupName}
+                  </span>
+                </div>
+
+                {/* Shift Badge */}
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  {rankMovedUp ? (
+                    <span
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background: "rgba(16,185,129,0.18)",
+                        color: "#10b981",
+                        border: "1px solid rgba(16,185,129,0.3)",
+                      }}
+                      title={`Moved up by ${team.rankDiff} positions`}
+                    >
+                      ▲ +{team.rankDiff}
+                    </span>
+                  ) : rankMovedDown ? (
+                    <span
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background: "rgba(239,68,68,0.15)",
+                        color: "#ef4444",
+                        border: "1px solid rgba(239,68,68,0.3)",
+                      }}
+                      title={`Dropped by ${Math.abs(team.rankDiff)} positions`}
+                    >
+                      ▼ {team.rankDiff}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "var(--ff-muted)", fontWeight: 700 }}>
+                      —
+                    </span>
+                  )}
+                </div>
+
+                {/* Projected Points */}
+                <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: isGaining ? "var(--ff-primary-text)" : "var(--ff-text)" }}>
+                    {team.projectedPoints} <span style={{ fontSize: 10.5, fontWeight: 600 }}>pts</span>
+                  </div>
+                  {isGaining ? (
+                    <div style={{ fontSize: 10.5, color: "#10b981", fontWeight: 700 }}>
+                      +{team.pointsAdded} pts
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 10.5, color: "var(--ff-muted)" }}>
+                      {team.currentPoints} pts
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Read-only results list: 1st/2nd/3rd + other grades */
 function Summary({ entries, others, students, codedParticipants = [] }) {
   const getEntryDetails = (entry) => {
@@ -1721,7 +2060,7 @@ function Summary({ entries, others, students, codedParticipants = [] }) {
                     fontWeight: 600,
                   }}
                 >
-                  {det.name} {det.chestNo ? `(#${det.chestNo})` : ""}
+                  {det.name} {det.chestNo ? `(${det.chestNo})` : ""}
                 </span>
               </div>
               <span style={{ fontSize: 12, color: "var(--ff-muted)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
@@ -1794,7 +2133,7 @@ function Summary({ entries, others, students, codedParticipants = [] }) {
                       </span>
                     )}
                     <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-                      {det.name} {det.chestNo ? `(#${det.chestNo})` : ""}
+                      {det.name} {det.chestNo ? `(${det.chestNo})` : ""}
                     </span>
                   </div>
                   <span

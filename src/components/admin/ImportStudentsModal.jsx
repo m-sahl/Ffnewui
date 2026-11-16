@@ -54,7 +54,7 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
       XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
     });
 
-    XLSX.writeFile(wb, "FestFlow_Students_Template.xlsx");
+    XLSX.writeFile(wb, "Cognizance_Students_Template.xlsx");
   };
 
   // 2. Parse file
@@ -243,9 +243,9 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
           if (!cleanChest) {
             rowError = "Missing chest number";
           } else if (fileChestMap.has(lowerChest)) {
-            rowError = `Duplicate chest #${cleanChest} in file (already used by ${fileChestMap.get(lowerChest)})`;
+            rowError = `Duplicate chest ${cleanChest} in file (already used by ${fileChestMap.get(lowerChest)})`;
           } else if (existingChestMap.has(lowerChest)) {
-            rowError = `Chest #${cleanChest} already exists (used by ${existingChestMap.get(lowerChest)})`;
+            rowError = `Chest ${cleanChest} already exists (used by ${existingChestMap.get(lowerChest)})`;
           }
         }
 
@@ -598,7 +598,7 @@ const ImportStudentsModal = ({ isOpen, onClose, groups = [], students = {}, onIm
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
               }}>
-                <div>Chest #</div>
+                <div>Chest No.</div>
                 <div>Target Group</div>
                 <div>Student Name</div>
                 <div>Category</div>

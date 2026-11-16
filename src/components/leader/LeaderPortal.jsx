@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
@@ -7,6 +8,12 @@ import { CATS, STUDENT_CATS, ACCENT, catColor } from "../../styles/DesignTokens"
 import { triggerHaptic } from "../../utils/haptics";
 import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
 import { useToast } from "../common/Toast";
+import { linkifyText } from "../../utils/formatMessage";
+import {
+  calculateTeamStandings,
+  calculateStudentStandings,
+  getScoringRules,
+} from "../../utils/scoring";
 
 const VALID_TABS = ["home", "members", "events", "results", "settings"];
 
@@ -94,9 +101,9 @@ const BottomNav = ({ tab, setTab, unread, dark, hasLockedEvents }) => (
                 position: "absolute",
                 top: -5,
                 right: -8,
-                fontSize: 10,
-                lineHeight: 1,
-              }}>🔒</span>
+                display: "inline-flex",
+                alignItems: "center",
+              }}><Ic name="lock" size={10} color="#f43f5e" /></span>
             )}
           </div>
           <span style={{
@@ -155,7 +162,9 @@ const LeaderDesktopNav = ({ tab, setTab, group, dark, setDark, onSignOut, unread
                 <Ic name={n.icon} size={16} />
                 <span>{n.label}</span>
                 {n.id === "events" && (isStageLocked || isOffStageLocked) && (
-                  <span style={{ fontSize: 10, lineHeight: 1 }} title="Registration Locked">🔒</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", marginLeft: 4 }} title="Registration Locked">
+                    <Ic name="lock" size={11} color="#f43f5e" />
+                  </span>
                 )}
                 {n.id === "home" && unreadCount > 0 && (
                   <span style={{
@@ -170,38 +179,6 @@ const LeaderDesktopNav = ({ tab, setTab, group, dark, setDark, onSignOut, unread
 
         {/* Action Controls */}
         <div className="leader-header-actions">
-          {/* Support Chat with unread badge */}
-          <button
-            type="button"
-            className="leader-header-btn"
-            onClick={() => { triggerHaptic("medium"); onOpenMessages(); }}
-            title="Admin Support Messages"
-          >
-            <Ic name="message" size={17} />
-            {unreadCount > 0 && (
-              <span style={{
-                position: "absolute", top: -3, right: -3,
-                minWidth: 18, height: 18, padding: "0 4px",
-                borderRadius: 10, background: "#f14d4d", color: "#ffffff",
-                fontSize: 10, fontWeight: 900, display: "flex",
-                alignItems: "center", justifyContent: "center",
-                boxShadow: "0 2px 6px rgba(241,77,77,0.4)"
-              }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Theme toggle */}
-          <button
-            type="button"
-            className="leader-header-btn"
-            onClick={() => { triggerHaptic("light"); setDark(d => !d); }}
-            title={dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            <Ic name={dark ? "sun" : "moon"} size={17} />
-          </button>
-
           {/* Sign Out */}
           <button
             type="button"
@@ -551,36 +528,16 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
     return (
       <div className="anim-fadeIn leader-page-container">
-        {/* Header - Group Name & Settings Gear */}
+        {/* Header - Group Name */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans',sans-serif",
-              fontWeight: 900,
-              fontSize: 28,
-              letterSpacing: "-0.6px",
-              color: dark ? "#f8fafc" : "#0f172a"
-            }}>
-              {group.name}
-            </div>
-
-            <button
-              type="button"
-              className="leader-mobile-only"
-              onClick={() => { triggerHaptic("light"); setTab("settings"); }}
-              style={{
-                width: 42, height: 42, borderRadius: 14, border: `1px solid ${border}`,
-                background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                color: tab === "settings" ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
-                cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s ease",
-                boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.03)"
-              }}
-              title="Settings"
-            >
-              <Ic name="settings" size={19} />
-            </button>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 900,
+            fontSize: 28,
+            letterSpacing: "-0.6px",
+            color: dark ? "#f8fafc" : "#0f172a"
+          }}>
+            {group.name}
           </div>
 
           {/* Pro Leader & Asst. Subtitle */}
@@ -689,7 +646,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
               boxShadow: "0 8px 24px rgba(241, 77, 77, 0.35)", transition: "all 0.15s ease"
             }}>
               {isStageLocked && isOffStageLocked ? (
-                <>🔒 Registration Locked · Meet Admin</>
+                <><Ic name="lock" size={17} /> Registration Locked · Meet Admin</>
               ) : (
                 <><Ic name="plus" size={18} /> Register for Events</>
               )}
@@ -757,9 +714,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
                     background: isStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
                     color: isStageLocked ? "#f43f5e" : "#10b981",
-                    border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                    border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)",
+                    display: "inline-flex", alignItems: "center", gap: 4
                   }}>
-                    {isStageLocked ? "🔒 Locked" : "Open"}
+                    {isStageLocked ? <><Ic name="lock" size={11} color="#f43f5e" /> Locked</> : "Open"}
                   </span>
                 </div>
 
@@ -778,9 +736,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
                     background: isOffStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
                     color: isOffStageLocked ? "#f43f5e" : "#10b981",
-                    border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                    border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)",
+                    display: "inline-flex", alignItems: "center", gap: 4
                   }}>
-                    {isOffStageLocked ? "🔒 Locked" : "Open"}
+                    {isOffStageLocked ? <><Ic name="lock" size={11} color="#f43f5e" /> Locked</> : "Open"}
                   </span>
                 </div>
               </div>
@@ -794,7 +753,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 border: "1px solid rgba(244,63,94,0.25)",
                 display: "flex", alignItems: "flex-start", gap: 12
               }}>
-                <span style={{ fontSize: 22, lineHeight: 1 }}>🔒</span>
+                <span style={{ display: "inline-flex", alignItems: "center", paddingTop: 2 }}>
+                  <Ic name="lock" size={20} color="#f43f5e" />
+                </span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 800, fontSize: 13.5, color: "#f43f5e" }}>
                     {isStageLocked && isOffStageLocked
@@ -879,7 +840,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 transition: "all 0.18s ease",
                 boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
               }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13.5, minWidth: 36 }}>#{s.chestNo}</span>
+                <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 13.5, minWidth: 36 }}>{s.chestNo}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.name}>{s.name}</div>
                   <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>{s.category}</div>
@@ -926,7 +887,11 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 boxShadow: progType === t ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                 transition: "all 0.15s ease",
               }}>
-              {isLocked(group.id, t) && <span style={{ marginRight: 4 }}>🔒</span>}{t}
+              {isLocked(group.id, t) && (
+                <span style={{ marginRight: 5, display: "inline-flex", verticalAlign: "middle" }}>
+                  <Ic name="lock" size={11} color="#f43f5e" />
+                </span>
+              )}{t}
             </button>
           ))}
         </div>
@@ -940,7 +905,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           color: "#f43f5e", fontSize: 12, fontWeight: 700,
           display: "flex", alignItems: "center", gap: 8
         }}>
-          <span style={{ fontSize: 14 }}>🔒</span>
+          <span style={{ display: "inline-flex", alignItems: "center" }}>
+            <Ic name="lock" size={15} color="#f43f5e" />
+          </span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 800, fontSize: 13 }}>{progType} Registration is Locked</div>
             <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 2, opacity: 0.95, lineHeight: 1.4 }}>
@@ -1006,7 +973,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 color: isSelected ? ACCENT : (stats.remaining > 0 ? "#f14d4d" : "#10b981"),
                 fontWeight: 800
               }}>
-                {stats.remaining > 0 ? stats.remaining : "✓"}
+                {stats.remaining > 0 ? stats.remaining : <Ic name="check" size={10} color="#10b981" />}
               </span>
 
               {/* Active Tab Underline Indicator */}
@@ -1053,16 +1020,18 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `${p.order}` : ""}</span>
                     <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p?.name}>{p?.name}</div>
                   </div>
                   <div style={{ flexShrink: 0 }}>
                     {reg ? (
-                      <span style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 800, border: "1px solid rgba(16,185,129,0.2)", borderRadius: 9, fontSize: 11, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                        ✓ Registered <Ic name="chevronRight" size={12} color="#10b981" />
+                      <span style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 800, border: "1px solid rgba(16,185,129,0.2)", borderRadius: 9, fontSize: 11, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Ic name="check" size={11} color="#10b981" /> Registered <Ic name="chevronRight" size={12} color="#10b981" />
                       </span>
                     ) : locked ? (
-                      <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 800, background: "rgba(244,63,94,0.08)", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(244,63,94,0.15)" }}>🔒 Locked</span>
+                      <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 800, background: "rgba(244,63,94,0.08)", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(244,63,94,0.15)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Ic name="lock" size={11} color="#f43f5e" /> Locked
+                      </span>
                     ) : (
                       <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); triggerHaptic("medium"); setEditTarget(null); setRegForm({ programId: p.id, participantIds: [] }); setRegModal(true); }} style={{ borderRadius: 9, fontWeight: 800, fontSize: 11.5, padding: "6px 14px" }}>
                         + Register
@@ -1092,7 +1061,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   boxShadow: dark ? "none" : "0 2px 8px rgba(0,0,0,0.02)"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 12, color: ACCENT, minWidth: 24 }}>{p?.order ? `${p.order}` : ""}</span>
                     <span style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p?.name}>{p?.name}</span>
                   </div>
                   <div style={{ flexShrink: 0 }}>
@@ -1130,7 +1099,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           WebkitBackdropFilter: "blur(8px)",
           transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
         }}>
-          <span style={{ fontSize: 13 }}>📊</span>
+          <Ic name="dashboard" size={13} color="#ffffff" />
           <span>Remaining ({getCatStats(catFilter, progType).remaining})</span>
         </button>
       )}
@@ -1172,7 +1141,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
     return {
       studentId: item.studentId || st?.id,
-      name: st?.name || item.studentName || item.rawName || (item.studentId ? `Contestant #${item.studentId}` : "—"),
+      name: st?.name || item.studentName || item.rawName || (item.studentId ? `Contestant ${item.studentId}` : "—"),
       chestNo: item.chestNo || st?.chestNo || "",
       groupId: gId,
       groupName: grp.name || item.groupName || "Team",
@@ -1187,104 +1156,35 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [programs]);
 
-  const groupScores = useMemo(() => {
-    const scores = {};
-    const grpList = groups && groups.length > 0 ? groups : [group];
-    grpList.forEach(g => {
-      scores[g.id] = {
-        group: g,
-        totalPoints: 0,
-        firsts: 0,
-        seconds: 0,
-        thirds: 0,
-        gradeA: 0,
-        gradeB: 0,
-        gradeC: 0,
-        totalAwards: 0,
-      };
-    });
+  const scoringRules = useMemo(() => getScoringRules(), []);
 
-    publishedPrograms.forEach(p => {
-      if (p.results?.entries && Array.isArray(p.results.entries)) {
-        p.results.entries.forEach(e => {
-          const sInfo = resolveStudent(e);
-          const targetGid = sInfo?.groupId || e.groupId;
-          if (targetGid) {
-            if (!scores[targetGid]) {
-              scores[targetGid] = {
-                group: { id: targetGid, name: sInfo?.groupName || e.groupName || targetGid, color: sInfo?.groupColor || e.groupColor || "#f14d4d" },
-                totalPoints: 0,
-                firsts: 0,
-                seconds: 0,
-                thirds: 0,
-                gradeA: 0,
-                gradeB: 0,
-                gradeC: 0,
-                totalAwards: 0,
-              };
-            }
-            const pts = parseFloat(e.points) || 0;
-            scores[targetGid].totalPoints += pts;
-            const place = Number(e.place);
-            if (place === 1) scores[targetGid].firsts += 1;
-            else if (place === 2) scores[targetGid].seconds += 1;
-            else if (place === 3) scores[targetGid].thirds += 1;
-            if (e.grade === "A") scores[targetGid].gradeA += 1;
-            else if (e.grade === "B") scores[targetGid].gradeB += 1;
-            else if (e.grade === "C") scores[targetGid].gradeC += 1;
-            scores[targetGid].totalAwards += 1;
-          }
-        });
-      }
-      if (p.results?.otherGrades && Array.isArray(p.results.otherGrades)) {
-        p.results.otherGrades.forEach(o => {
-          const sInfo = resolveStudent(o);
-          const targetGid = sInfo?.groupId || o.groupId;
-          if (targetGid) {
-            if (!scores[targetGid]) {
-              scores[targetGid] = {
-                group: { id: targetGid, name: sInfo?.groupName || o.groupName || targetGid, color: sInfo?.groupColor || o.groupColor || "#f14d4d" },
-                totalPoints: 0,
-                firsts: 0,
-                seconds: 0,
-                thirds: 0,
-                gradeA: 0,
-                gradeB: 0,
-                gradeC: 0,
-                totalAwards: 0,
-              };
-            }
-            if (o.grade === "A") scores[targetGid].gradeA += 1;
-            else if (o.grade === "B") scores[targetGid].gradeB += 1;
-            else if (o.grade === "C") scores[targetGid].gradeC += 1;
-            scores[targetGid].totalAwards += 1;
-          }
-        });
-      }
-    });
+  const teamStandings = useMemo(() => {
+    return calculateTeamStandings(programs, groups, students, scoringRules);
+  }, [programs, groups, students, scoringRules]);
 
-    return Object.values(scores).sort((a, b) => {
-      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-      if (b.firsts !== a.firsts) return b.firsts - a.firsts;
-      return b.seconds - a.seconds;
-    });
-  }, [publishedPrograms, groups, group, resolveStudent]);
+  const studentStandings = useMemo(() => {
+    return calculateStudentStandings(programs, students, groups, scoringRules);
+  }, [programs, students, groups, scoringRules]);
+
+  // Backward compatibility alias
+  const groupScores = teamStandings;
 
   const myGroupStanding = useMemo(() => {
-    const idx = groupScores.findIndex(s => s.group.id === group.id);
-    const score = groupScores[idx];
+    const found = teamStandings.find(s => s.group.id === group.id);
     return {
-      rank: idx >= 0 ? idx + 1 : 1,
-      totalPoints: score?.totalPoints || 0,
-      firsts: score?.firsts || 0,
-      seconds: score?.seconds || 0,
-      thirds: score?.thirds || 0,
-      gradeA: score?.gradeA || 0,
-      gradeB: score?.gradeB || 0,
-      gradeC: score?.gradeC || 0,
-      ...score,
+      rank: found?.rank || 1,
+      totalPoints: found?.totalPoints || 0,
+      firsts: found?.firsts || 0,
+      seconds: found?.seconds || 0,
+      thirds: found?.thirds || 0,
+      gradeA: found?.gradeA || 0,
+      gradeB: found?.gradeB || 0,
+      gradeC: found?.gradeC || 0,
+      stagePoints: found?.stagePoints || 0,
+      offStagePoints: found?.offStagePoints || 0,
+      ...found,
     };
-  }, [groupScores, group.id]);
+  }, [teamStandings, group.id]);
 
   const filteredPublishedProgs = useMemo(() => {
     let list = publishedPrograms;
@@ -1362,22 +1262,6 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           >
             <Ic name="search" size={17} />
           </button>
-
-          <button
-            type="button"
-            className="leader-mobile-only"
-            onClick={() => { triggerHaptic("light"); setTab("settings"); }}
-            style={{
-              width: 40, height: 40, borderRadius: 12, border: `1px solid ${border}`,
-              background: tab === "settings" ? (dark ? "rgba(241,77,77,0.15)" : "rgba(241,77,77,0.1)") : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
-              color: tab === "settings" ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s ease"
-            }}
-            title="Settings"
-          >
-            <Ic name="settings" size={18} />
-          </button>
         </div>
       </div>
 
@@ -1387,7 +1271,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           <input
             className="input"
             type="text"
-            placeholder="Search event name or #..."
+            placeholder="Search event name or number..."
             value={resSearch}
             onChange={e => setResSearch(e.target.value)}
             onKeyDown={e => {
@@ -1418,10 +1302,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <span style={{
               width: 38, height: 38, borderRadius: 12,
               background: "linear-gradient(135deg, #ff5c5c, #f14d4d)",
-              color: "#fff", display: "grid", placeItems: "center",
-              fontSize: 18, fontWeight: 900
+              color: "#fff", display: "grid", placeItems: "center"
             }}>
-              🏆
+              <Ic name="trophy" size={20} color="#ffffff" />
             </span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
@@ -1464,15 +1347,15 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>🥇 1st</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>1st Place</div>
             <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>{myGroupStanding.firsts || 0}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>🥈 2nd</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>2nd Place</div>
             <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>{myGroupStanding.seconds || 0}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>🥉 3rd</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>3rd Place</div>
             <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>{myGroupStanding.thirds || 0}</div>
           </div>
         </div>
@@ -1581,108 +1464,224 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
       {/* Content: Standings Leaderboard OR Events List */}
       {resView === "leaderboard" ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 460px), 1fr))", gap: 10 }}>
-          {groupScores.map((s, idx) => {
-            const isMe = s.group.id === group.id;
-            const rank = idx + 1;
-            const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
-            return (
-              <div
-                key={s.group.id}
-                style={{
-                  display: "flex",
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Crown Awards Banner */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            {/* Star of the Fest */}
+            <div
+              style={{
+                padding: "16px 18px",
+                borderRadius: 16,
+                background: dark
+                  ? "linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(19, 21, 36, 0.95) 100%)"
+                  : "linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, #ffffff 100%)",
+                border: "1.5px solid rgba(245, 158, 11, 0.35)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  fontSize: 10.5,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  background: "rgba(245, 158, 11, 0.2)",
+                  color: "#f59e0b",
+                  display: "inline-flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: "14px 18px",
-                  borderRadius: 16,
-                  background: isMe
-                    ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.06)")
-                    : cardBg,
-                  border: isMe
-                    ? `1.5px solid ${ACCENT}`
-                    : `1px solid ${border}`,
-                  boxShadow: isMe
-                    ? "0 6px 20px rgba(241,77,77,0.15)"
-                    : "none",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: medal
-                        ? (rank === 1 ? "#fbbf24" : rank === 2 ? "#cbd5e1" : "#d97706")
-                        : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
-                      color: medal ? "#000" : (dark ? "#fff" : "#000"),
-                      fontWeight: 900,
-                      fontSize: medal ? 16 : 14,
-                      display: "grid",
-                      placeItems: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {medal || rank}
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{
-                      fontWeight: 800,
-                      fontSize: 14.5,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}>
-                      <span>{s.group.name}</span>
-                      {isMe && (
-                        <span style={{
-                          fontSize: 10,
-                          fontWeight: 900,
-                          textTransform: "uppercase",
-                          padding: "2px 6px",
-                          borderRadius: 6,
-                          background: ACCENT,
-                          color: "#fff",
-                        }}>
-                          You
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2, display: "flex", gap: 8 }}>
-                      <span>🥇 {s.firsts}</span>
-                      <span>🥈 {s.seconds}</span>
-                      <span>🥉 {s.thirds}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{
-                    fontSize: 19,
-                    fontWeight: 900,
-                    color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
-                    fontFamily: "'Plus Jakarta Sans',sans-serif",
-                  }}>
-                    {s.totalPoints}
-                    <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 2, color: mutedTx }}>pts</span>
-                  </div>
-                </div>
+                  gap: 5,
+                }}>
+                  <Ic name="star" size={12} color="#f59e0b" />
+                  <span>STAR OF THE FEST · STAGE KING</span>
+                </span>
+                {studentStandings.starOfTheFest && (
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#f59e0b" }}>
+                    {studentStandings.starOfTheFest.stagePoints} pts
+                  </span>
+                )}
               </div>
-            );
-          })}
+
+              {studentStandings.starOfTheFest && studentStandings.starOfTheFest.stagePoints > 0 ? (
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: dark ? "#f8fafc" : "#0f172a" }}>
+                    {studentStandings.starOfTheFest.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>
+                    Chest #{studentStandings.starOfTheFest.chestNo} • {studentStandings.starOfTheFest.group?.name}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: mutedTx }}>
+                  Awaiting published stage event results
+                </div>
+              )}
+            </div>
+
+            {/* Pen of the Fest */}
+            <div
+              style={{
+                padding: "16px 18px",
+                borderRadius: 16,
+                background: dark
+                  ? "linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(19, 21, 36, 0.95) 100%)"
+                  : "linear-gradient(135deg, rgba(237, 233, 254, 0.6) 0%, #ffffff 100%)",
+                border: "1.5px solid rgba(139, 92, 246, 0.35)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  fontSize: 10.5,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  background: "rgba(139, 92, 246, 0.2)",
+                  color: "#8b5cf6",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}>
+                  <Ic name="pen" size={12} color="#8b5cf6" />
+                  <span>PEN OF THE FEST · OFF-STAGE KING</span>
+                </span>
+                {studentStandings.penOfTheFest && (
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#8b5cf6" }}>
+                    {studentStandings.penOfTheFest.offStagePoints} pts
+                  </span>
+                )}
+              </div>
+
+              {studentStandings.penOfTheFest && studentStandings.penOfTheFest.offStagePoints > 0 ? (
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: dark ? "#f8fafc" : "#0f172a" }}>
+                    {studentStandings.penOfTheFest.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>
+                    Chest #{studentStandings.penOfTheFest.chestNo} • {studentStandings.penOfTheFest.group?.name}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: mutedTx }}>
+                  Awaiting published off-stage event results
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Team Standings Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 460px), 1fr))", gap: 10 }}>
+            {groupScores.map((s, idx) => {
+              const isMe = s.group.id === group.id;
+              const rank = idx + 1;
+              const isPodium = rank <= 3;
+              return (
+                <div
+                  key={s.group.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "14px 18px",
+                    borderRadius: 16,
+                    background: isMe
+                      ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.06)")
+                      : cardBg,
+                    border: isMe
+                      ? `1.5px solid ${ACCENT}`
+                      : `1px solid ${border}`,
+                    boxShadow: isMe
+                      ? "0 6px 20px rgba(241,77,77,0.15)"
+                      : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: isPodium
+                          ? (rank === 1 ? "#fbbf24" : rank === 2 ? "#cbd5e1" : "#d97706")
+                          : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+                        color: isPodium ? "#000" : (dark ? "#fff" : "#000"),
+                        fontWeight: 900,
+                        fontSize: 13.5,
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      #{rank}
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{
+                        fontWeight: 800,
+                        fontSize: 14.5,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}>
+                        <span>{s.group.name}</span>
+                        {isMe && (
+                          <span style={{
+                            fontSize: 10,
+                            fontWeight: 900,
+                            textTransform: "uppercase",
+                            padding: "2px 6px",
+                            borderRadius: 6,
+                            background: ACCENT,
+                            color: "#fff",
+                          }}>
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <span>Stage: {s.stagePoints || 0} pts</span>
+                        <span>•</span>
+                        <span>Off-Stage: {s.offStagePoints || 0} pts</span>
+                        <span>•</span>
+                        <span>1st: {s.firsts || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{
+                      fontSize: 19,
+                      fontWeight: 900,
+                      color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                    }}>
+                      {s.totalPoints}
+                      <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 2, color: mutedTx }}>pts</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))", gap: 14 }}>
           {filteredPublishedProgs.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px 16px", color: mutedTx, gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 44, marginBottom: 12 }}>🏆</div>
+              <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+                <Ic name="trophy" size={38} color={mutedTx} />
+              </div>
               <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>
                 {resView === "mine"
                   ? "No awards in published events yet"
@@ -1739,7 +1738,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                           padding: "2px 7px",
                           borderRadius: 6,
                         }}>
-                          #{p.order || p.code || "—"}
+                          {p.order || p.code || "—"}
                         </span>
                         <Tag label={p.category} dark={dark} />
                         <Tag label={p.type || p.session || "Stage"} dark={dark} variant="accent" />
@@ -1751,8 +1750,12 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                             background: "rgba(16,185,129,0.12)",
                             padding: "2px 8px",
                             borderRadius: 6,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}>
-                            🎉 Team Placed!
+                            <Ic name="check" size={11} color="#10b981" />
+                            <span>Team Placed!</span>
                           </span>
                         )}
                       </div>
@@ -1774,6 +1777,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                       const st = resolveStudent(e);
                       const isMe = st?.isMyGroup;
                       const place = Number(e.place || idx + 1);
+                      const isShared = e.isShared || (e.placeLabel && e.placeLabel.includes("Shared"));
                       const placeLabel = place === 1 ? "1st" : place === 2 ? "2nd" : place === 3 ? "3rd" : `${place}th`;
                       const medalColor = place === 1 ? "#f59e0b" : place === 2 ? "#94a3b8" : "#d97706";
 
@@ -1797,15 +1801,17 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
                             <span style={{
-                              width: 32,
+                              minWidth: 32,
                               height: 24,
+                              padding: "0 6px",
                               borderRadius: 6,
                               background: `${medalColor}22`,
                               color: medalColor,
                               fontWeight: 900,
                               fontSize: 11.5,
-                              display: "grid",
-                              placeItems: "center",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                               flexShrink: 0,
                             }}>
                               {placeLabel}
@@ -1819,9 +1825,19 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                                 textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
                                 color: isMe ? ACCENT : (dark ? "#f8fafc" : "#0f172a"),
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
                               }}>
-                                {st?.chestNo && <span style={{ opacity: 0.8, marginRight: 5 }}>#{st.chestNo}</span>}
-                                {st?.name || `Contestant #${e.studentId}`}
+                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {st?.chestNo && <span style={{ opacity: 0.8, marginRight: 5 }}>{st.chestNo}</span>}
+                                  {st?.name || `Contestant ${e.studentId}`}
+                                </span>
+                                {isShared && (
+                                  <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>
+                                    Joint
+                                  </span>
+                                )}
                               </div>
                               <div style={{ fontSize: 11, color: mutedTx, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {st?.groupName || "—"}
@@ -1884,7 +1900,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                               }}
                             >
                               <span>
-                                {ost?.chestNo && <span style={{ opacity: 0.8, marginRight: 4 }}>#{ost.chestNo}</span>}
+                                {ost?.chestNo && <span style={{ opacity: 0.8, marginRight: 4 }}>{ost.chestNo}</span>}
                                 {ost?.name}
                               </span>
                               <span style={{
@@ -2237,9 +2253,11 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   <div style={{
                     padding: "10px 14px", borderRadius: 12,
                     background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)",
-                    color: "#10b981", fontSize: 12.5, fontWeight: 700
+                    color: "#10b981", fontSize: 12.5, fontWeight: 700,
+                    display: "flex", alignItems: "center", gap: 5,
                   }}>
-                    ✓ Password updated successfully!
+                    <Ic name="check" size={13} color="#10b981" />
+                    <span>Password updated successfully!</span>
                   </div>
                 )}
 
@@ -2283,9 +2301,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8,
                     background: isStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
                     color: isStageLocked ? "#f43f5e" : "#10b981",
-                    border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                    border: isStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)",
+                    display: "inline-flex", alignItems: "center", gap: 4,
                   }}>
-                    {isStageLocked ? "🔒 Locked" : "✓ Open"}
+                    {isStageLocked ? <><Ic name="lock" size={11} color="#f43f5e" /> Locked</> : "Open"}
                   </span>
                 </div>
 
@@ -2305,9 +2324,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8,
                     background: isOffStageLocked ? "rgba(244,63,94,0.12)" : "rgba(16,185,129,0.12)",
                     color: isOffStageLocked ? "#f43f5e" : "#10b981",
-                    border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)"
+                    border: isOffStageLocked ? "1px solid rgba(244,63,94,0.2)" : "1px solid rgba(16,185,129,0.2)",
+                    display: "inline-flex", alignItems: "center", gap: 4,
                   }}>
-                    {isOffStageLocked ? "🔒 Locked" : "✓ Open"}
+                    {isOffStageLocked ? <><Ic name="lock" size={11} color="#f43f5e" /> Locked</> : "Open"}
                   </span>
                 </div>
               </div>
@@ -2317,64 +2337,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
         {/* System Info */}
         <div style={{ textAlign: "center", padding: "20px 0 24px", color: mutedTx, fontSize: 12 }}>
-          <div style={{ fontWeight: 700, color: dark ? "#94a3b8" : "#64748b" }}>FestFlow Cultural & Arts Manager</div>
+          <div style={{ fontWeight: 700, color: dark ? "#94a3b8" : "#64748b" }}>Cognizance Cultural & Arts Manager</div>
           <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>Version 1.0 · Connected to Real-Time Cloud</div>
         </div>
-
-        {/* Sign Out Confirmation Modal */}
-        {confirmSignOut && (
-          <div
-            className="modal-bg"
-            onClick={() => setConfirmSignOut(false)}
-            style={{
-              position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-              background: "rgba(0, 0, 0, 0.7)", zIndex: 9999,
-              display: "flex", alignItems: "center", justifyContent: "center", padding: 16
-            }}
-          >
-            <div
-              className="modal"
-              onClick={e => e.stopPropagation()}
-              style={{
-                maxWidth: 380, width: "100%", borderRadius: 20, padding: 24,
-                background: dark ? "#111322" : "#ffffff",
-                border: `1px solid ${border}`, textAlign: "center"
-              }}
-            >
-              <div style={{
-                width: 52, height: 52, borderRadius: "50%", margin: "0 auto 16px",
-                background: "rgba(225, 29, 72, 0.12)", color: "#e11d48",
-                display: "flex", alignItems: "center", justifyContent: "center"
-              }}>
-                <Ic name="logout" size={24} />
-              </div>
-              <div style={{ fontWeight: 800, fontSize: 18, color: dark ? "#f8fafc" : "#0f172a" }}>
-                Sign Out?
-              </div>
-              <div style={{ fontSize: 13, color: mutedTx, marginTop: 6, marginBottom: 20 }}>
-                Are you sure you want to end your session as {group.name}?
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ flex: 1, height: 42, borderRadius: 12 }}
-                  onClick={() => setConfirmSignOut(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ flex: 1, height: 42, borderRadius: 12, background: "#e11d48", color: "#ffffff", fontWeight: 700 }}
-                  onClick={() => { setConfirmSignOut(false); onBack(); }}
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
       </div>
     );
@@ -2401,11 +2366,11 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
       <BottomNav tab={tab} setTab={setTab} dark={dark} hasLockedEvents={isStageLocked || isOffStageLocked} />
 
-      {/* ── Messages Floating Action Button (FAB) on all pages except results ── */}
-      {tab !== "results" && tab !== "settings" && (
+      {/* ── Messages Floating Action Button (FAB) on all pages except results & settings ── */}
+      {tab !== "results" && tab !== "settings" && !showMessagesModal && (
         <button
           type="button"
-          className="leader-mobile-fab"
+          className="leader-fab"
           onClick={() => {
             triggerHaptic("medium");
             setShowMessagesModal(true);
@@ -2414,8 +2379,6 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           title="Admin Support Chat"
           style={{
             position: "fixed",
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 86px)",
-            right: 18,
             width: 52,
             height: 52,
             borderRadius: "50%",
@@ -2533,7 +2496,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     const pLocked = isLocked(group.id, pSess);
                     return (
                       <option key={p.id} value={p.id}>
-                        {p.order ? `#${p.order} ` : ""}{p.name} · {p.category} ({pSess}){pLocked ? " 🔒 [Locked - Meet Admin]" : ""}
+                        {p.order ? `${p.order} ` : ""}{p.name} · {p.category} ({pSess}){pLocked ? " [Locked - Meet Admin]" : ""}
                       </option>
                     );
                   })()
@@ -2550,7 +2513,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     border: "1px solid rgba(244, 63, 94, 0.25)",
                     color: "#f43f5e", display: "flex", alignItems: "flex-start", gap: 10
                   }}>
-                    <span style={{ fontSize: 18, lineHeight: 1 }}>🔒</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", paddingTop: 2 }}>
+                      <Ic name="lock" size={17} color="#f43f5e" />
+                    </span>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 13 }}>Registration Locked for {progSession} Session</div>
                       <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 2, opacity: 0.95, lineHeight: 1.4 }}>
@@ -2614,7 +2579,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                               borderRadius: 6,
                               letterSpacing: 0.3,
                             }}>
-                              ⛔ {progSession.toUpperCase()} LIMIT REACHED ({progSession === "Off-Stage" ? quota.offStage : quota.stage}/{progSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage})
+                              {progSession.toUpperCase()} LIMIT REACHED ({progSession === "Off-Stage" ? quota.offStage : quota.stage}/{progSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage})
                             </span>
                           ) : null}
                         </div>
@@ -2643,7 +2608,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
               <button type="button" className="btn btn-ghost" onClick={() => setRegModal(false)} style={{ borderRadius: 12 }}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={!regForm.programId || regForm.participantIds.length === 0 || regSaving || isLocked(group.id, progSession)} style={{ borderRadius: 12, fontWeight: 800 }}>
-                {regSaving ? "Saving..." : isLocked(group.id, progSession) ? "🔒 Locked (Meet Admin)" : editTarget ? "Update Registration" : "Confirm Registration"}
+                {regSaving ? "Saving..." : isLocked(group.id, progSession) ? "Locked (Meet Admin)" : editTarget ? "Update Registration" : "Confirm Registration"}
               </button>
             </div>
           </form>
@@ -2663,7 +2628,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 {/* Simplified Header Card */}
                 <div style={{ padding: "14px 16px", borderRadius: 14, background: dark ? "rgba(255,255,255,0.035)" : "rgba(0,0,0,0.03)", border: `1px solid ${border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 14, color: ACCENT }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 14, color: ACCENT }}>{p?.order ? `${p.order}` : ""}</span>
                     <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "'Plus Jakarta Sans',sans-serif", color: dark ? "#f8fafc" : "#0f172a" }}>{p?.name}</div>
                   </div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: mutedTx, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -2703,7 +2668,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                           color: mutedTx,
                         }}>
                           <div>Team</div>
-                          <div>Chest #</div>
+                          <div>Chest No.</div>
                           <div>Student</div>
                           <div>Category</div>
                         </div>
@@ -2739,7 +2704,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                                 </span>
                               </div>
 
-                              {/* Chest # */}
+                              {/* Chest No */}
                               <div>
                                 <span style={{
                                   color: ACCENT,
@@ -2751,7 +2716,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                                   borderRadius: 6,
                                   display: "inline-block"
                                 }}>
-                                  #{s.chestNo}
+                                  {s.chestNo}
                                 </span>
                               </div>
 
@@ -2797,7 +2762,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   </div>
                 ) : (
                   <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 14, background: dark ? "rgba(244,63,94,0.12)" : "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", textAlign: "center", color: "#f43f5e" }}>
-                    <div style={{ fontWeight: 800, fontSize: 13 }}>🔒 Registration for this program is locked</div>
+                    <div style={{ fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                      <Ic name="lock" size={14} color="#f43f5e" />
+                      <span>Registration for this program is locked</span>
+                    </div>
                     <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, opacity: 0.95 }}>
                       Modifications are disabled. Please meet the admin to unlock.
                     </div>
@@ -2852,15 +2820,114 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                     padding: "5px 11px", borderRadius: 9, fontSize: 11.5, fontWeight: 800,
                     background: stats.remaining > 0 ? "rgba(241,77,77,0.12)" : "rgba(16,185,129,0.12)",
                     color: stats.remaining > 0 ? "#f14d4d" : "#10b981",
-                    border: `1px solid ${stats.remaining > 0 ? "rgba(241,77,77,0.2)" : "rgba(16,185,129,0.2)"}`
+                    border: `1px solid ${stats.remaining > 0 ? "rgba(241,77,77,0.2)" : "rgba(16,185,129,0.2)"}`,
+                    display: "inline-flex", alignItems: "center", gap: 3
                   }}>
-                    {stats.remaining > 0 ? `${stats.remaining} Remaining` : "✓ Complete"}
+                    {stats.remaining > 0 ? `${stats.remaining} Remaining` : <><Ic name="check" size={11} color="#10b981" /> Complete</>}
                   </span>
                 </div>
               );
             })}
           </div>
         </Modal>
+      )}
+
+      {/* ── Sign Out Confirmation Modal ── */}
+      {confirmSignOut && typeof document !== "undefined" && createPortal(
+        <div
+          className="modal-bg"
+          onClick={() => setConfirmSignOut(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100dvh",
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 100000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            className="modal anim-scaleUp"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 400,
+              width: "100%",
+              borderRadius: 22,
+              padding: "28px 24px 24px",
+              background: dark ? "#111322" : "#ffffff",
+              border: `1px solid ${border}`,
+              textAlign: "center",
+              boxShadow: "0 28px 70px -15px rgba(0,0,0,0.6)",
+              margin: "auto",
+            }}
+          >
+            <div style={{
+              width: 54, height: 54, borderRadius: "50%", margin: "0 auto 16px",
+              background: "rgba(225, 29, 72, 0.12)", color: "#e11d48",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "1px solid rgba(225, 29, 72, 0.2)",
+            }}>
+              <Ic name="logout" size={24} />
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 19, color: dark ? "#f8fafc" : "#0f172a", marginBottom: 8 }}>
+              Sign Out?
+            </div>
+            <div style={{ fontSize: 13.5, color: mutedTx, marginBottom: 24, lineHeight: 1.5 }}>
+              Are you sure you want to end your session as <strong style={{ color: dark ? "#f8fafc" : "#0f172a" }}>{group.name}</strong>?
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  fontSize: 13.5,
+                  background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                  cursor: "pointer",
+                }}
+                onClick={() => setConfirmSignOut(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  background: "#e11d48",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  border: "none",
+                  boxShadow: "0 4px 14px rgba(225,29,72,0.35)",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setConfirmSignOut(false);
+                  onBack();
+                }}
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -3044,7 +3111,7 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         const reader = new FileReader();
         reader.onloadend = () => {
-          sendMessage(group.id, group.name, "admin", "🎙️ Voice Message", { mediaType: "audio", mediaUrl: reader.result });
+          sendMessage(group.id, group.name, "admin", "Voice Message", { mediaType: "audio", mediaUrl: reader.result });
         };
         reader.readAsDataURL(audioBlob);
         stream.getTracks().forEach(t => t.stop());
@@ -3076,7 +3143,7 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
   const send = () => {
     if (!text.trim() && !imagePreview) return;
     if (imagePreview) {
-      sendMessage(group.id, group.name, "admin", text.trim() || "📷 Image", { mediaType: "image", mediaUrl: imagePreview });
+      sendMessage(group.id, group.name, "admin", text.trim() || "Image", { mediaType: "image", mediaUrl: imagePreview });
       setImagePreview(null);
     } else {
       sendMessage(group.id, group.name, "admin", text.trim());
@@ -3230,8 +3297,10 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
                   <WhatsAppVoiceNote mediaUrl={m.mediaUrl} isOwn={isOwn} />
                 )}
 
-                {m.text && m.text !== "🎙️ Voice Message" && m.text !== "📷 Image" && (
-                  <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>{m.text}</div>
+                {m.text && !m.text.endsWith("Voice Message") && !m.text.endsWith("Image") && (
+                  <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>
+                    {linkifyText(m.text, { isOwn })}
+                  </div>
                 )}
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 4, opacity: 0.85, fontSize: 10, fontWeight: 600 }}>
@@ -3277,7 +3346,7 @@ const EmbeddedInbox = ({ group, dark, messages, sendMessage, markRead, setMessag
         <div style={{ padding: "8px 14px", borderTop: `1px solid ${border}`, background: dark ? "#0f111a" : "#ffffff", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ position: "relative" }}>
             <img src={imagePreview} alt="Preview" style={{ width: 50, height: 50, borderRadius: 10, objectFit: "cover" }} />
-            <button onClick={() => setImagePreview(null)} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#f43f5e", color: "#fff", border: "none", cursor: "pointer", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            <button onClick={() => setImagePreview(null)} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#f43f5e", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Ic name="x" size={10} color="#ffffff" /></button>
           </div>
           <span style={{ fontSize: 12, fontWeight: 600, color: mutedTx }}>Image Attached</span>
         </div>

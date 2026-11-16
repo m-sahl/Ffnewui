@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { Shield, Users, List, Crown, PenTool, ChevronDown } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
@@ -9,14 +11,25 @@ import ImportStudentsModal from "./ImportStudentsModal";
 import ImportProgramsModal from "./ImportProgramsModal";
 import PublishResultsModal from "./PublishResultsModal";
 import EvaluationReviewModal from "./EvaluationReviewModal";
+import CodeLetterModal from "./CodeLetterModal";
 import PublishingSection from "./PublishingSection";
+import { buildJudgeMessage } from "../../utils/formatMessage";
+import * as XLSX from "xlsx";
 import { CATS, STUDENT_CATS, ACCENT, catColor, ACCENT4 } from "../../styles/DesignTokens";
 import { getHashRoute, useHashSync, useModalBackHandler } from "../../utils/useRouting";
+import {
+  calculateTeamStandings,
+  calculateStudentStandings,
+  getScoringRules,
+  saveScoringRules,
+  DEFAULT_SCORING_RULES,
+} from "../../utils/scoring";
 
-const VALID_VIEWS = ["dashboard", "students", "events", "programs", "users", "registrations", "results", "publishing", "print", "settings"];
+const VALID_VIEWS = ["dashboard", "leaderboard", "students", "events", "programs", "users", "registrations", "results", "publishing", "print", "settings"];
 
 const NAV = [
   { id: "dashboard",     icon: "dashboard",   label: "Dashboard"   },
+  { id: "leaderboard",   icon: "trophy",      label: "Leaderboard" },
   { id: "students",      icon: "users",       label: "Students"    },
   { id: "events",        icon: "book",        label: "Events"      },
   { id: "users",         icon: "shield",      label: "Groups"      },
@@ -64,13 +77,32 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, revertEvaluation, publishResults, unpublishResults, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage } = useApp();
 
   const [view, setViewState]         = useState(() => getHashRoute("admin", "students", VALID_VIEWS, { programs: "events" }));
   const setViewSync                   = useHashSync("admin", view, setViewState, VALID_VIEWS, { programs: "events" });
   const setView                       = useCallback((v) => { setViewState(v); setViewSync(v); }, [setViewSync]);
 
   const [activeGroup, setActiveGroup] = useState(groups[0]?.id);
+
+  const contentRef = useRef(null);
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [view]);
+
+  // On localhost, purge any saved production vercel.app URLs to guarantee local testing links work
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      try {
+        const saved = localStorage.getItem("ff_public_app_url");
+        if (saved && saved.includes("vercel.app")) {
+          localStorage.removeItem("ff_public_app_url");
+        }
+      } catch {}
+    }
+  }, []);
   const [adminNewPwd, setAdminNewPwd]             = useState("");
   const [adminNewPwdConfirm, setAdminNewPwdConfirm] = useState("");
   const [adminPwdSuccess, setAdminPwdSuccess]     = useState(false);
@@ -97,6 +129,44 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       setAdminPwdSuccess(false);
     }, 3000);
   };
+
+  // ── Festival Scoring Engine & Real-Time Standings ─────────────────────────────
+  const [scoringRules, setScoringRules] = useState(() => getScoringRules());
+  const [scoringRulesSaved, setScoringRulesSaved] = useState(false);
+
+  const handleSaveScoringRules = (updatedRules) => {
+    saveScoringRules(updatedRules);
+    setScoringRules(updatedRules);
+    setScoringRulesSaved(true);
+    logActivity(user.name, "Updated festival scoring rules", "Configured points and awards distribution");
+    setTimeout(() => setScoringRulesSaved(false), 3000);
+  };
+
+  const handleResetScoringRules = () => {
+    saveScoringRules(DEFAULT_SCORING_RULES);
+    setScoringRules(DEFAULT_SCORING_RULES);
+    setScoringRulesSaved(true);
+    logActivity(user.name, "Reset scoring rules to defaults", "Restored festival defaults");
+    setTimeout(() => setScoringRulesSaved(false), 3000);
+  };
+
+  const teamStandings = useMemo(() => {
+    return calculateTeamStandings(programs, groups, students, scoringRules);
+  }, [programs, groups, students, scoringRules]);
+
+  const studentStandings = useMemo(() => {
+    return calculateStudentStandings(programs, students, groups, scoringRules);
+  }, [programs, students, groups, scoringRules]);
+
+  // Leaderboard exploration view state
+  const [leaderboardSessionFilter, setLeaderboardSessionFilter] = useState("All");
+  const [leaderboardCatFilter, setLeaderboardCatFilter] = useState("All");
+  const [leaderboardSearch, setLeaderboardSearch] = useState("");
+  const [leaderboardActiveTab, setLeaderboardActiveTab] = useState("teams");
+  const [expandedAwards, setExpandedAwards] = useState({});
+  const toggleAwardExpanded = useCallback((title) => {
+    setExpandedAwards(prev => ({ ...prev, [title]: !prev[title] }));
+  }, []);
 
   const [progType, setProgType]       = useState("Stage");
   const [catFilter, setCatFilter]     = useState("All");
@@ -133,8 +203,11 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [resSearchOpen, setResSearchOpen]       = useState(true);
   const [activeResultProg, setActiveResultProg] = useState(null);
   const [activeEvalProg, setActiveEvalProg]     = useState(null);
+  const [codeLetterProg, setCodeLetterProg]     = useState(null);
+  const [copiedProgId, setCopiedProgId]         = useState(null);
+  const [confirmSignOut, setConfirmSignOut]     = useState(false);
 
-  const isAnyModalOpen = progModal || stuModal || userModal || editUserModal || !!delConfirm || showMessages || importModal || progImportModal || !!selectedEntryInfo || !!activeResultProg || !!activeEvalProg;
+  const isAnyModalOpen = progModal || stuModal || userModal || editUserModal || !!delConfirm || showMessages || importModal || progImportModal || !!selectedEntryInfo || !!activeResultProg || !!activeEvalProg || !!codeLetterProg || confirmSignOut;
   const closeAllModals = useCallback(() => {
     setProgModal(false);
     setEditProg(null);
@@ -149,6 +222,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setSelectedEntryInfo(null);
     setActiveResultProg(null);
     setActiveEvalProg(null);
+    setCodeLetterProg(null);
+    setConfirmSignOut(false);
   }, []);
 
   useModalBackHandler(isAnyModalOpen, closeAllModals);
@@ -168,6 +243,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const cardBg  = dark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)";
   const mutedTx = dark ? "#6b7280" : "#9ca3af";
   const sideBg  = dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)";
+  const primaryHeadingColor = dark ? "#f8fafc" : "#0f172a";
 
   // ── Student ops ─────────────────────────────────────────────────────────
   const saveStudent = () => {
@@ -200,7 +276,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const newName = editNameValue.trim();
     if (newName !== editNameModal.name) {
       updateStudent(editNameModal.groupId, editNameModal.id, { name: newName });
-      logActivity(user.name, "Renamed student", `${editNameModal.name} → ${newName} (Chest #${editNameModal.chestNo})`);
+      logActivity(user.name, "Renamed student", `${editNameModal.name} → ${newName} (Chest ${editNameModal.chestNo})`);
     }
     setEditNameModal(null);
   };
@@ -335,12 +411,121 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     return () => window.removeEventListener("keydown", handleKey);
   }, [delConfirm]);
 
+  // ── Dashboard Styles (Tokens mirror cream bg & red accent theme) ─────────
+  const dashboardCss = `
+    .ad {
+      --bg: #fbf7f4;
+      --card: #fff;
+      --text: #14142b;
+      --muted: #7a7a8c;
+      --line: #eee7e2;
+      --red: #e5383b;
+      --redbg: #fde8e8;
+      --gold: #d98300;
+      --goldbg: #fff6df;
+      --violet: #6d4aff;
+      --violetbg: #f1edff;
+      color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+      transition: background 0.4s, color 0.4s;
+      width: 100%;
+    }
+    .ad.dark {
+      --bg: #0f0f17;
+      --card: #181824;
+      --text: #f2f2f7;
+      --muted: #9a9aae;
+      --line: #2a2a3a;
+      --redbg: #3a1c1f;
+      --goldbg: #2e2410;
+      --violetbg: #25203f;
+    }
+    .ad * { box-sizing: border-box; }
+    .ad button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+    .ad .main { width: 100%; animation: adFade 0.5s ease; }
+    @keyframes adFade {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    .ad h1 { font-size: 30px; margin: 0 0 20px; letter-spacing: -0.02em; font-weight: 800; color: var(--text); }
+    .ad h2 { font-size: 19px; margin: 30px 0 14px; letter-spacing: -0.01em; font-weight: 800; color: var(--text); }
+    .ad .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .ad .stack { display: flex; flex-direction: column; gap: 12px; }
+    .ad .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 1px 2px rgba(20,20,43,0.04); transition: transform 0.3s, box-shadow 0.3s; }
+    .ad .card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(20,20,43,0.1); }
+    .ad .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ad .row.start { justify-content: flex-start; }
+    .ad .grow { flex: 1; min-width: 0; }
+    .ad .eyebrow { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .ad .chip { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; }
+    .ad .chip.red { background: var(--redbg); color: var(--red); }
+    .ad .chip.blue { background: #e8f0ff; color: #3b6cf6; }
+    .ad.dark .chip.blue { background: rgba(59, 108, 246, 0.2); color: #60a5fa; }
+    .ad .chip.green { background: #e3f8ee; color: #12a05c; }
+    .ad.dark .chip.green { background: rgba(18, 160, 92, 0.2); color: #34d399; }
+    .ad .num { font-size: 38px; font-weight: 700; margin-top: 12px; letter-spacing: -0.03em; color: var(--text); }
+    .ad .badge { width: 34px; height: 34px; border-radius: 10px; background: var(--redbg); color: var(--red); display: grid; place-items: center; font-weight: 700; }
+    .ad .team b:not(.due) { font-size: 16px; color: var(--text); }
+    .ad .kv { display: flex; justify-content: space-between; padding: 10px 0 0; margin-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    .ad .kv b { color: var(--text); }
+    .ad .kv .due { color: var(--gold); }
+    .ad .split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .ad .rank { display: flex; align-items: center; gap: 14px; }
+    .ad .rank b { flex: 1; font-size: 17px; color: var(--text); }
+    .ad .pos { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 99px; background: var(--line); color: var(--text); }
+    .ad .r0 { background: linear-gradient(135deg, var(--goldbg), var(--card)); }
+    .ad .r0 .pos { background: var(--gold); color: #fff; }
+    .ad .pts { font-size: 24px; font-weight: 700; color: var(--text); }
+    .ad .pts small { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .ad .award { display: flex; flex-direction: column; gap: 14px; cursor: pointer; user-select: none; transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; outline: none; }
+    .ad .award:focus-visible { outline: 2px solid var(--red); }
+    .ad .award.gold { background: linear-gradient(135deg, var(--goldbg), var(--card)); }
+    .ad .award.violet { background: linear-gradient(135deg, var(--violetbg), var(--card)); }
+    .ad .award-header-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .ad .expand-indicator { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--muted); transition: color 0.2s ease; }
+    .ad .award:hover .expand-indicator { color: var(--text); }
+    .ad .expand-hint { font-size: 11px; letter-spacing: 0.02em; }
+    .ad .chevron { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); color: var(--muted); }
+    .ad .chevron.open { transform: rotate(180deg); color: var(--text); }
+    .ad .avatar { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: #fff; flex-shrink: 0; }
+    .ad .gold .avatar { background: linear-gradient(135deg, #f5a524, #d98300); }
+    .ad .violet .avatar { background: linear-gradient(135deg, #8b6bff, #5a3df0); }
+    .ad .gold .pts { color: var(--gold); }
+    .ad .violet .pts { color: var(--violet); }
+    .ad .muted { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .ad .award-accordion { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease; }
+    .ad .award-accordion.open { grid-template-rows: 1fr; opacity: 1; }
+    .ad .award-accordion-inner { overflow: hidden; }
+    .ad .runners-list { padding-top: 14px; margin-top: 2px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+    .ad .runners-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; }
+    .ad .runners-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--muted); font-style: italic; }
+    .ad .runner-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; background: rgba(20, 20, 43, 0.025); transition: background 0.18s ease; }
+    .ad.dark .runner-row { background: rgba(255, 255, 255, 0.035); }
+    .ad .runner-row:hover { background: rgba(20, 20, 43, 0.05); }
+    .ad.dark .runner-row:hover { background: rgba(255, 255, 255, 0.07); }
+    .ad .runner-pos { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--line); color: var(--muted); min-width: 32px; text-align: center; flex-shrink: 0; }
+    .ad .runner-info { flex: 1; min-width: 0; }
+    .ad .runner-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+    .ad .runner-meta { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ad .runner-pts { font-size: 14px; font-weight: 700; margin-left: auto; color: var(--text); flex-shrink: 0; }
+    .ad .gold .runner-pts { color: var(--gold); }
+    .ad .violet .runner-pts { color: var(--violet); }
+    .ad .runner-pts small { font-size: 10px; color: var(--muted); font-weight: 500; }
+    @media(max-width: 860px) {
+      .ad .split { grid-template-columns: 1fr; }
+    }
+    @media(max-width: 560px) {
+      .ad .grid3 { grid-template-columns: 1fr; }
+      .ad h1 { font-size: 26px; }
+    }
+  `;
+
   // ── RENDER: Dashboard ─────────────────────────────────────────────────────
   const renderDashboard = () => {
     const totalTeams = groups.length;
     const allStudents = Object.values(students || {}).flat();
     const totalStudents = allStudents.length;
-    const totalEntries = registrations.length;
+    const totalPrograms = programs.length;
 
     // Team-by-team computed data
     const teamStats = groups.map(group => {
@@ -350,313 +535,197 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
 
       return {
         ...group,
-        total: gStudents.length,
+        code: (group.name || "T").charAt(0).toUpperCase(),
+        students: gStudents.length,
         regs: gRegs,
         due: gDue,
       };
     });
 
-    const totalDue = teamStats.reduce((sum, t) => sum + t.due, 0);
-    const primaryHeadingColor = dark ? "#f8fafc" : "#0f172a";
+    const stats = [
+      { label: "Teams", value: totalTeams, icon: Shield, tone: "red" },
+      { label: "Students", value: totalStudents, icon: Users, tone: "blue" },
+      { label: "Programs", value: totalPrograms, icon: List, tone: "green" },
+    ];
+
+    const rankedTeams = teamStandings.length > 0
+      ? teamStandings.map(s => ({ name: s.group.name, pts: s.totalPoints }))
+      : groups.map(g => ({ name: g.name, pts: 0 }));
+
+    const starStudent = studentStandings?.starOfTheFest;
+    const penStudent = studentStandings?.penOfTheFest;
+
+    // Next five students who stand just below the topper
+    const starRunnersUp = (studentStandings?.stageRanked || []).slice(1, 6);
+    const penRunnersUp = (studentStandings?.offStageRanked || []).slice(1, 6);
+
+    const awards = [
+      {
+        title: "Star of the Fest",
+        icon: Crown,
+        tone: "gold",
+        name: starStudent?.name || (registrations.length > 0 ? "Pending Evaluation" : "Awaiting Results"),
+        chest: starStudent?.chestNo ? `#${starStudent.chestNo}` : "—",
+        team: starStudent?.group?.name || "—",
+        pts: starStudent?.stagePoints || starStudent?.totalPoints || 0,
+        runnersUp: starRunnersUp,
+        pointField: "stagePoints",
+      },
+      {
+        title: "Pen of the Fest",
+        icon: PenTool,
+        tone: "violet",
+        name: penStudent?.name || (registrations.length > 0 ? "Pending Evaluation" : "Awaiting Results"),
+        chest: penStudent?.chestNo ? `#${penStudent.chestNo}` : "—",
+        team: penStudent?.group?.name || "—",
+        pts: penStudent?.offStagePoints || penStudent?.totalPoints || 0,
+        runnersUp: penRunnersUp,
+        pointField: "offStagePoints",
+      },
+    ];
+
+    const ORDINAL = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
 
     return (
-      <div className="anim-fadeIn">
-        {/* Top Header */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{
-            fontFamily: "'Plus Jakarta Sans',sans-serif",
-            fontWeight: 800,
-            fontSize: 24,
-            letterSpacing: "-0.5px",
-            color: primaryHeadingColor
-          }}>
-            Dashboard
-          </div>
-        </div>
+      <div className={`ad ${dark ? "dark" : ""}`}>
+        <style>{dashboardCss}</style>
 
-        {/* Top Summary KPI Cards */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-          marginBottom: 32
-        }}>
-          {/* Card 1: Total Teams */}
-          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
-                Teams
-              </span>
-              <span style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: dark ? "rgba(241, 77, 77, 0.12)" : "rgba(241, 77, 77, 0.08)",
-                color: "#f14d4d", display: "flex", alignItems: "center", justifyContent: "center"
-              }}>
-                <Ic name="shield" size={16} />
-              </span>
-            </div>
-            <div>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans',sans-serif",
-                fontWeight: 900,
-                fontSize: 32,
-                lineHeight: 1,
-                color: primaryHeadingColor
-              }}>
-                {totalTeams}
-              </div>
-              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
-                Active teams
-              </div>
-            </div>
-          </div>
+        <div className="main">
+          <h1>Dashboard</h1>
 
-          {/* Card 2: Total Students */}
-          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
-                Students
-              </span>
-              <span style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: dark ? "rgba(59, 130, 246, 0.12)" : "rgba(59, 130, 246, 0.08)",
-                color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center"
-              }}>
-                <Ic name="users" size={16} />
-              </span>
-            </div>
-            <div>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans',sans-serif",
-                fontWeight: 900,
-                fontSize: 32,
-                lineHeight: 1,
-                color: primaryHeadingColor
-              }}>
-                {totalStudents}
-              </div>
-              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
-                Enrolled students
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Program Entries */}
-          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
-                Program Entries
-              </span>
-              <span style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: dark ? "rgba(29, 209, 131, 0.12)" : "rgba(29, 209, 131, 0.08)",
-                color: "#1dd183", display: "flex", alignItems: "center", justifyContent: "center"
-              }}>
-                <Ic name="list" size={16} />
-              </span>
-            </div>
-            <div>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans',sans-serif",
-                fontWeight: 900,
-                fontSize: 32,
-                lineHeight: 1,
-                color: primaryHeadingColor
-              }}>
-                {totalEntries}
-              </div>
-              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
-                Submitted entries
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Due Entries */}
-          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: mutedTx }}>
-                Due Entries
-              </span>
-              <span style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: dark ? "rgba(245, 158, 11, 0.12)" : "rgba(245, 158, 11, 0.08)",
-                color: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center"
-              }}>
-                <Ic name="info" size={16} />
-              </span>
-            </div>
-            <div>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans',sans-serif",
-                fontWeight: 900,
-                fontSize: 32,
-                lineHeight: 1,
-                color: totalDue > 0 ? (dark ? "#fbbf24" : "#d97706") : "#1dd183"
-              }}>
-                {totalDue}
-              </div>
-              <div style={{ fontSize: 12, color: mutedTx, marginTop: 6 }}>
-                Pending event entries
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section Header: Team Details */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 16,
-        }}>
-          <div style={{
-            fontFamily: "'Plus Jakarta Sans',sans-serif",
-            fontWeight: 800,
-            fontSize: 18,
-            letterSpacing: "-0.3px",
-            color: primaryHeadingColor
-          }}>
-            Team Details
-          </div>
-        </div>
-
-        {/* Team-by-team Responsive Card Grid */}
-        {teamStats.length === 0 ? (
-          <div className="card" style={{ padding: "48px 20px", textAlign: "center", color: mutedTx }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: primaryHeadingColor }}>No teams found</div>
-            <div style={{ fontSize: 13, marginTop: 4 }}>Add a group from the Groups tab to view team statistics.</div>
-          </div>
-        ) : (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: 16
-          }}>
-            {teamStats.map((team, idx) => {
-              const teamColor = team.color || ACCENT;
-
-              return (
-                <div
-                  key={team.id || idx}
-                  className="card"
-                  style={{
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
-                  }}
-                >
-                  {/* Team Header: Avatar & Name */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: teamColor,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: "'Plus Jakarta Sans',sans-serif",
-                      fontWeight: 900,
-                      fontSize: 15,
-                      color: "#ffffff",
-                      flexShrink: 0
-                    }}>
-                      {team.name ? team.name.charAt(0).toUpperCase() : "T"}
-                    </div>
-                    <div style={{
-                      fontFamily: "'Plus Jakarta Sans',sans-serif",
-                      fontWeight: 800,
-                      fontSize: 16,
-                      color: primaryHeadingColor,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis"
-                    }}>
-                      {team.name}
-                    </div>
-                  </div>
-
-                  {/* Metric Counters (Students & Program Entries) */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10
-                  }}>
-                    <div style={{
-                      background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                      border: `1px solid ${border}`,
-                      borderRadius: 12,
-                      padding: "12px 14px",
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px", color: mutedTx }}>
-                        Students
-                      </div>
-                      <div style={{
-                        fontFamily: "'Plus Jakarta Sans',sans-serif",
-                        fontWeight: 900,
-                        fontSize: 24,
-                        color: primaryHeadingColor,
-                        marginTop: 4
-                      }}>
-                        {team.total}
-                      </div>
-                    </div>
-
-                    <div style={{
-                      background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                      border: `1px solid ${border}`,
-                      borderRadius: 12,
-                      padding: "12px 14px",
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px", color: mutedTx }}>
-                        Program Entries
-                      </div>
-                      <div style={{
-                        fontFamily: "'Plus Jakarta Sans',sans-serif",
-                        fontWeight: 900,
-                        fontSize: 24,
-                        color: primaryHeadingColor,
-                        marginTop: 4
-                      }}>
-                        {team.regs}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Due Entries Area */}
-                  <div style={{
-                    background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                    border: `1px solid ${border}`,
-                    borderRadius: 12,
-                    padding: "12px 14px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between"
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px", color: mutedTx }}>
-                        Due Entries
-                      </div>
-                      <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>
-                        {team.due === 0 ? "All programs registered" : `${team.due} pending of ${programs.length}`}
-                      </div>
-                    </div>
-                    <div style={{
-                      fontFamily: "'Plus Jakarta Sans',sans-serif",
-                      fontWeight: 900,
-                      fontSize: 24,
-                      color: team.due > 0 ? (dark ? "#fbbf24" : "#d97706") : "#1dd183"
-                    }}>
-                      {team.due}
-                    </div>
-                  </div>
+          {/* Stat cards */}
+          <section className="grid3">
+            {stats.map(({ label, value, icon: Icon, tone }) => (
+              <div key={label} className="card stat">
+                <div className="row">
+                  <span className="eyebrow">{label}</span>
+                  <span className={`chip ${tone}`}><Icon size={16} /></span>
                 </div>
-              );
-            })}
+                <div className="num">{value}</div>
+              </div>
+            ))}
+          </section>
+
+          {/* Team details */}
+          <h2>Team Details</h2>
+          <section className="grid3">
+            {teamStats.length === 0 ? (
+              <div className="card" style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", color: "var(--muted)" }}>
+                No teams found. Add groups in the Groups tab to see team statistics.
+              </div>
+            ) : (
+              teamStats.map((t) => (
+                <div key={t.id || t.code} className="card team">
+                  <div className="row start">
+                    <span className="badge" style={t.color ? { background: `${t.color}18`, color: t.color } : {}}>{t.code}</span>
+                    <b>{t.name}</b>
+                  </div>
+                  <div className="kv"><span>Students</span><b>{t.students}</b></div>
+                  <div className="kv"><span>Due entries</span><b className="due">{t.due}</b></div>
+                </div>
+              ))
+            )}
+          </section>
+
+          {/* Leaderboard + awards */}
+          <div className="split">
+            <div>
+              <h2>Champion Leaderboard</h2>
+              <section className="stack">
+                {rankedTeams.length === 0 ? (
+                  <div className="card" style={{ padding: "24px", textAlign: "center", color: "var(--muted)" }}>
+                    No team standings recorded yet
+                  </div>
+                ) : (
+                  rankedTeams.map((r, i) => (
+                    <div key={r.name} className={`card rank r${i}`}>
+                      <span className="pos"><Crown size={13} /> {ORDINAL[i] || `${i + 1}th`}</span>
+                      <b>{r.name}</b>
+                      <span className="pts">{r.pts}<small> pts</small></span>
+                    </div>
+                  ))
+                )}
+              </section>
+            </div>
+            <div>
+              <h2>Fest Awards</h2>
+              <section className="stack">
+                {awards.map((a) => {
+                  const isExpanded = !!expandedAwards[a.title];
+                  return (
+                    <div
+                      key={a.title}
+                      className={`card award ${a.tone}`}
+                      onClick={() => toggleAwardExpanded(a.title)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleAwardExpanded(a.title);
+                        }
+                      }}
+                      aria-expanded={isExpanded}
+                    >
+                      <div className="award-header-row">
+                        <span className="eyebrow">{a.title}</span>
+                        <span className="expand-indicator">
+                          <span className="expand-hint">
+                            {isExpanded ? "Collapse" : (a.runnersUp.length > 0 ? `+${a.runnersUp.length} runners-up` : "View details")}
+                          </span>
+                          <ChevronDown size={14} className={`chevron ${isExpanded ? "open" : ""}`} />
+                        </span>
+                      </div>
+                      <div className="row start">
+                        <span className="avatar"><a.icon size={20} /></span>
+                        <div className="grow">
+                          <b>{a.name}</b>
+                          <div className="muted">Chest {a.chest} · {a.team}</div>
+                        </div>
+                        <span className="pts">{a.pts}<small> pts</small></span>
+                      </div>
+
+                      {/* Smooth minimal collapsible runner-up list */}
+                      <div className={`award-accordion ${isExpanded ? "open" : ""}`}>
+                        <div className="award-accordion-inner">
+                          <div className="runners-list" onClick={(e) => e.stopPropagation()}>
+                            <div className="runners-eyebrow">
+                              <span>Next in Line (Ranks 2–{1 + (a.runnersUp.length || 5)})</span>
+                              <span>Standings</span>
+                            </div>
+                            {a.runnersUp.length === 0 ? (
+                              <div className="runners-empty">
+                                No other ranked students recorded in this category yet
+                              </div>
+                            ) : (
+                              a.runnersUp.map((r, idx) => {
+                                const rankNum = r.stageRank || r.offStageRank || (idx + 2);
+                                const rankLabel = ORDINAL[rankNum - 1] || `${rankNum}th`;
+                                const ptsValue = r[a.pointField] !== undefined ? r[a.pointField] : (r.totalPoints || 0);
+                                return (
+                                  <div key={r.id || idx} className="runner-row">
+                                    <span className="runner-pos">{rankLabel}</span>
+                                    <div className="runner-info">
+                                      <div className="runner-name">{r.name}</div>
+                                      <div className="runner-meta">
+                                        Chest #{r.chestNo || "—"} · {r.group?.name || "—"}
+                                      </div>
+                                    </div>
+                                    <span className="runner-pts">{ptsValue}<small> pts</small></span>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     );
   };
@@ -888,85 +957,89 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-            {/* Table header */}
-            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 68px", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
-              {["Chest", "Name", "Category", "Role", ""].map((h, i) => (
-                <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
-              ))}
-            </div>
-            {groupStudents.map((s, i) => (
-              <div key={s.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 68px", alignItems: "center", padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent", transition: "background 0.12s" }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 14 }}>{s.chestNo}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
-                  {(() => {
-                    const q = getStudentQuotaUsage ? getStudentQuotaUsage(s.id) : null;
-                    if (!q) return null;
-                    const isExceeded = q.stage > (programLimits?.maxStage || 3) || q.offStage > (programLimits?.maxOffStage || 3);
-                    if (!isExceeded) return null;
-                    return (
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: 560 }}>
+                {/* Table header */}
+                <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 68px", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
+                  {["Chest", "Name", "Category", "Role", ""].map((h, i) => (
+                    <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
+                  ))}
+                </div>
+                {groupStudents.map((s, i) => (
+                  <div key={s.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px 140px 68px", alignItems: "center", padding: "12px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent", transition: "background 0.12s" }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, color: ACCENT, fontSize: 14 }}>{s.chestNo}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
+                      {(() => {
+                        const q = getStudentQuotaUsage ? getStudentQuotaUsage(s.id) : null;
+                        if (!q) return null;
+                        const isExceeded = q.stage > (programLimits?.maxStage || 3) || q.offStage > (programLimits?.maxOffStage || 3);
+                        if (!isExceeded) return null;
+                        return (
+                          <span style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            color: "#f59e0b",
+                            background: dark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.1)",
+                            border: "1px solid rgba(245,158,11,0.3)",
+                            padding: "1px 6px",
+                            borderRadius: 6,
+                            letterSpacing: 0.3,
+                          }}>
+                            ⚠️ OVER LIMIT (Stage: {q.stage}/{programLimits?.maxStage || 3}, Off: {q.offStage}/{programLimits?.maxOffStage || 3})
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div>
                       <span style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        color: "#f59e0b",
-                        background: dark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.1)",
-                        border: "1px solid rgba(245,158,11,0.3)",
-                        padding: "1px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "2px 8px",
                         borderRadius: 6,
-                        letterSpacing: 0.3,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        background: `${catColor[s.category] || "#f14d4d"}15`,
+                        color: catColor[s.category] || mutedTx,
+                        border: `1px solid ${catColor[s.category] || "#f14d4d"}30`,
+                        width: "fit-content",
                       }}>
-                        ⚠️ OVER LIMIT (Stage: {q.stage}/{programLimits?.maxStage || 3}, Off: {q.offStage}/{programLimits?.maxOffStage || 3})
+                        {s.category}
                       </span>
-                    );
-                  })()}
-                </div>
-                <div>
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    padding: "2px 8px",
-                    borderRadius: 6,
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    background: `${catColor[s.category] || "#f14d4d"}15`,
-                    color: catColor[s.category] || mutedTx,
-                    border: `1px solid ${catColor[s.category] || "#f14d4d"}30`,
-                    width: "fit-content",
-                  }}>
-                    {s.category}
-                  </span>
-                </div>
-                <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
-                  style={{ background: "transparent", border: `1px solid ${border}`, borderRadius: 6, color: dark ? "#e8e8f5" : "#12121e", fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none", padding: "4px 8px" }}>
-                  <option>Member</option><option>Leader</option><option>Asst. Leader</option>
-                </select>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditNameModal({ id: s.id, name: s.name, chestNo: s.chestNo, category: s.category, groupId: activeGroup });
-                      setEditNameValue(s.name);
-                    }}
-                    title="Edit student name"
-                    style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.color = ACCENT}
-                    onMouseLeave={e => e.currentTarget.style.color = mutedTx}
-                  >
-                    <Ic name="edit" size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteStudent(activeGroup, s.id, s.name)}
-                    title="Delete student"
-                    style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.color = "#e11d48"}
-                    onMouseLeave={e => e.currentTarget.style.color = mutedTx}
-                  >
-                    <Ic name="trash" size={14} />
-                  </button>
-                </div>
+                    </div>
+                    <select value={s.groupRole || "Member"} onChange={e => updateStudentRole(activeGroup, s.id, e.target.value)}
+                      style={{ background: "transparent", border: `1px solid ${border}`, borderRadius: 6, color: dark ? "#e8e8f5" : "#12121e", fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none", padding: "4px 8px" }}>
+                      <option>Member</option><option>Leader</option><option>Asst. Leader</option>
+                    </select>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditNameModal({ id: s.id, name: s.name, chestNo: s.chestNo, category: s.category, groupId: activeGroup });
+                          setEditNameValue(s.name);
+                        }}
+                        title="Edit student name"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = ACCENT}
+                        onMouseLeave={e => e.currentTarget.style.color = mutedTx}
+                      >
+                        <Ic name="edit" size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteStudent(activeGroup, s.id, s.name)}
+                        title="Delete student"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: mutedTx, padding: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#e11d48"}
+                        onMouseLeave={e => e.currentTarget.style.color = mutedTx}
+                      >
+                        <Ic name="trash" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         )}
       </div>
@@ -1063,54 +1136,58 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
-              {["#", "Event", "Entries", ""].map((h, i) => (
-                <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
-              ))}
-            </div>
-            {filtered.map((p, i) => {
-              const pRegs = registrations.filter(r => r.programId === p.id);
-              const pPartsCount = pRegs.reduce((sum, r) => sum + (r.participantIds?.length || 0), 0);
-              return (
-                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
-                  <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>#{p.order || (i + 1)}</span>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                      <Tag label={p.category} dark={dark} /><Tag label={p.type || p.session} dark={dark} /><Tag label={`Max ${p.maxParticipants}`} dark={dark} />
-                    </div>
-                  </div>
-                  <div>
-                    <button
-                      onClick={() => openProgEntries(p)}
-                      className="btn btn-ghost btn-sm"
-                      style={{
-                        borderRadius: 8,
-                        border: `1px solid ${pRegs.length > 0 ? (dark ? "rgba(241,77,77,0.3)" : "rgba(241,77,77,0.25)") : border}`,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        height: 32,
-                        padding: "0 10px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        color: pRegs.length > 0 ? ACCENT : mutedTx,
-                        background: pRegs.length > 0 ? (dark ? "rgba(241,77,77,0.08)" : "rgba(241,77,77,0.05)") : "transparent",
-                        cursor: "pointer",
-                      }}
-                      title="View program entry details"
-                    >
-                      <Ic name="list" size={13} />
-                      <span>{pRegs.length} {pRegs.length === 1 ? "Team" : "Teams"} ({pPartsCount})</span>
-                    </button>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditProg(p)}><Ic name="edit" size={13} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteProg(p.id, p.name)}><Ic name="trash" size={13} /></button>
-                  </div>
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: 540 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
+                  {["No.", "Event", "Entries", ""].map((h, i) => (
+                    <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
+                  ))}
                 </div>
-              );
-            })}
+                {filtered.map((p, i) => {
+                  const pRegs = registrations.filter(r => r.programId === p.id);
+                  const pPartsCount = pRegs.reduce((sum, r) => sum + (r.participantIds?.length || 0), 0);
+                  return (
+                    <div key={p.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr auto auto", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
+                      <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>{p.order || (i + 1)}</span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          <Tag label={p.category} dark={dark} /><Tag label={p.type || p.session} dark={dark} /><Tag label={`Max ${p.maxParticipants}`} dark={dark} />
+                        </div>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => openProgEntries(p)}
+                          className="btn btn-ghost btn-sm"
+                          style={{
+                            borderRadius: 8,
+                            border: `1px solid ${pRegs.length > 0 ? (dark ? "rgba(241,77,77,0.3)" : "rgba(241,77,77,0.25)") : border}`,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            height: 32,
+                            padding: "0 10px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            color: pRegs.length > 0 ? ACCENT : mutedTx,
+                            background: pRegs.length > 0 ? (dark ? "rgba(241,77,77,0.08)" : "rgba(241,77,77,0.05)") : "transparent",
+                            cursor: "pointer",
+                          }}
+                          title="View program entry details"
+                        >
+                          <Ic name="list" size={13} />
+                          <span>{pRegs.length} {pRegs.length === 1 ? "Team" : "Teams"} ({pPartsCount})</span>
+                        </button>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditProg(p)}><Ic name="edit" size={13} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteProg(p.id, p.name)}><Ic name="trash" size={13} /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1539,7 +1616,9 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             </div>
           ) : (
             <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-              <div style={{
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ minWidth: 640 }}>
+                  <div style={{
                 display: "grid",
                 gridTemplateColumns: "48px 1.2fr 100px 1.6fr 40px",
                 gap: 12,
@@ -1548,7 +1627,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
                 borderBottom: `1px solid ${border}`
               }}>
-                {["#", "Event", "Session", "Registered Teams & Chest Nos.", ""].map((h, i) => (
+                {["No.", "Event", "Session", "Registered Teams & Chest Nos.", ""].map((h, i) => (
                   <div key={i} style={{
                     fontSize: 11,
                     fontWeight: 700,
@@ -1577,7 +1656,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                     }}
                   >
                     <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>
-                      {p?.order ? `#${p.order}` : ""}
+                      {p?.order ? `${p.order}` : ""}
                     </span>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{p?.name}</div>
@@ -1671,6 +1750,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   </div>
                 );
               })}
+                </div>
+              </div>
             </div>
           )
         ) : (
@@ -1682,8 +1763,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             </div>
           ) : (
             <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-              <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 110px 1fr 40px", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
-                {["#", "Event", "Session", "Chest No.", ""].map((h, i) => (
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ minWidth: 640 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 110px 1fr 40px", gap: 0, padding: "10px 16px", background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", borderBottom: `1px solid ${border}` }}>
+                {["No.", "Event", "Session", "Chest No.", ""].map((h, i) => (
                   <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: mutedTx }}>{h}</div>
                 ))}
               </div>
@@ -1692,7 +1775,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 const parts = (r.participantIds || []).map(id => (students[activeGroupId] || []).find(s => s.id === id)).filter(Boolean);
                 return (
                   <div key={r.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr 110px 1fr 40px", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>{p?.order ? `#${p.order}` : ""}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>{p?.order ? `${p.order}` : ""}</span>
                     <span style={{ fontWeight: 700, fontSize: 14 }}>{p?.name}</span>
                     <Tag label={p?.session} dark={dark} />
                     <div>
@@ -1743,6 +1826,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   </div>
                 );
               })}
+                </div>
+              </div>
             </div>
           )
         )}
@@ -1765,7 +1850,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         seenIds.add(sId);
         list.push({
           id: sId,
-          name: `${h.codeLetter ? `[Code ${h.codeLetter}] ` : ""}${h.chestNo ? `#${h.chestNo} ` : ""}${h.name}${h.groupName ? ` (${h.groupName})` : ""}`,
+          name: `${h.codeLetter ? `[Code ${h.codeLetter}] ` : ""}${h.chestNo ? `${h.chestNo} ` : ""}${h.name}${h.groupName ? ` (${h.groupName})` : ""}`,
           chestNo: h.chestNo,
           rawName: h.name,
           codeLetter: h.codeLetter,
@@ -1786,7 +1871,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           seenIds.add(String(st.id));
           list.push({
             id: String(st.id),
-            name: `${st.chestNo ? `#${st.chestNo} ` : ""}${st.name}${grp ? ` (${grp.name})` : ""}`,
+            name: `${st.chestNo ? `${st.chestNo} ` : ""}${st.name}${grp ? ` (${grp.name})` : ""}`,
             chestNo: st.chestNo,
             rawName: st.name,
             groupId: reg.groupId,
@@ -1804,7 +1889,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         const grp = groups.find(g => g.id === st.groupId);
         list.push({
           id: String(st.id),
-          name: `${st.chestNo ? `#${st.chestNo} ` : ""}${st.name}${grp ? ` (${grp.name})` : ""}`,
+          name: `${st.chestNo ? `${st.chestNo} ` : ""}${st.name}${grp ? ` (${grp.name})` : ""}`,
           chestNo: st.chestNo,
           rawName: st.name,
           groupId: st.groupId,
@@ -1934,7 +2019,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     logActivity(
       user.name,
       "Published results",
-      `${prog?.name || event.name} (#${event.code ?? prog?.order ?? ""})`
+      `${prog?.name || event.name} (${event.code ?? prog?.order ?? ""})`
     );
   };
 
@@ -1962,6 +2047,68 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const pubCount = catPrograms.filter(p => p.status === "published").length;
     const unpubCount = catPrograms.length - pubCount;
 
+    const handleExportJudgeLinksExcel = () => {
+      const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+      const currentOrigin = typeof window !== "undefined" ? window.location.origin.replace(/\/+$/, "") : "";
+      const customOrigin = (() => {
+        try {
+          const saved = localStorage.getItem("ff_public_app_url");
+          if (saved && saved.trim()) {
+            const cleanSaved = saved.trim().replace(/\/+$/, "");
+            if (isLocalhost && cleanSaved.includes("vercel.app")) {
+              return currentOrigin;
+            }
+            return cleanSaved;
+          }
+        } catch {}
+        return currentOrigin;
+      })();
+
+      const progsToExport = filteredResults.length > 0 ? filteredResults : catPrograms;
+      const rows = [
+        ["Sl.", "Program Name", "Category", "Session", "Status", "Judge Code", "Scoring Link"],
+      ];
+
+      progsToExport.forEach((p, idx) => {
+        const judgeToken = p.judgeToken || p.id;
+        const judgeUrl = `${customOrigin}/#/judge/${judgeToken}`;
+        const statusText = p.status === "published"
+          ? "Published"
+          : p.evaluationStatus === "confirmed" || !!p.confirmedResults
+          ? "Confirmed"
+          : p.evaluationStatus === "submitted" || !!p.judgeSubmission
+          ? "Judge Submitted"
+          : (p.codeLetters?.length > 0 || p.codeAllocations?.length > 0)
+          ? "Ready for Judge"
+          : "Pending Lots";
+
+        rows.push([
+          p.order || idx + 1,
+          p.name || "",
+          p.category || "",
+          p.session || p.type || "",
+          statusText,
+          judgeToken,
+          judgeUrl,
+        ]);
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [
+        { wch: 8 },
+        { wch: 32 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 60 },
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, `${resCatFilter || "All"} Judges`);
+      XLSX.writeFile(wb, `Cognizance_${resCatFilter}_Judge_Links.xlsx`);
+      logActivity(user.name, "Exported judge links to Excel", `${progsToExport.length} program links exported`);
+    };
+
     return (
       <div className="anim-fadeIn">
         {/* Top bar: Heading on Left, Action / Search on Right (Layout identical to Students page) */}
@@ -1975,6 +2122,22 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleExportJudgeLinksExcel}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                border: `1px solid ${border}`,
+                fontWeight: 600,
+                fontSize: 12.5,
+              }}
+              title="Export all judge links in this category to an Excel sheet"
+            >
+              <Ic name="download" size={14} />
+              <span>Export Excel</span>
+            </button>
             <button
               className="btn btn-ghost btn-icon"
               onClick={() => { setResSearchOpen(o => !o); if (resSearchOpen) setResSearch(""); }}
@@ -2138,211 +2301,301 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         ) : (
           <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
-            {/* Table Header */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "70px 1fr 180px 110px",
-              gap: 16,
-              padding: "11px 18px",
-              background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
-              borderBottom: `1px solid ${border}`
-            }}>
-              {["#", "Program Name & Evaluation Status", "Judge Link / Actions", "Category"].map((h, i) => (
-                <div key={i} style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: 0.8,
-                  textTransform: "uppercase",
-                  color: mutedTx,
-                  textAlign: i === 3 ? "right" : (i === 2 ? "center" : "left"),
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: 700 }}>
+                {/* Table Header */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "60px 1fr 140px 175px 185px",
+                  gap: 16,
+                  padding: "11px 18px",
+                  background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+                  borderBottom: `1px solid ${border}`
                 }}>
-                  {h}
-                </div>
-              ))}
-            </div>
-
-            {/* Program rows: clicking the program opens the evaluation review modal */}
-            {filteredResults.map((p, i) => {
-              const judgeToken = p.judgeToken || p.id;
-              const origin = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
-              const customOrigin = (() => {
-                try {
-                  const saved = localStorage.getItem("ff_public_app_url");
-                  if (saved && saved.trim()) return saved.trim().replace(/\/+$/, "");
-                } catch {}
-                return origin ? origin.replace(/\/+$/, "") : "";
-              })();
-              const judgeUrl = `${customOrigin}/#/judge/${judgeToken}`;
-              const isSubmitted = p.evaluationStatus === "submitted" || !!p.judgeSubmission;
-              const isConfirmed = p.evaluationStatus === "confirmed" || !!p.confirmedResults;
-              const isPublished = p.status === "published";
-
-              const handleShareWhatsApp = (e) => {
-                e.stopPropagation();
-                const text = `🏆 *FestFlow Evaluation Sheet*\n\nProgram: *${p.name}* (${p.category})\nJudge Code: *${judgeToken}*\n\nScoring Link:\n${judgeUrl}\n\n_(Note: If the link is not clickable, simply reply 'Hi' or open FestFlow and enter Judge Code: *${judgeToken}*)_`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-              };
-
-              const handleCopy = (e) => {
-                e.stopPropagation();
-                if (navigator?.clipboard) {
-                  navigator.clipboard.writeText(judgeUrl);
-                  logActivity(user.name, "Copied judge link", `${p.name} (#${p.order || ""})`);
-                }
-              };
-
-              return (
-                <div
-                  key={p.id}
-                  tabIndex={0}
-                  role="button"
-                  onClick={() => setActiveEvalProg(p)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setActiveEvalProg(p);
-                    }
-                  }}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "70px 1fr 180px 110px",
-                    alignItems: "center",
-                    gap: 16,
-                    padding: "14px 18px",
-                    borderTop: i > 0 ? `1px solid ${border}` : "none",
-                    background: i % 2 === 0 ? cardBg : "transparent",
-                    cursor: "pointer",
-                    transition: "background 0.15s ease",
-                    outline: "none",
-                  }}
-                  onFocus={e => {
-                    e.currentTarget.style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(241,77,77,0.05)";
-                    e.currentTarget.style.boxShadow = `inset 0 0 0 2px ${ACCENT}`;
-                  }}
-                  onBlur={e => {
-                    e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = dark ? "rgba(255,255,255,0.05)" : "rgba(241,77,77,0.04)";
-                  }}
-                  onMouseLeave={e => {
-                    if (document.activeElement !== e.currentTarget) {
-                      e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
-                    }
-                  }}
-                  title="Click to view & evaluate results"
-                >
-                  {/* 1. Program Number / Code */}
-                  <div>
-                    <span style={{
-                      fontFamily: "'Plus Jakarta Sans',sans-serif",
-                      fontWeight: 800,
-                      color: ACCENT,
-                      fontSize: 13.5,
-                      background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
-                      padding: "3px 8px",
-                      borderRadius: 7,
-                      display: "inline-block",
-                    }}>
-                      #{p.order || (i + 1)}
-                    </span>
-                  </div>
-
-                  {/* 2. Program Name & Status */}
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 700, fontSize: 14.5, color: dark ? "#e8e8f5" : "#12121e" }}>
-                        {p.name}
-                      </span>
-                      {isPublished ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "1px 7px", borderRadius: 5 }}>
-                          Published
-                        </span>
-                      ) : isConfirmed ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", padding: "1px 7px", borderRadius: 5 }}>
-                          Confirmed
-                        </span>
-                      ) : isSubmitted ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "1px 7px", borderRadius: 5 }}>
-                          Judge Submitted
-                        </span>
-                      ) : (p.codeLetters?.length > 0 || p.codeAllocations?.length > 0) ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", padding: "1px 7px", borderRadius: 5 }}>
-                          Ready for Judge
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: mutedTx, background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)", padding: "1px 7px", borderRadius: 5 }}>
-                          Pending Lots
-                        </span>
-                      )}
-                      {(p.codeLetters?.length > 0 || p.participantsHistory?.length > 0 || p.codeAllocations?.length > 0) && (
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.08)", padding: "1px 6px", borderRadius: 5 }}>
-                          ✨ {(p.codeLetters || p.participantsHistory || p.codeAllocations).length} Coded
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 3. Judge WhatsApp Link & Actions */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={handleShareWhatsApp}
-                      className="btn btn-sm"
-                      title="Share scoring link via WhatsApp"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        backgroundColor: "#25D366",
-                        color: "#ffffff",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                      }}
-                    >
-                      <Ic n="whatsapp" s={13} />
-                      <span>WhatsApp</span>
-                    </button>
-
-                    <button
-                      onClick={handleCopy}
-                      className="btn btn-sm btn-ghost"
-                      title="Copy Judge link"
-                      style={{
-                        padding: "5px 8px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        border: `1px solid ${border}`,
-                        color: mutedTx,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Ic n="copy" s={13} />
-                    </button>
-                  </div>
-
-                  {/* 4. Category */}
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{
-                      display: "inline-block",
-                      padding: "3px 9px",
-                      borderRadius: 6,
-                      fontSize: 11.5,
+                  {["No.", "Program Name", "Status", "Code Letter", "Actions"].map((h, i) => (
+                    <div key={i} style={{
+                      fontSize: 11,
                       fontWeight: 700,
-                      background: `${catColor[p.category] || ACCENT}15`,
-                      color: catColor[p.category] || ACCENT,
-                      border: `1px solid ${catColor[p.category] || ACCENT}30`,
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
+                      color: mutedTx,
+                      textAlign: i === 4 ? "right" : "left",
                     }}>
-                      {p.category}
-                    </span>
-                  </div>
+                      {h}
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
+
+                {/* Program rows: clicking the program opens the evaluation review modal */}
+                {filteredResults.map((p, i) => {
+                  const judgeToken = p.judgeToken || p.id;
+                  const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+                  const currentOrigin = typeof window !== "undefined" ? window.location.origin.replace(/\/+$/, "") : "";
+                  const customOrigin = (() => {
+                    try {
+                      const saved = localStorage.getItem("ff_public_app_url");
+                      if (saved && saved.trim()) {
+                        const cleanSaved = saved.trim().replace(/\/+$/, "");
+                        if (isLocalhost && cleanSaved.includes("vercel.app")) {
+                          return currentOrigin;
+                        }
+                        return cleanSaved;
+                      }
+                    } catch {}
+                    return currentOrigin;
+                  })();
+                  const judgeUrl = `${customOrigin}/#/judge/${judgeToken}`;
+                  const isSubmitted = p.evaluationStatus === "submitted" || !!p.judgeSubmission;
+                  const isConfirmed = p.evaluationStatus === "confirmed" || !!p.confirmedResults;
+                  const isPublished = p.status === "published";
+                  const isCompleted = isSubmitted || isConfirmed || isPublished;
+                  const rawLots = p.codeLetters || p.participantsHistory || p.codeAllocations || [];
+                  const lotsCount = rawLots.filter(l => l && (l.codeLetter || l.studentId || l.chestNo)).length;
+                  const hasLots = lotsCount > 0;
+                  const isReadyForJudge = hasLots && !isCompleted;
+                  const isUpcoming = !hasLots && !isCompleted;
+
+                  const handleShareWhatsApp = (e) => {
+                    e.stopPropagation();
+                    const text = buildJudgeMessage({
+                      festName: "Cognizance",
+                      programName: p.name,
+                      category: p.category,
+                      judgeToken,
+                      judgeUrl,
+                    });
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+                  };
+
+                  const handleCopy = (e) => {
+                    e.stopPropagation();
+                    if (navigator?.clipboard) {
+                      navigator.clipboard.writeText(judgeUrl);
+                      setCopiedProgId(p.id);
+                      setTimeout(() => setCopiedProgId(null), 2000);
+                      logActivity(user.name, "Copied judge link", `${p.name} (${p.order || ""})`);
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={p.id}
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => setActiveEvalProg(p)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setActiveEvalProg(p);
+                        }
+                      }}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "60px 1fr 140px 175px 185px",
+                        alignItems: "center",
+                        gap: 16,
+                        padding: "14px 18px",
+                        borderTop: i > 0 ? `1px solid ${border}` : "none",
+                        background: i % 2 === 0 ? cardBg : "transparent",
+                        cursor: "pointer",
+                        transition: "background 0.15s ease",
+                        outline: "none",
+                      }}
+                      onFocus={e => {
+                        e.currentTarget.style.background = dark ? "rgba(255,255,255,0.06)" : "rgba(241,77,77,0.05)";
+                        e.currentTarget.style.boxShadow = `inset 0 0 0 2px ${ACCENT}`;
+                      }}
+                      onBlur={e => {
+                        e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
+                        e.currentTarget.style.boxShadow = "none";
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = dark ? "rgba(255,255,255,0.05)" : "rgba(241,77,77,0.04)";
+                      }}
+                      onMouseLeave={e => {
+                        if (document.activeElement !== e.currentTarget) {
+                          e.currentTarget.style.background = i % 2 === 0 ? cardBg : "transparent";
+                        }
+                      }}
+                      title="Click to view & evaluate results"
+                    >
+                      {/* 1. Program Number / Code */}
+                      <div>
+                        <span style={{
+                          fontFamily: "'Plus Jakarta Sans',sans-serif",
+                          fontWeight: 800,
+                          color: ACCENT,
+                          fontSize: 13.5,
+                          background: dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)",
+                          padding: "3px 8px",
+                          borderRadius: 7,
+                          display: "inline-block",
+                        }}>
+                          {p.order || (i + 1)}
+                        </span>
+                      </div>
+
+                      {/* 2. Program Name */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 700,
+                          fontSize: 14.5,
+                          color: dark ? "#e8e8f5" : "#12121e",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                          {p.name}
+                        </div>
+                        {(p.session || p.type) && (
+                          <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>
+                            {p.session || p.type}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. Status */}
+                      <div>
+                        {isPublished ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "3px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                            <span>Published</span>
+                          </span>
+                        ) : isConfirmed ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", padding: "3px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }} />
+                            <span>Confirmed</span>
+                          </span>
+                        ) : isSubmitted ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", padding: "3px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                            <span>Submitted</span>
+                          </span>
+                        ) : isReadyForJudge ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", padding: "3px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+                            <span>Ready for Judge</span>
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: mutedTx, background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${border}`, padding: "3px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: mutedTx }} />
+                            <span>Upcoming</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 4. Code Letter Action */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
+                        {isReadyForJudge ? (
+                          <button
+                            type="button"
+                            onClick={() => setCodeLetterProg(p)}
+                            className="btn btn-sm"
+                            style={{
+                              padding: "5px 11px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              background: dark ? "rgba(245,158,11,0.14)" : "rgba(245,158,11,0.1)",
+                              color: "#f59e0b",
+                              border: "1px solid rgba(245,158,11,0.3)",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              transition: "all 0.15s ease",
+                            }}
+                            title="Edit code letters to correct any mistakes before judge evaluation"
+                          >
+                            <Ic n="edit" s={13} />
+                            <span>Edit Code Letters</span>
+                          </button>
+                        ) : isCompleted ? (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: mutedTx,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                            }}
+                            title="Code letters locked after judge evaluation"
+                          >
+                            <Ic n="lock" s={12} />
+                            <span>Locked</span>
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 13, color: mutedTx }}>—</span>
+                        )}
+                      </div>
+
+                      {/* 5. Actions (WhatsApp, Copy, Open Test Link) Aligned to the Side */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }} onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={handleShareWhatsApp}
+                          className="btn btn-sm"
+                          title="Share scoring link via WhatsApp"
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            backgroundColor: "#25D366",
+                            color: "#ffffff",
+                            border: "none",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                        >
+                          <Ic n="whatsapp" s={13} />
+                          <span>WhatsApp</span>
+                        </button>
+
+                        <button
+                          onClick={handleCopy}
+                          className="btn btn-sm btn-ghost"
+                          title={copiedProgId === p.id ? "Copied Link!" : "Copy Judge link"}
+                          style={{
+                            padding: "5px 8px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            border: `1px solid ${copiedProgId === p.id ? "#10b981" : border}`,
+                            background: copiedProgId === p.id ? "rgba(16,185,129,0.12)" : "transparent",
+                            color: copiedProgId === p.id ? "#10b981" : mutedTx,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <Ic n={copiedProgId === p.id ? "check" : "copy"} s={13} />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(judgeUrl, "_blank");
+                          }}
+                          className="btn btn-sm btn-ghost"
+                          title="Open scoring link in new tab to test"
+                          style={{
+                            padding: "5px 8px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            border: `1px solid ${border}`,
+                            color: mutedTx,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Ic n="externalLink" s={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -2368,6 +2621,262 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
+          
+          {/* Card 0: Festival Points & Scoring Rules */}
+          <div style={{
+            gridColumn: "1 / -1",
+            borderRadius: 16,
+            border: cardBorder,
+            background: cardBg,
+            padding: 24,
+            boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "rgba(241,77,77,0.12)",
+                  color: ACCENT,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ic name="award" size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>Festival Points & Scoring Rules</div>
+                  <div style={{ fontSize: 12.5, color: mutedTx }}>
+                    Customize point allocations for individual/group positions and quality grades
+                  </div>
+                </div>
+              </div>
+
+              {scoringRulesSaved && (
+                <div style={{
+                  padding: "6px 14px",
+                  borderRadius: 10,
+                  background: "rgba(16,185,129,0.12)",
+                  color: "#10b981",
+                  border: "1px solid rgba(16,185,129,0.25)",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}>
+                  <span>✓</span>
+                  <span>Scoring rules saved successfully</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18 }}>
+              {/* Individual Positions */}
+              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
+                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>👤</span>
+                  <span>Solo (Individual) Items</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>1st Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.individual?.first ?? 5}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        individual: { ...prev.individual, first: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>2nd Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.individual?.second ?? 3}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        individual: { ...prev.individual, second: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>3rd Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.individual?.third ?? 1}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        individual: { ...prev.individual, third: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Group Positions */}
+              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
+                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>👥</span>
+                  <span>Group Items</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>1st Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.group?.first ?? 10}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        group: { ...prev.group, first: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>2nd Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.group?.second ?? 5}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        group: { ...prev.group, second: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>3rd Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.group?.third ?? 3}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        group: { ...prev.group, third: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quality Grade Points */}
+              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
+                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>⭐</span>
+                  <span>Grade Quality Points</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>A Grade</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.grades?.A ?? 5}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        grades: { ...prev.grades, A: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>B Grade</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.grades?.B ?? 3}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        grades: { ...prev.grades, B: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>C Grade</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
+                      value={scoringRules.grades?.C ?? 1}
+                      onChange={e => setScoringRules(prev => ({
+                        ...prev,
+                        grades: { ...prev.grades, C: Number(e.target.value) || 0 }
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Scoring Mode and Actions */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 18,
+              paddingTop: 16,
+              borderTop: cardBorder,
+              flexWrap: "wrap",
+              gap: 14,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: primaryHeadingColor }}>
+                  Scoring Mode:
+                </span>
+                <select
+                  value={scoringRules.mode || "position_only"}
+                  onChange={e => setScoringRules(prev => ({ ...prev, mode: e.target.value }))}
+                  className="input"
+                  style={{ height: 38, padding: "0 10px", fontSize: 12.5, fontWeight: 700 }}
+                >
+                  <option value="position_only">Position Points Only (Standard)</option>
+                  <option value="position_and_grade">Position Points + Grade Points</option>
+                  <option value="grade_only">Grade Points Only</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleResetScoringRules}
+                  className="btn btn-ghost btn-sm"
+                  style={{ height: 38, borderRadius: 10 }}
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveScoringRules(scoringRules)}
+                  className="btn btn-primary"
+                  style={{ height: 38, borderRadius: 10, padding: "0 18px", fontWeight: 700 }}
+                >
+                  Save Scoring Rules
+                </button>
+              </div>
+            </div>
+          </div>
           
           {/* Card 1: Theme & Appearance */}
           <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
@@ -2585,7 +3094,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             type="button"
             className="btn btn-danger"
             style={{ borderRadius: 10, padding: "9px 18px", fontWeight: 700 }}
-            onClick={onBack}
+            onClick={() => setConfirmSignOut(true)}
           >
             <Ic name="logout" size={15} /> Sign Out of Admin
           </button>
@@ -2654,29 +3163,755 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       programs={programs}
       groups={groups}
       students={students}
-      onPublishResults={(progId, resultsData) => {
-        updateProgram(progId, {
-          status: "published",
-          evaluationStatus: "published",
-          results: resultsData,
-        });
+      scoringRules={scoringRules}
+      onPublishResults={async (progId, resultsData) => {
+        if (publishResults) {
+          await publishResults(progId, resultsData);
+        } else {
+          updateProgram(progId, {
+            status: "published",
+            evaluationStatus: "published",
+            results: resultsData,
+          });
+        }
         const prog = programs.find(p => p.id === progId);
-        logActivity(user.name, "Published results", `${prog?.name || ""} (#${prog?.order || ""})`);
+        logActivity(user.name, "Published results", `${prog?.name || ""} (${prog?.order || ""})`);
       }}
-      onUnpublishResults={(progId) => {
-        updateProgram(progId, {
-          status: "draft",
-          evaluationStatus: "confirmed",
-        });
+      onUnpublishResults={async (progId) => {
+        if (unpublishResults) {
+          await unpublishResults(progId);
+        } else {
+          updateProgram(progId, {
+            status: "draft",
+            evaluationStatus: "confirmed",
+            results: null,
+          });
+        }
         const prog = programs.find(p => p.id === progId);
-        logActivity(user.name, "Unpublished results", `${prog?.name || ""} (#${prog?.order || ""})`);
+        logActivity(user.name, "Unpublished results", `${prog?.name || ""} (${prog?.order || ""})`);
+      }}
+      onRevertEvaluation={async (progId) => {
+        const prog = programs.find((p) => p.id === progId);
+        if (revertEvaluation) {
+          await revertEvaluation(progId);
+        } else {
+          const fallbackStatus = prog?.judgeSubmission ? "submitted" : "ready_for_judge";
+          updateProgram(progId, {
+            confirmedResults: null,
+            results: null,
+            status: "draft",
+            evaluationStatus: fallbackStatus,
+          });
+        }
+        logActivity(
+          user.name,
+          "Reverted evaluation confirmation to draft",
+          `${prog?.name || ""} (${prog?.order || ""})`
+        );
       }}
       dark={dark}
     />
   );
 
+  // ── RENDER: Full Dedicated Leaderboard View ────────────────────────────────
+  const renderLeaderboard = () => {
+    const isStageOnly = leaderboardSessionFilter === "Stage";
+    const isOffStageOnly = leaderboardSessionFilter === "Off-Stage";
+
+    // Dynamic team standings sorting based on selected session filter
+    const list = [...teamStandings];
+    if (isStageOnly) {
+      list.sort((a, b) => {
+        if (b.stagePoints !== a.stagePoints) return b.stagePoints - a.stagePoints;
+        if (b.firsts !== a.firsts) return b.firsts - a.firsts;
+        return b.totalPoints - a.totalPoints;
+      });
+    } else if (isOffStageOnly) {
+      list.sort((a, b) => {
+        if (b.offStagePoints !== a.offStagePoints) return b.offStagePoints - a.offStagePoints;
+        if (b.firsts !== a.firsts) return b.firsts - a.firsts;
+        return b.totalPoints - a.totalPoints;
+      });
+    } else {
+      list.sort((a, b) => {
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        if (b.firsts !== a.firsts) return b.firsts - a.firsts;
+        if (b.seconds !== a.seconds) return b.seconds - a.seconds;
+        return b.thirds - a.thirds;
+      });
+    }
+    const displayedTeamStandings = list.map((t, idx) => ({ ...t, displayRank: idx + 1 }));
+
+    // Filter students by category & search
+    let rankedStudents = studentStandings.allStudents || [];
+    if (leaderboardCatFilter !== "All") {
+      rankedStudents = rankedStudents.filter(s => (s.category || "").toLowerCase() === leaderboardCatFilter.toLowerCase());
+    }
+    if (leaderboardSearch.trim()) {
+      const q = leaderboardSearch.toLowerCase().trim();
+      rankedStudents = rankedStudents.filter(s =>
+        (s.name && s.name.toLowerCase().includes(q)) ||
+        (s.chestNo && String(s.chestNo).includes(q)) ||
+        (s.group?.name && s.group.name.toLowerCase().includes(q))
+      );
+    }
+
+    const publishedCount = programs.filter(p => p.status === "published" || !!p.results?.entries?.length).length;
+    const totalPointsAwarded = teamStandings.reduce((sum, t) => sum + t.totalPoints, 0);
+
+    return (
+      <div className="anim-fadeIn" style={{ paddingBottom: 60 }}>
+        {/* Header */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 24,
+          flexWrap: "wrap",
+          gap: 16,
+        }}>
+          <div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans',sans-serif",
+              fontWeight: 900,
+              fontSize: 26,
+              letterSpacing: "-0.5px",
+              color: primaryHeadingColor,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <span style={{ fontSize: 28 }}>🏆</span>
+              <span>Championship Leaderboard</span>
+            </div>
+            <div style={{ fontSize: 13, color: mutedTx, marginTop: 4 }}>
+              Official team standings, dense-ranked points, and crown kings
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{
+              padding: "6px 14px",
+              borderRadius: 10,
+              background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              border: `1px solid ${border}`,
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: primaryHeadingColor,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}>
+              <span>📜</span>
+              <span>{publishedCount} Published Events</span>
+            </div>
+
+            <div style={{
+              padding: "6px 14px",
+              borderRadius: 10,
+              background: "rgba(241,77,77,0.1)",
+              border: "1px solid rgba(241,77,77,0.25)",
+              fontSize: 12.5,
+              fontWeight: 800,
+              color: ACCENT,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}>
+              <span>⚡</span>
+              <span>{totalPointsAwarded} Total Pts</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab switcher: 2 Clean Non-Duplicated Tabs */}
+        <div style={{
+          display: "flex",
+          background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+          borderRadius: 14,
+          padding: 4,
+          marginBottom: 24,
+          maxWidth: 480,
+        }}>
+          {[
+            { id: "teams", label: "Team Championship", icon: "trophy" },
+            { id: "students", label: "Contestants & Fest Crowns", icon: "users" },
+          ].map(tab => {
+            const active = leaderboardActiveTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setLeaderboardActiveTab(tab.id)}
+                style={{
+                  flex: 1,
+                  padding: "9px 14px",
+                  borderRadius: 10,
+                  border: "none",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  background: active ? (dark ? "#1e2238" : "#ffffff") : "transparent",
+                  color: active ? ACCENT : mutedTx,
+                  boxShadow: active ? (dark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.06)") : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <Ic name={tab.icon} size={15} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* View 1: Team Championship Standings (Single Source of Truth, No Repeated Cards) */}
+        {leaderboardActiveTab === "teams" && (
+          <div className="anim-fadeIn">
+            {/* Filter pills for Stage vs Off-Stage vs All */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {["All", "Stage", "Off-Stage"].map(sf => {
+                  const active = leaderboardSessionFilter === sf;
+                  return (
+                    <button
+                      key={sf}
+                      type="button"
+                      onClick={() => setLeaderboardSessionFilter(sf)}
+                      style={{
+                        padding: "7px 16px",
+                        borderRadius: 9,
+                        border: `1px solid ${active ? ACCENT : border}`,
+                        background: active ? "rgba(241,77,77,0.12)" : (dark ? "rgba(255,255,255,0.04)" : "#ffffff"),
+                        color: active ? ACCENT : mutedTx,
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {sf === "All" ? "All Items" : sf === "Stage" ? "🎭 Stage Only" : "✒️ Off-Stage Only"}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: 12, color: mutedTx, fontWeight: 600 }}>
+                {isStageOnly
+                  ? "Teams ranked by Stage items points"
+                  : isOffStageOnly
+                  ? "Teams ranked by Off-Stage items points"
+                  : "Teams ranked by overall tournament points"}
+              </div>
+            </div>
+
+            {/* Comprehensive Championship Table with Built-In Podium Design */}
+            <div style={{
+              borderRadius: 16,
+              border: `1px solid ${border}`,
+              background: cardBg,
+              overflow: "hidden",
+            }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13.5 }}>
+                  <thead>
+                    <tr style={{
+                      borderBottom: `1px solid ${border}`,
+                      background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                    }}>
+                      <th style={{ padding: "14px 18px", width: 90, fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Rank</th>
+                      <th style={{ padding: "14px 18px", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Team</th>
+                      <th style={{ padding: "14px 18px", textAlign: "center", fontWeight: 800, color: isStageOnly ? ACCENT : mutedTx, textTransform: "uppercase", fontSize: 11 }}>Stage Pts</th>
+                      <th style={{ padding: "14px 18px", textAlign: "center", fontWeight: 800, color: isOffStageOnly ? ACCENT : mutedTx, textTransform: "uppercase", fontSize: 11 }}>Off-Stage Pts</th>
+                      <th style={{ padding: "14px 18px", textAlign: "center", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>1st / 2nd / 3rd</th>
+                      <th style={{ padding: "14px 18px", textAlign: "center", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>A / B / C Grades</th>
+                      <th style={{ padding: "14px 18px", textAlign: "right", fontWeight: 800, color: (!isStageOnly && !isOffStageOnly) ? ACCENT : mutedTx, textTransform: "uppercase", fontSize: 11 }}>
+                        {isStageOnly ? "Stage Points" : isOffStageOnly ? "Off-Stage Points" : "Total Points"}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedTeamStandings.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ padding: "36px 20px", textAlign: "center", color: mutedTx }}>
+                          No team standings available yet. Published results will populate the leaderboard automatically.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedTeamStandings.map((standing, idx) => {
+                        const rank = standing.displayRank;
+                        const isGold = rank === 1;
+                        const isSilver = rank === 2;
+                        const isBronze = rank === 3;
+                        const medal = isGold ? "🥇" : isSilver ? "🥈" : isBronze ? "🥉" : null;
+                        const medalBg = isGold ? "rgba(245, 158, 11, 0.15)" : isSilver ? "rgba(148, 163, 184, 0.15)" : "rgba(180, 83, 9, 0.15)";
+                        const medalBorder = isGold ? "rgba(245, 158, 11, 0.35)" : isSilver ? "rgba(148, 163, 184, 0.35)" : "rgba(180, 83, 9, 0.35)";
+                        const activePts = isStageOnly ? standing.stagePoints : isOffStageOnly ? standing.offStagePoints : standing.totalPoints;
+
+                        return (
+                          <tr
+                            key={standing.group.id}
+                            style={{
+                              borderBottom: idx < displayedTeamStandings.length - 1 ? `1px solid ${border}` : "none",
+                              background: isGold
+                                ? (dark ? "linear-gradient(90deg, rgba(245,158,11,0.08) 0%, transparent 100%)" : "linear-gradient(90deg, rgba(254,243,199,0.5) 0%, transparent 100%)")
+                                : isSilver
+                                ? (dark ? "linear-gradient(90deg, rgba(148,163,184,0.06) 0%, transparent 100%)" : "linear-gradient(90deg, rgba(241,245,249,0.5) 0%, transparent 100%)")
+                                : isBronze
+                                ? (dark ? "linear-gradient(90deg, rgba(180,83,9,0.06) 0%, transparent 100%)" : "linear-gradient(90deg, rgba(254,237,213,0.4) 0%, transparent 100%)")
+                                : "transparent",
+                              transition: "background 0.15s ease",
+                            }}
+                          >
+                            <td style={{ padding: "14px 18px" }}>
+                              {medal ? (
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                  padding: "3px 8px",
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  background: medalBg,
+                                  border: `1px solid ${medalBorder}`,
+                                  color: isGold ? "#f59e0b" : isSilver ? "#94a3b8" : "#b45309",
+                                }}>
+                                  <span>{medal}</span>
+                                  <span>{rank}</span>
+                                </span>
+                              ) : (
+                                <span style={{ color: mutedTx, fontWeight: 700, paddingLeft: 8 }}>#{rank}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: "14px 18px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: "50%",
+                                  background: standing.group.color || ACCENT,
+                                  flexShrink: 0,
+                                }} />
+                                <span style={{ fontWeight: 800, color: isGold ? (dark ? "#fbbf24" : "#b45309") : primaryHeadingColor }}>
+                                  {standing.group.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: isStageOnly ? 900 : 700, color: isStageOnly ? ACCENT : "#f59e0b" }}>
+                              {standing.stagePoints}
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: isOffStageOnly ? 900 : 700, color: isOffStageOnly ? ACCENT : "#8b5cf6" }}>
+                              {standing.offStagePoints}
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "center" }}>
+                              <span style={{ fontWeight: 700, color: primaryHeadingColor }}>{standing.firsts}</span>
+                              <span style={{ color: mutedTx, margin: "0 4px" }}>/</span>
+                              <span style={{ fontWeight: 700, color: primaryHeadingColor }}>{standing.seconds}</span>
+                              <span style={{ color: mutedTx, margin: "0 4px" }}>/</span>
+                              <span style={{ fontWeight: 700, color: primaryHeadingColor }}>{standing.thirds}</span>
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "center", color: mutedTx, fontSize: 12 }}>
+                              <span>{standing.gradeA} A</span>
+                              <span style={{ margin: "0 4px" }}>•</span>
+                              <span>{standing.gradeB} B</span>
+                              <span style={{ margin: "0 4px" }}>•</span>
+                              <span>{standing.gradeC} C</span>
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "right" }}>
+                              <span style={{
+                                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                                fontWeight: 900,
+                                fontSize: 19,
+                                color: isGold ? "#f59e0b" : primaryHeadingColor,
+                              }}>
+                                {activePts}
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx, marginLeft: 3 }}>
+                                pts
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View 2: Individual Contestants & Crown Kings (Unified and Deduplicated) */}
+        {leaderboardActiveTab === "students" && (
+          <div className="anim-fadeIn" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {/* Festival Crown Kings 2-Column Showcase Header */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+              {/* Star of the Fest Card */}
+              <div
+                className="card"
+                style={{
+                  padding: "20px 22px",
+                  borderRadius: 18,
+                  border: "1.5px solid rgba(245, 158, 11, 0.4)",
+                  background: dark
+                    ? "linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(19, 21, 36, 0.98) 100%)"
+                    : "linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, #ffffff 100%)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    background: "rgba(245, 158, 11, 0.2)",
+                    color: "#f59e0b",
+                    border: "1px solid rgba(245, 158, 11, 0.4)",
+                  }}>
+                    <span>🌟</span>
+                    <span>STAR OF THE FEST · STAGE KING</span>
+                  </span>
+                  {studentStandings.starOfTheFest && studentStandings.starOfTheFest.stagePoints > 0 && (
+                    <span style={{ fontSize: 20, fontWeight: 900, color: "#f59e0b", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+                      {studentStandings.starOfTheFest.stagePoints} <span style={{ fontSize: 12, fontWeight: 700, color: mutedTx }}>pts</span>
+                    </span>
+                  )}
+                </div>
+
+                {studentStandings.starOfTheFest && studentStandings.starOfTheFest.stagePoints > 0 ? (
+                  <div>
+                    <div style={{
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                      fontWeight: 900,
+                      fontSize: 22,
+                      color: primaryHeadingColor,
+                    }}>
+                      {studentStandings.starOfTheFest.name}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, fontSize: 12.5, color: mutedTx, flexWrap: "wrap" }}>
+                      {studentStandings.starOfTheFest.chestNo && (
+                        <span>Chest #{studentStandings.starOfTheFest.chestNo}</span>
+                      )}
+                      <span>•</span>
+                      <span>Category: <b>{studentStandings.starOfTheFest.category || "General"}</b></span>
+                      <span>•</span>
+                      <span style={{ fontWeight: 800, color: studentStandings.starOfTheFest.group?.color || ACCENT }}>
+                        {studentStandings.starOfTheFest.group?.name}
+                      </span>
+                    </div>
+
+                    {/* Winning Events Preview */}
+                    {studentStandings.starOfTheFest.stageAwards?.length > 0 && (
+                      <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {studentStandings.starOfTheFest.stageAwards.map((aw, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              background: dark ? "rgba(255,255,255,0.06)" : "#ffffff",
+                              border: `1px solid ${border}`,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: primaryHeadingColor,
+                            }}
+                          >
+                            {aw.programName} (+{aw.points} pts)
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: "16px 0", color: mutedTx, fontSize: 13 }}>
+                    Awaiting published stage event evaluations
+                  </div>
+                )}
+              </div>
+
+              {/* Pen of the Fest Card */}
+              <div
+                className="card"
+                style={{
+                  padding: "20px 22px",
+                  borderRadius: 18,
+                  border: "1.5px solid rgba(139, 92, 246, 0.4)",
+                  background: dark
+                    ? "linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(19, 21, 36, 0.98) 100%)"
+                    : "linear-gradient(135deg, rgba(237, 233, 254, 0.6) 0%, #ffffff 100%)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    background: "rgba(139, 92, 246, 0.2)",
+                    color: "#8b5cf6",
+                    border: "1px solid rgba(139, 92, 246, 0.4)",
+                  }}>
+                    <span>✒️</span>
+                    <span>PEN OF THE FEST · OFF-STAGE KING</span>
+                  </span>
+                  {studentStandings.penOfTheFest && studentStandings.penOfTheFest.offStagePoints > 0 && (
+                    <span style={{ fontSize: 20, fontWeight: 900, color: "#8b5cf6", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+                      {studentStandings.penOfTheFest.offStagePoints} <span style={{ fontSize: 12, fontWeight: 700, color: mutedTx }}>pts</span>
+                    </span>
+                  )}
+                </div>
+
+                {studentStandings.penOfTheFest && studentStandings.penOfTheFest.offStagePoints > 0 ? (
+                  <div>
+                    <div style={{
+                      fontFamily: "'Plus Jakarta Sans',sans-serif",
+                      fontWeight: 900,
+                      fontSize: 22,
+                      color: primaryHeadingColor,
+                    }}>
+                      {studentStandings.penOfTheFest.name}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, fontSize: 12.5, color: mutedTx, flexWrap: "wrap" }}>
+                      {studentStandings.penOfTheFest.chestNo && (
+                        <span>Chest #{studentStandings.penOfTheFest.chestNo}</span>
+                      )}
+                      <span>•</span>
+                      <span>Category: <b>{studentStandings.penOfTheFest.category || "General"}</b></span>
+                      <span>•</span>
+                      <span style={{ fontWeight: 800, color: studentStandings.penOfTheFest.group?.color || ACCENT }}>
+                        {studentStandings.penOfTheFest.group?.name}
+                      </span>
+                    </div>
+
+                    {/* Winning Events Preview */}
+                    {studentStandings.penOfTheFest.offStageAwards?.length > 0 && (
+                      <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {studentStandings.penOfTheFest.offStageAwards.map((aw, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              background: dark ? "rgba(255,255,255,0.06)" : "#ffffff",
+                              border: `1px solid ${border}`,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: primaryHeadingColor,
+                            }}
+                          >
+                            {aw.programName} (+{aw.points} pts)
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: "16px 0", color: mutedTx, fontSize: 13 }}>
+                    Awaiting published off-stage event evaluations
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Contestants Table Toolbar: Category Filters on Left, Search on Right */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 6,
+              marginBottom: 4,
+              flexWrap: "wrap",
+              gap: 12,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {["All", ...STUDENT_CATS].map(cat => {
+                  const active = leaderboardCatFilter === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setLeaderboardCatFilter(cat)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        border: `1px solid ${active ? ACCENT : border}`,
+                        background: active ? "rgba(241,77,77,0.12)" : "transparent",
+                        color: active ? ACCENT : mutedTx,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search contestant or chest no..."
+                value={leaderboardSearch}
+                onChange={e => setLeaderboardSearch(e.target.value)}
+                className="input"
+                style={{ width: 250, height: 38, fontSize: 13 }}
+              />
+            </div>
+
+            {/* Complete Contestants Table */}
+            <div style={{
+              borderRadius: 16,
+              border: `1px solid ${border}`,
+              background: cardBg,
+              overflow: "hidden",
+            }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13.5 }}>
+                  <thead>
+                    <tr style={{
+                      borderBottom: `1px solid ${border}`,
+                      background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                    }}>
+                      <th style={{ padding: "14px 18px", width: 70, fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Rank</th>
+                      <th style={{ padding: "14px 18px", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Contestant</th>
+                      <th style={{ padding: "14px 18px", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Team</th>
+                      <th style={{ padding: "14px 18px", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Category</th>
+                      <th style={{ padding: "14px 18px", textAlign: "center", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Stage Pts</th>
+                      <th style={{ padding: "14px 18px", textAlign: "center", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Off-Stage Pts</th>
+                      <th style={{ padding: "14px 18px", textAlign: "right", fontWeight: 800, color: mutedTx, textTransform: "uppercase", fontSize: 11 }}>Total Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankedStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ padding: "36px 20px", textAlign: "center", color: mutedTx }}>
+                          No contestants matched your search criteria
+                        </td>
+                      </tr>
+                    ) : (
+                      rankedStudents.map((st, idx) => {
+                        const isStar = studentStandings.starOfTheFest?.id === st.id && st.stagePoints > 0;
+                        const isPen = studentStandings.penOfTheFest?.id === st.id && st.offStagePoints > 0;
+
+                        return (
+                          <tr
+                            key={st.id || idx}
+                            style={{
+                              borderBottom: idx < rankedStudents.length - 1 ? `1px solid ${border}` : "none",
+                              background: isStar
+                                ? (dark ? "rgba(245,158,11,0.06)" : "rgba(254,243,199,0.3)")
+                                : isPen
+                                ? (dark ? "rgba(139,92,246,0.06)" : "rgba(237,233,254,0.3)")
+                                : "transparent",
+                            }}
+                          >
+                            <td style={{ padding: "14px 18px", fontWeight: 800, color: idx < 3 ? ACCENT : mutedTx }}>
+                              #{st.overallRank || (idx + 1)}
+                            </td>
+                            <td style={{ padding: "14px 18px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontWeight: 800, color: primaryHeadingColor }}>
+                                  {st.name}
+                                </span>
+                                {st.chestNo && (
+                                  <span style={{ fontSize: 11, color: mutedTx, fontWeight: 700 }}>
+                                    (#{st.chestNo})
+                                  </span>
+                                )}
+                                {isStar && (
+                                  <span style={{
+                                    fontSize: 10,
+                                    fontWeight: 900,
+                                    padding: "2px 6px",
+                                    borderRadius: 6,
+                                    background: "rgba(245,158,11,0.2)",
+                                    color: "#f59e0b",
+                                    border: "1px solid rgba(245,158,11,0.4)",
+                                  }}>
+                                    🌟 STAGE KING
+                                  </span>
+                                )}
+                                {isPen && (
+                                  <span style={{
+                                    fontSize: 10,
+                                    fontWeight: 900,
+                                    padding: "2px 6px",
+                                    borderRadius: 6,
+                                    background: "rgba(139,92,246,0.2)",
+                                    color: "#8b5cf6",
+                                    border: "1px solid rgba(139,92,246,0.4)",
+                                  }}>
+                                    ✒️ OFF-STAGE KING
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: "14px 18px" }}>
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                color: st.group?.color || primaryHeadingColor,
+                              }}>
+                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: st.group?.color || ACCENT }} />
+                                {st.group?.name || "Team"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "14px 18px", color: mutedTx, fontSize: 12.5 }}>
+                              {st.category || "General"}
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: 700, color: "#f59e0b" }}>
+                              {st.stagePoints}
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: 700, color: "#8b5cf6" }}>
+                              {st.offStagePoints}
+                            </td>
+                            <td style={{ padding: "14px 18px", textAlign: "right" }}>
+                              <span style={{
+                                fontFamily: "'Plus Jakarta Sans',sans-serif",
+                                fontWeight: 900,
+                                fontSize: 16,
+                                color: primaryHeadingColor,
+                              }}>
+                                {st.totalPoints}
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx, marginLeft: 3 }}>
+                                pts
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderViews = {
     dashboard: renderDashboard,
+    leaderboard: renderLeaderboard,
     students: renderStudents,
     events: renderEvents,
     programs: renderEvents,
@@ -2690,101 +3925,252 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const unreadCount = (messages || []).filter(m => m.to === "admin" && !m.read).length;
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="admin-portal-shell" style={{
+      height: "100vh",
+      maxHeight: "100vh",
+      width: "100%",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      background: dark ? "#080912" : "#fdfaf9",
+    }}>
 
       {/* ── Top bar ── */}
-      <div style={{
-        height: 58, display: "flex", alignItems: "center", justifyContent: "space-between",
+      <header className="admin-topbar-responsive" style={{
+        height: 58, minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 24px", borderBottom: `1px solid ${border}`,
         background: dark ? "rgba(7,8,15,0.95)" : "rgba(255,255,255,0.95)",
-        backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100, flexShrink: 0,
+        backdropFilter: "blur(20px)", zIndex: 100, flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(145deg,#f14d4d,#dc2626)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900, fontSize: 13, color: "#ffffff" }}>FF</div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 16, color: dark ? "#e8e8f5" : "#12121e" }}>FestFlow</div>
+          <div style={{
+            width: 32, height: 32, borderRadius: 9,
+            background: "linear-gradient(145deg,#f14d4d,#dc2626)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 900,
+            fontSize: 13, color: "#ffffff", boxShadow: "0 2px 8px rgba(241,77,77,0.3)"
+          }}>C</div>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans',sans-serif",
+            fontWeight: 800, fontSize: 16, color: dark ? "#e8e8f5" : "#12121e"
+          }}>Cognizance</div>
           <div style={{ width: 1, height: 20, background: border, marginLeft: 4 }} />
-          <div style={{ fontSize: 13, color: mutedTx, fontWeight: 500 }}>Admin Portal</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => setShowMessages(true)} style={{
-            position: "relative", width: 34, height: 34, borderRadius: 9, border: `1px solid ${border}`,
-            background: "transparent", color: mutedTx, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.15s",
-          }}
-            onMouseEnter={e => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = mutedTx; e.currentTarget.style.borderColor = border; }}
-          >
-            <Ic name="message" size={15} />
-            {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: ACCENT, color: "#ffffff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadCount}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("settings")}
-            title="Settings"
-            style={{
-              position: "relative", width: 34, height: 34, borderRadius: 9,
-              border: `1px solid ${view === "settings" ? ACCENT : border}`,
-              background: view === "settings" ? (dark ? "rgba(241,77,77,0.15)" : "rgba(241,77,77,0.1)") : "transparent",
-              color: view === "settings" ? ACCENT : mutedTx,
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = "rgba(241,77,77,0.35)"; }}
-            onMouseLeave={e => { if (view !== "settings") { e.currentTarget.style.color = mutedTx; e.currentTarget.style.borderColor = border; } }}
-          >
-            <Ic name="settings" size={15} />
-          </button>
-          
-        </div>
-      </div>
-
-      {/* ── Main layout ── */}
-      <div className="admin-layout-wrapper" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
-        {/* ── Sidebar ── */}
-        <div className="admin-sidebar-responsive" style={{
-          width: 220, flexShrink: 0, borderRight: `1px solid ${border}`,
-          background: sideBg, display: "flex", flexDirection: "column",
-          padding: "20px 12px", gap: 2, position: "sticky", top: 58, height: "calc(100vh - 58px)", overflowY: "auto",
-        }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: mutedTx, padding: "0 8px 10px" }}>Navigation</div>
-          {NAV.map(n => (
-            <button key={n.id} onClick={() => setView(n.id)} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-              borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit",
-              background: view === n.id ? (dark ? "rgba(245,158,11,0.1)" : "rgba(245,158,11,0.08)") : "transparent",
-              color: view === n.id ? ACCENT : (dark ? "#9ca3af" : "#6b7280"),
-              fontWeight: view === n.id ? 700 : 500, fontSize: 14,
-              transition: "all 0.15s", width: "100%", textAlign: "left",
-            }}
-              onMouseEnter={e => { if (view !== n.id) e.currentTarget.style.background = dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"; }}
-              onMouseLeave={e => { if (view !== n.id) e.currentTarget.style.background = "transparent"; }}
-            >
-              <Ic name={n.icon} size={16} />
-              {n.label}
-            </button>
-          ))}
-
-          {/* Sidebar footer — sign out */}
-          <div style={{ marginTop: "auto", paddingTop: 16, borderTop: `1px solid ${border}` }}>
-            <button onClick={onBack} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-              borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit",
-              background: "transparent", color: mutedTx, fontWeight: 500, fontSize: 14,
-              width: "100%", textAlign: "left", transition: "all 0.15s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.color = "#e11d48"; e.currentTarget.style.background = "rgba(225,29,72,0.06)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = mutedTx; e.currentTarget.style.background = "transparent"; }}
-            >
-              <Ic name="logout" size={16} /> Sign Out
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, color: mutedTx, fontWeight: 500 }}>Admin Portal</span>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+              background: dark ? "rgba(241,77,77,0.14)" : "rgba(241,77,77,0.08)",
+              color: ACCENT, letterSpacing: "0.2px", textTransform: "capitalize"
+            }}>
+              {NAV.find(n => n.id === view)?.label || view}
+            </span>
           </div>
         </div>
 
-        {/* ── Content ── */}
-        <div className="admin-content-responsive" style={{ flex: 1, overflowY: "auto", padding: "28px 32px 60px" }}>
-          {view === "print" ? <PrintSection dark={dark} /> : renderViews[view]?.()}
+        {/* Topbar Right Actions: Theme Toggle & Sign Out */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => setDark(!dark)}
+            title={dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              border: `1px solid ${border}`,
+              background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              color: mutedTx,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Ic name={dark ? "sun" : "moon"} size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setConfirmSignOut(true)}
+            title="Sign Out of Admin"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              height: 34,
+              padding: "0 12px",
+              borderRadius: 10,
+              border: `1px solid ${dark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.2)"}`,
+              background: dark ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.06)",
+              color: "#ef4444",
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Ic name="logout" size={14} />
+            <span>Sign Out</span>
+          </button>
         </div>
+      </header>
+
+      {/* ── Main layout ── */}
+      <div className="admin-layout-wrapper" style={{
+        display: "flex",
+        flex: 1,
+        minHeight: 0,
+        height: "calc(100vh - 58px)",
+        overflow: "hidden",
+        position: "relative",
+      }}>
+
+        {/* ── Sidebar ── */}
+        <aside className="admin-sidebar-responsive" style={{
+          width: 240,
+          minWidth: 240,
+          flexShrink: 0,
+          height: "100%",
+          maxHeight: "100%",
+          borderRight: `1px solid ${border}`,
+          background: sideBg,
+          display: "flex",
+          flexDirection: "column",
+          padding: "16px 12px 16px",
+          gap: 3,
+          overflowY: "auto",
+          boxSizing: "border-box",
+        }}>
+          <div className="admin-sidebar-nav-header" style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: 1.2,
+            textTransform: "uppercase", color: mutedTx, padding: "4px 8px 10px"
+          }}>
+            Navigation
+          </div>
+          {NAV.map(n => {
+            const isActive = view === n.id;
+            return (
+              <button
+                key={n.id}
+                onClick={() => setView(n.id)}
+                style={{
+                  position: "relative",
+                  display: "flex", alignItems: "center", gap: 11, padding: "10px 12px",
+                  borderRadius: 10,
+                  border: isActive
+                    ? (dark ? "1px solid rgba(241,77,77,0.25)" : "1px solid rgba(241,77,77,0.2)")
+                    : "1px solid transparent",
+                  cursor: "pointer", fontFamily: "inherit",
+                  background: isActive
+                    ? (dark ? "rgba(241,77,77,0.12)" : "rgba(241,77,77,0.08)")
+                    : "transparent",
+                  color: isActive ? ACCENT : (dark ? "#9ca3af" : "#64748b"),
+                  fontWeight: isActive ? 700 : 500, fontSize: 13.5,
+                  transition: "all 0.15s ease", width: "100%", textAlign: "left",
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)";
+                    e.currentTarget.style.color = dark ? "#f3f4f6" : "#1f2937";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = dark ? "#9ca3af" : "#64748b";
+                  }
+                }}
+              >
+                {/* Active Indicator Bar on left edge */}
+                {isActive && (
+                  <span style={{
+                    position: "absolute", left: -1, top: 8, bottom: 8, width: 3,
+                    borderRadius: "0 3px 3px 0", background: ACCENT
+                  }} />
+                )}
+                <span style={{ display: "flex", alignItems: "center", color: isActive ? ACCENT : "inherit" }}>
+                  <Ic name={n.icon} size={16} />
+                </span>
+                <span style={{ flex: 1 }}>{n.label}</span>
+              </button>
+            );
+          })}
+
+          {/* Sidebar footer — User card & Sign out */}
+          <div className="admin-sidebar-footer" style={{
+            marginTop: "auto",
+            paddingTop: 14,
+            borderTop: `1px solid ${border}`,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10
+          }}>
+            {/* Admin identity pill */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+              borderRadius: 10, background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)",
+              border: `1px solid ${border}`,
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: "linear-gradient(135deg, #f14d4d, #dc2626)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#fff", fontWeight: 800, fontSize: 12, flexShrink: 0
+              }}>
+                A
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{
+                  fontSize: 12.5, fontWeight: 700,
+                  color: dark ? "#f1f5f9" : "#0f172a",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                }}>
+                  {user?.name || "System Admin"}
+                </div>
+                <div style={{ fontSize: 10.5, color: mutedTx, fontWeight: 500 }}>
+                  Administrator
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setConfirmSignOut(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+                borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit",
+                background: "transparent", color: mutedTx, fontWeight: 500, fontSize: 13.5,
+                width: "100%", textAlign: "left", transition: "all 0.15s",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.color = "#e11d48";
+                e.currentTarget.style.background = "rgba(225,29,72,0.08)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.color = mutedTx;
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <Ic name="logout" size={15} /> Sign Out
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Content ── */}
+        <main ref={contentRef} className="admin-content-responsive" style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          height: "100%",
+          overflowY: "auto",
+          overflowX: "hidden",
+          padding: "28px 36px 64px",
+          boxSizing: "border-box",
+        }}>
+          <div style={{ maxWidth: 1400, margin: "0 auto", width: "100%" }}>
+            {view === "print" ? <PrintSection dark={dark} /> : renderViews[view]?.()}
+          </div>
+        </main>
       </div>
 
       {showMessages && <MessagesPanel user={user} dark={dark} onClose={() => setShowMessages(false)} />}
@@ -2806,7 +4192,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               border: `1px solid ${border}`,
               fontSize: 12.5
             }}>
-              <div>Chest #: <strong style={{ color: ACCENT }}>{editNameModal.chestNo}</strong></div>
+              <div>Chest No: <strong style={{ color: ACCENT }}>{editNameModal.chestNo}</strong></div>
               <div style={{ color: mutedTx }}>•</div>
               <div>Category: <strong>{editNameModal.category}</strong></div>
               <div style={{ color: mutedTx }}>•</div>
@@ -2985,7 +4371,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     {selectedEntryInfo.program?.order && (
                       <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: ACCENT }}>
-                        #{selectedEntryInfo.program.order}
+                        {selectedEntryInfo.program.order}
                       </span>
                     )}
                     <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 18, color: dark ? "#f8fafc" : "#0f172a" }}>
@@ -3070,7 +4456,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                         color: mutedTx,
                       }}>
                         <div>Team</div>
-                        <div>Chest #</div>
+                        <div>Chest No.</div>
                         {hasCodeLetters && <div>Code</div>}
                         <div>Student</div>
                         <div>Category</div>
@@ -3119,7 +4505,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                               </span>
                             </div>
 
-                            {/* 2. Chest # */}
+                            {/* 2. Chest No */}
                             <div>
                               <span style={{
                                 fontFamily: "'Plus Jakarta Sans',sans-serif",
@@ -3132,7 +4518,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                                 display: "inline-block",
                                 letterSpacing: "0.2px",
                               }}>
-                                #{s.chestNo || "—"}
+                                {s.chestNo || "—"}
                               </span>
                             </div>
 
@@ -3214,7 +4600,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         <EvaluationReviewModal
           open={!!activeEvalProg}
           onClose={() => setActiveEvalProg(null)}
-          program={activeEvalProg}
+          program={programs.find((p) => p.id === activeEvalProg.id) || activeEvalProg}
           students={students}
           groups={groups}
           registrations={registrations}
@@ -3226,10 +4612,51 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             logActivity(
               user.name,
               "Confirmed judge evaluation",
-              `${activeEvalProg?.name || ""} (#${activeEvalProg?.order || ""})`
+              `${activeEvalProg?.name || ""} (${activeEvalProg?.order || ""})`
             );
           }}
+          onRevertConfirm={async (programId) => {
+            const prog = programs.find((p) => p.id === programId);
+            const fallbackStatus = prog?.judgeSubmission ? "submitted" : "ready_for_judge";
+            if (revertEvaluation) {
+              await revertEvaluation(programId);
+            } else {
+              updateProgram(programId, {
+                confirmedResults: null,
+                results: null,
+                status: "draft",
+                evaluationStatus: fallbackStatus,
+              });
+            }
+            logActivity(
+              user.name,
+              "Reverted confirmed evaluation",
+              `${prog?.name || ""} (${prog?.order || ""})`
+            );
+            setActiveEvalProg(null);
+          }}
           onUpdateProgram={updateProgram}
+          onOpenCodeLetterModal={(prog) => setCodeLetterProg(prog)}
+          dark={dark}
+        />
+      )}
+
+      {codeLetterProg && (
+        <CodeLetterModal
+          open={!!codeLetterProg}
+          onClose={() => setCodeLetterProg(null)}
+          program={programs.find((p) => p.id === codeLetterProg.id) || codeLetterProg}
+          students={students}
+          groups={groups}
+          registrations={registrations}
+          onSave={(programId, updatedData) => {
+            updateProgram(programId, updatedData);
+            logActivity(
+              user.name,
+              "Updated code letters",
+              `${codeLetterProg?.name || ""} (${codeLetterProg?.order || ""})`
+            );
+          }}
           dark={dark}
         />
       )}
@@ -3243,15 +4670,204 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             code: activeResultProg.order || 1,
             name: activeResultProg.name,
             category: activeResultProg.category,
+            type: activeResultProg.type || activeResultProg.session || "Stage",
+            session: activeResultProg.session || activeResultProg.type || "Stage",
+            maxParticipants: activeResultProg.maxParticipants || 1,
             results: activeResultProg.results,
             status: activeResultProg.status,
-            participantsHistory: activeResultProg.participantsHistory || activeResultProg.codeAllocations || [],
-            codeAllocations: activeResultProg.codeAllocations || activeResultProg.participantsHistory || [],
+            codeLetters: activeResultProg.codeLetters || [],
+            participantsHistory: activeResultProg.participantsHistory || activeResultProg.codeAllocations || activeResultProg.codeLetters || [],
+            codeAllocations: activeResultProg.codeAllocations || activeResultProg.participantsHistory || activeResultProg.codeLetters || [],
           }}
           students={currentProgramCandidates}
+          allPrograms={programs}
+          groups={groups}
+          allStudents={students}
+          scoringRules={scoringRules}
           onPublish={handlePublishFromModal}
           dark={dark}
         />
+      )}
+
+      {/* ── Messages Floating Action Button (FAB) ── */}
+      {!showMessages && (
+        <button
+          type="button"
+          className="admin-fab"
+          onClick={() => setShowMessages(true)}
+          aria-label="Messages"
+          title="Messages"
+          style={{
+            position: "fixed",
+            width: 52,
+            height: 52,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #ff5c5c 0%, #f14d4d 100%)",
+            color: "#ffffff",
+            border: "none",
+            boxShadow: dark
+              ? "0 8px 24px rgba(241, 77, 77, 0.45), 0 2px 8px rgba(0,0,0,0.5)"
+              : "0 8px 24px rgba(241, 77, 77, 0.4), 0 2px 8px rgba(0,0,0,0.12)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 140,
+            transition: "all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = "scale(1.08) translateY(-2px)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = "none";
+          }}
+        >
+          <Ic name="message" size={22} />
+          {unreadCount > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                top: -3,
+                right: -3,
+                minWidth: 19,
+                height: 19,
+                padding: "0 4px",
+                borderRadius: 10,
+                background: "#ffffff",
+                color: "#f14d4d",
+                fontSize: 10.5,
+                fontWeight: 900,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                border: "2px solid #f14d4d",
+              }}
+            >
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* ── Sign Out Confirmation Modal ── */}
+      {confirmSignOut && typeof document !== "undefined" && createPortal(
+        <div
+          className="modal-bg"
+          onClick={() => setConfirmSignOut(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100dvh",
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 100000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            className="modal anim-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 400,
+              width: "100%",
+              borderRadius: 22,
+              padding: "28px 24px 24px",
+              background: dark ? "#111322" : "#ffffff",
+              border: `1px solid ${border}`,
+              textAlign: "center",
+              boxShadow: "0 28px 70px -15px rgba(0,0,0,0.6)",
+              margin: "auto",
+            }}
+          >
+            <div
+              style={{
+                width: 54,
+                height: 54,
+                borderRadius: "50%",
+                margin: "0 auto 16px",
+                background: "rgba(225, 29, 72, 0.12)",
+                color: "#e11d48",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid rgba(225, 29, 72, 0.2)",
+              }}
+            >
+              <Ic name="logout" size={24} />
+            </div>
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: 19,
+                color: dark ? "#f8fafc" : "#0f172a",
+                marginBottom: 8,
+              }}
+            >
+              Sign Out?
+            </div>
+            <div
+              style={{
+                fontSize: 13.5,
+                color: mutedTx,
+                marginBottom: 24,
+                lineHeight: 1.5,
+              }}
+            >
+              Are you sure you want to end your administrator session ({user?.name || "System Admin"})?
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  fontSize: 13.5,
+                  background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                  cursor: "pointer",
+                }}
+                onClick={() => setConfirmSignOut(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  background: "#e11d48",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  border: "none",
+                  boxShadow: "0 4px 14px rgba(225,29,72,0.35)",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setConfirmSignOut(false);
+                  onBack();
+                }}
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

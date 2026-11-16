@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "../../context/AppContext";
 import { ACCENT } from "../../styles/DesignTokens";
 import Ic from "../common/Ic";
+import { linkifyText } from "../../utils/formatMessage";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, fill = "none", stroke = "currentColor", sw = 2, vb = "0 0 24 24", children }) => (
@@ -497,7 +498,9 @@ const MessagesPanel = ({ user, dark, onClose }) => {
                     )}
 
                     {m.text && m.text !== "🎙️ Voice Message" && m.text !== "📷 Image" && (
-                      <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", paddingRight: isAdmin ? 4 : 0 }}>{m.text}</div>
+                      <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", paddingRight: isAdmin ? 4 : 0 }}>
+                        {linkifyText(m.text, { isOwn: isAdmin })}
+                      </div>
                     )}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3, marginTop: 3 }}>
                       <span style={{ fontSize: 10, opacity: 0.65 }}>{fmtTime(m.timestamp)}</span>
