@@ -274,7 +274,16 @@ http.route({
       const maxStage = typeof programLimits?.maxStage === "number" ? programLimits.maxStage : 3;
       const maxOffStage = typeof programLimits?.maxOffStage === "number" ? programLimits.maxOffStage : 3;
 
-      const soloProgs = (allPrograms || []).filter((p: any) => (p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1) === 1);
+      const isGeneral = (p: any): boolean => {
+        if (!p) return false;
+        const cat = String(p.category || "").trim().toLowerCase();
+        return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+      };
+
+      const soloProgs = (allPrograms || []).filter((p: any) => {
+        const pMax = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
+        return pMax === 1 && !isGeneral(p);
+      });
       const stageSoloIds = new Set(
         soloProgs
           .filter((p: any) => ((p.type || p.session || "Stage").toLowerCase() !== "off-stage"))

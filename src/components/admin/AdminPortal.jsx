@@ -2974,7 +2974,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               </div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 15 }}>Participation Limits</div>
-                <div style={{ fontSize: 12, color: mutedTx }}>Max solo events per student (Stage / Off-Stage)</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Max individual events per student (General events excluded)</div>
               </div>
             </div>
 
@@ -2983,7 +2983,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 12, background: rowBg, border: cardBorder }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>Stage Solo Events</div>
-                  <div style={{ fontSize: 11.5, color: mutedTx }}>Maximum solo stage items per student</div>
+                  <div style={{ fontSize: 11.5, color: mutedTx }}>Maximum solo stage items per student (excludes General events)</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <button
@@ -3008,7 +3008,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 12, background: rowBg, border: cardBorder }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>Off-Stage Solo Events</div>
-                  <div style={{ fontSize: 11.5, color: mutedTx }}>Maximum solo off-stage items per student</div>
+                  <div style={{ fontSize: 11.5, color: mutedTx }}>Maximum solo off-stage items per student (excludes General events)</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <button

@@ -71,6 +71,12 @@ async function validateLock(ctx: any, registration: any) {
   }
 }
 
+const isGeneralProgram = (p: any): boolean => {
+  if (!p) return false;
+  const cat = String(p.category || "").trim().toLowerCase();
+  return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+};
+
 async function validateQuota(ctx: any, registration: any) {
   if (registration?.adminOverride === true) return;
   if (!registration?.programId || !Array.isArray(registration?.participantIds) || registration.participantIds.length === 0) {
@@ -87,6 +93,9 @@ async function validateQuota(ctx: any, registration: any) {
   // Solo items only
   if (maxParts !== 1) return;
 
+  // General programs are not counted in individual programs and are not limited by individual quota
+  if (isGeneralProgram(program)) return;
+
   const sessionType = (program.type || program.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
 
   // Get current limits
@@ -99,7 +108,7 @@ async function validateQuota(ctx: any, registration: any) {
     ? (typeof setting?.value?.maxOffStage === "number" ? setting.value.maxOffStage : 3) 
     : (typeof setting?.value?.maxStage === "number" ? setting.value.maxStage : 3);
 
-  // Fetch all registrations and all solo programs in this session to count
+  // Fetch all registrations and all solo individual (non-general) programs in this session to count
   const [allRegs, allProgs, allStudents] = await Promise.all([
     ctx.db.query("registrations").collect(),
     ctx.db.query("programs").collect(),
@@ -111,7 +120,7 @@ async function validateQuota(ctx: any, registration: any) {
       .filter((p: any) => {
         const pMax = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
         const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
-        return pMax === 1 && pSess === sessionType;
+        return pMax === 1 && pSess === sessionType && !isGeneralProgram(p);
       })
       .map((p: any) => p.id)
   );
@@ -157,6 +166,11 @@ export const checkQuota = query({
 
     const sessionType = (program.type || program.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
 
+    // General programs are not counted in individual programs and are not limited by individual quota
+    if (isGeneralProgram(program)) {
+      return { valid: true, maxLimit: 0, sessionType };
+    }
+
     const setting = await ctx.db
       .query("settings")
       .filter((q: any) => q.eq(q.field("key"), "programLimits"))
@@ -177,7 +191,7 @@ export const checkQuota = query({
         .filter((p: any) => {
           const pMax = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
           const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
-          return pMax === 1 && pSess === sessionType;
+          return pMax === 1 && pSess === sessionType && !isGeneralProgram(p);
         })
         .map((p: any) => p.id)
     );

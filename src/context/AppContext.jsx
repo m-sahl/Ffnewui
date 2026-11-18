@@ -18,6 +18,12 @@ export const normalizeCategoryName = (c) => {
   return s;
 };
 
+export const isGeneralProgram = (p) => {
+  if (!p) return false;
+  const cat = String(p.category || "").trim().toLowerCase();
+  return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+};
+
 const AppContext = createContext();
 export const useApp = () => useContext(AppContext);
 
@@ -683,11 +689,13 @@ export const AppProvider = ({ children }) => {
   };
 
   const getStudentQuotaUsage = (studentId, excludeRegId = null) => {
-    if (!studentId) return { stage: 0, offStage: 0, maxStage: programLimits.maxStage, maxOffStage: programLimits.maxOffStage, stageFull: false, offStageFull: false };
+    if (!studentId) return { stage: 0, offStage: 0, maxStage: programLimits.maxStage, maxOffStage: programLimits.maxOffStage, stageFull: false, offStageFull: false, generalStage: 0, generalOffStage: 0, generalTotal: 0 };
     const sId = String(studentId);
 
     let stageCount = 0;
     let offStageCount = 0;
+    let generalStageCount = 0;
+    let generalOffStageCount = 0;
 
     const programMap = new Map();
     for (const p of programs) {
@@ -704,6 +712,17 @@ export const AppProvider = ({ children }) => {
       if (maxP !== 1) continue; // Solo items only count against personal limit
 
       const sessionType = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+
+      // General programs should not be counted in the individual programs
+      if (isGeneralProgram(p)) {
+        if (sessionType === "Off-Stage") {
+          generalOffStageCount++;
+        } else {
+          generalStageCount++;
+        }
+        continue;
+      }
+
       if (sessionType === "Off-Stage") {
         offStageCount++;
       } else {
@@ -721,6 +740,9 @@ export const AppProvider = ({ children }) => {
       maxOffStage,
       stageFull: stageCount >= maxStage,
       offStageFull: offStageCount >= maxOffStage,
+      generalStage: generalStageCount,
+      generalOffStage: generalOffStageCount,
+      generalTotal: generalStageCount + generalOffStageCount,
     };
   };
 
@@ -735,7 +757,7 @@ export const AppProvider = ({ children }) => {
       messages, setMessages: setMessagesState, sendMessage, markRead, deleteMessage,
       locks, toggleLock, isLocked,
       nextChestNo,
-      programLimits, updateProgramLimits, getStudentQuotaUsage,
+      programLimits, updateProgramLimits, getStudentQuotaUsage, isGeneralProgram,
     }}>
       {children}
     </AppContext.Provider>
