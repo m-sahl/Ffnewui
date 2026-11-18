@@ -9,14 +9,14 @@ const cleanDoc = (obj: any) => {
 
 export const getActiveLots = (program: any) => {
   if (!program) return [];
-  if (Array.isArray(program.codeLetters) && program.codeLetters.length > 0) {
-    return program.codeLetters;
-  }
   if (Array.isArray(program.codeAllocations) && program.codeAllocations.length > 0) {
     return program.codeAllocations;
   }
   if (Array.isArray(program.participantsHistory) && program.participantsHistory.length > 0) {
     return program.participantsHistory;
+  }
+  if (Array.isArray(program.codeLetters) && program.codeLetters.length > 0) {
+    return program.codeLetters;
   }
   return [];
 };
@@ -464,11 +464,7 @@ export const getProgramByJudgeToken = query({
     if (!program) return null;
 
     // Return blind data only: no student names, no chest numbers, no groups
-    const rawLots =
-      program.participantsHistory ||
-      program.codeAllocations ||
-      program.codeLetters ||
-      [];
+    const rawLots = getActiveLots(program);
 
     const seenLetters = new Set<string>();
     const blindCodeLetters = rawLots
@@ -554,13 +550,8 @@ export const submitJudgeScores = mutation({
 export const saveCodeLetters = mutation({
   args: {
     id: v.string(),
-    codeLetters: v.array(
-      v.object({
-        codeLetter: v.string(),
-        chestNo: v.string(),
-        studentId: v.optional(v.string()),
-      })
-    ),
+    codeLetters: v.optional(v.any()),
+    codeAllocations: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -570,6 +561,7 @@ export const saveCodeLetters = mutation({
 
     if (!existing) throw new Error("Program not found");
 
+    const inputLots: any[] = args.codeAllocations || args.codeLetters || [];
     const token = existing.judgeToken || Math.random().toString(36).substring(2, 8).toUpperCase();
     const nextStatus =
       existing.evaluationStatus === "submitted" ||
@@ -578,27 +570,52 @@ export const saveCodeLetters = mutation({
         ? existing.evaluationStatus
         : "ready_for_judge";
 
+    // Merge updated code letters into existing codeAllocations preserving metadata
+    let updatedAllocations = inputLots;
+    if (Array.isArray(existing.codeAllocations) && existing.codeAllocations.length > 0) {
+      updatedAllocations = existing.codeAllocations.map((item: any) => {
+        const match = inputLots.find(
+          (cl: any) =>
+            (cl.studentId && String(cl.studentId) === String(item.studentId)) ||
+            (cl.chestNo && String(cl.chestNo) === String(item.chestNo))
+        );
+        return match ? { ...item, codeLetter: String(match.codeLetter || "").toUpperCase().trim() } : item;
+      });
+      inputLots.forEach((entry: any) => {
+        const found = updatedAllocations.some(
+          (u: any) =>
+            (entry.studentId && String(u.studentId) === String(entry.studentId)) ||
+            (entry.chestNo && String(u.chestNo) === String(entry.chestNo))
+        );
+        if (!found) updatedAllocations.push(entry);
+      });
+    }
+
     // Synchronize participantsHistory so that any existing records get the updated codeLetter
     let updatedHistory = existing.participantsHistory;
     if (Array.isArray(existing.participantsHistory)) {
       updatedHistory = existing.participantsHistory.map((ph: any) => {
-        const match = args.codeLetters.find(
-          (cl) =>
+        const match = inputLots.find(
+          (cl: any) =>
             (cl.studentId && String(cl.studentId) === String(ph.studentId)) ||
             (cl.chestNo && String(cl.chestNo) === String(ph.chestNo))
         );
-        return match ? { ...ph, codeLetter: match.codeLetter } : ph;
+        return match ? { ...ph, codeLetter: String(match.codeLetter || "").toUpperCase().trim() } : ph;
       });
     }
 
-    // Keep codeLetters, codeAllocations, and participantsHistory in full sync
-    await ctx.db.patch(existing._id, {
-      codeLetters: args.codeLetters,
-      codeAllocations: args.codeLetters,
-      participantsHistory: updatedHistory,
+    const patch: any = {
+      codeAllocations: updatedAllocations,
+      participantsHistory: updatedHistory || updatedAllocations,
       judgeToken: token,
       evaluationStatus: nextStatus,
-    });
+    };
+
+    if (existing.codeLetters !== undefined) {
+      patch.codeLetters = inputLots;
+    }
+
+    await ctx.db.patch(existing._id, patch);
 
     return { success: true, judgeToken: token };
   },

@@ -231,10 +231,24 @@ export default function CodeLetterModal({
       const judgeToken =
         program.judgeToken || Math.random().toString(36).substring(2, 8).toUpperCase();
 
+      // Merge updated code letters into existing codeAllocations preserving metadata
+      const existingLots = Array.isArray(program.codeAllocations) ? program.codeAllocations : [];
+      const updatedCodeAllocations = formattedParticipantsHistory.map((entry) => {
+        const existing = existingLots.find(
+          (item) =>
+            (entry.studentId && String(item.studentId) === String(entry.studentId)) ||
+            (entry.chestNo && String(item.chestNo) === String(entry.chestNo))
+        );
+        return {
+          ...(existing || {}),
+          ...entry,
+          codeLetter: entry.codeLetter ? entry.codeLetter.toUpperCase().trim() : "",
+        };
+      });
+
       await onSave?.(program.id, {
-        codeLetters: formattedCodeLetters,
-        codeAllocations: formattedCodeLetters,
-        participantsHistory: formattedParticipantsHistory,
+        codeAllocations: updatedCodeAllocations,
+        participantsHistory: updatedCodeAllocations,
         judgeToken,
         evaluationStatus: formattedCodeLetters.length > 0 ? "ready_for_judge" : "pending_lots",
       });
