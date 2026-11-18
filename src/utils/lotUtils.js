@@ -6,14 +6,14 @@
  */
 export const getProgramLots = (prog) => {
   if (!prog) return [];
-  if (Array.isArray(prog.codeLetters) && prog.codeLetters.length > 0) {
-    return prog.codeLetters;
-  }
   if (Array.isArray(prog.codeAllocations) && prog.codeAllocations.length > 0) {
     return prog.codeAllocations;
   }
   if (Array.isArray(prog.participantsHistory) && prog.participantsHistory.length > 0) {
     return prog.participantsHistory;
+  }
+  if (Array.isArray(prog.codeLetters) && prog.codeLetters.length > 0) {
+    return prog.codeLetters;
   }
   return [];
 };

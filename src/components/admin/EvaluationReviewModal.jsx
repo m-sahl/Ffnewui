@@ -283,8 +283,7 @@ export default function EvaluationReviewModal({
     }));
 
     onUpdateProgram?.(program.id, {
-      codeLetters: codeLettersToSave,
-      codeAllocations: codeLettersToSave,
+      codeAllocations: fullHistory,
       participantsHistory: fullHistory,
     });
   };
