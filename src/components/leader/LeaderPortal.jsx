@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useApp } from "../../context/AppContext";
+import { useApp, isGeneralProgram } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
 import Modal from "../common/Modal";
@@ -423,9 +423,10 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       return;
     }
 
-    // Check student solo quotas before submitting
+    // Check student solo quotas before submitting (General programs excluded)
     const isSolo = (p?.maxParticipants !== undefined ? Number(p.maxParticipants) : 1) === 1;
-    if (isSolo) {
+    const isGeneral = isGeneralProgram(p);
+    if (isSolo && !isGeneral) {
       for (const sId of regForm.participantIds) {
         const quota = getStudentQuotaUsage ? getStudentQuotaUsage(sId, editTarget) : null;
         if (quota) {
@@ -487,6 +488,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const selectedProg = programs.find(p => p.id === regForm.programId);
   const max          = selectedProg?.maxParticipants || 1;
   const isSolo       = max === 1;
+  const isProgGeneral = isGeneralProgram(selectedProg);
   const progSession  = (selectedProg?.type || selectedProg?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
   const atMax        = regForm.participantIds.length >= max;
 
@@ -499,7 +501,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const togglePart = id => {
     if (alreadyRegistered.has(id)) return;
     const quota = getStudentQuotaUsage ? getStudentQuotaUsage(id, editTarget) : null;
-    const quotaFull = isSolo && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
+    const quotaFull = isSolo && !isProgGeneral && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
     setRegForm(prev => {
       const has = prev.participantIds.includes(id);
       if (has) return { ...prev, participantIds: prev.participantIds.filter(x => x !== id) };
@@ -708,7 +710,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
-                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered · Limit: {programLimits?.maxStage || 3} solo/student</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered · Limit: {programLimits?.maxStage || 3} solo/student (General excluded)</div>
                   </div>
                   <span style={{
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -730,7 +732,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
-                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 3} solo/student</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 3} solo/student (General excluded)</div>
                   </div>
                   <span style={{
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -2294,7 +2296,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Events</div>
                     <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
-                      {stageRegs.length} Registered · Solo Limit: {programLimits?.maxStage || 3}
+                      {stageRegs.length} Registered · Solo Limit: {programLimits?.maxStage || 3} (General excluded)
                     </div>
                   </div>
                   <span style={{
@@ -2317,7 +2319,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Events</div>
                     <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
-                      {offStageRegs.length} Registered · Solo Limit: {programLimits?.maxOffStage || 3}
+                      {offStageRegs.length} Registered · Solo Limit: {programLimits?.maxOffStage || 3} (General excluded)
                     </div>
                   </div>
                   <span style={{
@@ -2536,7 +2538,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                       const active     = regForm.participantIds.includes(s.id);
                       const registered = alreadyRegistered.has(s.id);
                       const quota      = getStudentQuotaUsage ? getStudentQuotaUsage(s.id, editTarget) : null;
-                      const quotaFull  = isSolo && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
+                      const quotaFull  = isSolo && !isProgGeneral && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
                       const disabled   = registered || (!active && (atMax || quotaFull));
                       return (
                         <div

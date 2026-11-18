@@ -236,14 +236,14 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
                 {showAdvanced && (
                   <div className="anim-fadeIn" style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 14, borderTop: `1px solid ${border}` }}>
                     <div style={{ fontSize: 12, color: dark ? "#94a3b8" : "#64748b", lineHeight: 1.4 }}>
-                      Set the maximum number of solo events each student can participate in. Group events are not restricted.
+                      Set the maximum number of individual events each student can participate in. Group events and General category events are not counted.
                     </div>
 
                     {/* Stage Limit Counter */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 11, background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${border}` }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 13, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Events</div>
-                        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b" }}>Max solo stage events per student</div>
+                        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b" }}>Max solo stage events per student (General excluded)</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <button
@@ -268,7 +268,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 11, background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${border}` }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 13, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Events</div>
-                        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b" }}>Max solo off-stage events per student</div>
+                        <div style={{ fontSize: 11, color: dark ? "#94a3b8" : "#64748b" }}>Max solo off-stage events per student (General excluded)</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <button
@@ -290,7 +290,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: dark ? "#64748b" : "#94a3b8", marginTop: 2 }}>
-                      <span>Solo events limit</span>
+                      <span>Individual events limit (General excluded)</span>
                       <span style={{ color: "#10b981", fontWeight: 600 }}>✓ Auto-saved to cloud</span>
                     </div>
                   </div>
