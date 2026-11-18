@@ -6,6 +6,40 @@ export const DEFAULT_LIMITS = {
   maxOffStage: 3,
 };
 
+export const DEFAULT_JUDGE_PASSCODE = "judge2026";
+
+export const getJudgePasscode = query({
+  args: {},
+  handler: async (ctx) => {
+    const setting = await ctx.db
+      .query("settings")
+      .filter((q) => q.eq(q.field("key"), "judge_passcode"))
+      .first();
+    return setting?.value ? String(setting.value) : DEFAULT_JUDGE_PASSCODE;
+  },
+});
+
+export const setJudgePasscode = mutation({
+  args: { passcode: v.string() },
+  handler: async (ctx, args) => {
+    const clean = String(args.passcode || "").trim();
+    if (!clean) throw new Error("Passcode cannot be empty");
+    const existing = await ctx.db
+      .query("settings")
+      .filter((q) => q.eq(q.field("key"), "judge_passcode"))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { value: clean });
+    } else {
+      await ctx.db.insert("settings", {
+        key: "judge_passcode",
+        value: clean,
+      });
+    }
+    return clean;
+  },
+});
+
 export const getLimits = query({
   args: {},
   handler: async (ctx) => {

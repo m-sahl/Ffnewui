@@ -281,8 +281,7 @@ http.route({
       };
 
       const soloProgs = (allPrograms || []).filter((p: any) => {
-        const pMax = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
-        return pMax === 1 && !isGeneral(p);
+        return !isGeneral(p);
       });
       const stageSoloIds = new Set(
         soloProgs
