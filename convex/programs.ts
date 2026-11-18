@@ -493,6 +493,46 @@ export const getProgramByJudgeToken = query({
   },
 });
 
+export const getJudgeCatalog = query({
+  args: {},
+  handler: async (ctx) => {
+    const list = await ctx.db.query("programs").collect();
+    // Return only programs with drawn lots, sorted by order
+    return list
+      .filter((p) => {
+        const lots = getActiveLots(p);
+        return lots.some((l: any) => l && (l.codeLetter || l.chestNo || l.studentId));
+      })
+      .map((p, idx) => {
+        const rawLots = getActiveLots(p);
+        const seenLetters = new Set<string>();
+        const codeLetterCount = rawLots.filter((c: any) => {
+          if (!c || !c.codeLetter) return false;
+          const letter = String(c.codeLetter).toUpperCase().trim();
+          if (seenLetters.has(letter)) return false;
+          seenLetters.add(letter);
+          return true;
+        }).length;
+
+        return {
+          id: p.id,
+          order: p.order ?? idx + 1,
+          name: p.name,
+          category: normalizeCategory(p.category) || p.category,
+          type: p.type,
+          session: p.session,
+          judgeToken: p.judgeToken || p.id,
+          contestantCount: codeLetterCount || rawLots.length,
+          evaluationStatus: p.evaluationStatus || "ready_for_judge",
+          isSubmitted: !!p.judgeSubmission,
+          isConfirmed: p.evaluationStatus === "confirmed" || !!p.confirmedResults,
+          isPublished: p.status === "published",
+        };
+      })
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  },
+});
+
 export const generateJudgeToken = mutation({
   args: { id: v.string() },
   handler: async (ctx, args) => {
@@ -530,7 +570,7 @@ export const submitJudgeScores = mutation({
     const token = String(args.judgeToken).trim();
     const program = await ctx.db
       .query("programs")
-      .filter((q) => q.eq(q.field("judgeToken"), token))
+      .filter((q) => q.or(q.eq(q.field("judgeToken"), token), q.eq(q.field("id"), token)))
       .first();
 
     if (!program) throw new Error("Invalid judge token");

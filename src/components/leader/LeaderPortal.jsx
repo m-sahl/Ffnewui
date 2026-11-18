@@ -423,10 +423,9 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       return;
     }
 
-    // Check student solo quotas before submitting (General programs excluded)
-    const isSolo = (p?.maxParticipants !== undefined ? Number(p.maxParticipants) : 1) === 1;
+    // Check student quotas before submitting (General programs are completely exempt from individual limits)
     const isGeneral = isGeneralProgram(p);
-    if (isSolo && !isGeneral) {
+    if (!isGeneral) {
       for (const sId of regForm.participantIds) {
         const quota = getStudentQuotaUsage ? getStudentQuotaUsage(sId, editTarget) : null;
         if (quota) {
@@ -434,7 +433,8 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
           if (isFull) {
             const student = groupStudents.find(s => s.id === sId);
             const limit = pSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage;
-            setRegError(`Cannot register: ${student?.name || "Student"} has reached the maximum ${pSession} limit (${limit} programs).`);
+            setRegError(`Cannot register: ${student?.name || "Student"} has reached the maximum ${pSession} limit (${limit} individual programs).`);
+            setRegSaving(false);
             return;
           }
         }
@@ -487,7 +487,6 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
 
   const selectedProg = programs.find(p => p.id === regForm.programId);
   const max          = selectedProg?.maxParticipants || 1;
-  const isSolo       = max === 1;
   const isProgGeneral = isGeneralProgram(selectedProg);
   const progSession  = (selectedProg?.type || selectedProg?.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
   const atMax        = regForm.participantIds.length >= max;
@@ -501,7 +500,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
   const togglePart = id => {
     if (alreadyRegistered.has(id)) return;
     const quota = getStudentQuotaUsage ? getStudentQuotaUsage(id, editTarget) : null;
-    const quotaFull = isSolo && !isProgGeneral && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
+    const quotaFull = !isProgGeneral && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
     setRegForm(prev => {
       const has = prev.participantIds.includes(id);
       if (has) return { ...prev, participantIds: prev.participantIds.filter(x => x !== id) };
@@ -2531,14 +2530,14 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   {atMax && <span style={{ fontSize: 10, fontWeight: 800, color: mutedTx, letterSpacing: 0.5 }}>MAX REACHED</span>}
                 </label>
                 <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${border}`, maxHeight: 280, overflowY: "auto", opacity: isLocked(group.id, progSession) ? 0.45 : 1, pointerEvents: isLocked(group.id, progSession) ? "none" : "auto" }}>
-                  {groupStudents.filter(s => !selectedProg?.category || selectedProg.category === "General" || s.category?.toLowerCase() === selectedProg.category?.toLowerCase()).length === 0 ? (
+                  {groupStudents.filter(s => isGeneralProgram(selectedProg) || s.category?.toLowerCase() === selectedProg?.category?.toLowerCase()).length === 0 ? (
                     <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: mutedTx }}>No students available in {selectedProg?.category || "General"} category</div>
                   ) : (
-                    groupStudents.filter(s => !selectedProg?.category || selectedProg.category === "General" || s.category?.toLowerCase() === selectedProg.category?.toLowerCase()).map((s, i) => {
+                    groupStudents.filter(s => isGeneralProgram(selectedProg) || s.category?.toLowerCase() === selectedProg?.category?.toLowerCase()).map((s, i) => {
                       const active     = regForm.participantIds.includes(s.id);
                       const registered = alreadyRegistered.has(s.id);
                       const quota      = getStudentQuotaUsage ? getStudentQuotaUsage(s.id, editTarget) : null;
-                      const quotaFull  = isSolo && !isProgGeneral && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
+                      const quotaFull  = !isProgGeneral && quota && (progSession === "Off-Stage" ? quota.offStageFull : quota.stageFull);
                       const disabled   = registered || (!active && (atMax || quotaFull));
                       return (
                         <div

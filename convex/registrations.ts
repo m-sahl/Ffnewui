@@ -89,11 +89,8 @@ async function validateQuota(ctx: any, registration: any) {
     .first();
 
   if (!program) return;
-  const maxParts = program.maxParticipants !== undefined ? Number(program.maxParticipants) : 1;
-  // Solo items only
-  if (maxParts !== 1) return;
 
-  // General programs are not counted in individual programs and are not limited by individual quota
+  // General programs are exempt from individual quotas and do not count against limits
   if (isGeneralProgram(program)) return;
 
   const sessionType = (program.type || program.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
@@ -108,19 +105,18 @@ async function validateQuota(ctx: any, registration: any) {
     ? (typeof setting?.value?.maxOffStage === "number" ? setting.value.maxOffStage : 3) 
     : (typeof setting?.value?.maxStage === "number" ? setting.value.maxStage : 3);
 
-  // Fetch all registrations and all solo individual (non-general) programs in this session to count
+  // Fetch all registrations and all individual (non-general) programs in this session to count
   const [allRegs, allProgs, allStudents] = await Promise.all([
     ctx.db.query("registrations").collect(),
     ctx.db.query("programs").collect(),
     ctx.db.query("students").collect(),
   ]);
 
-  const soloSessionProgIds = new Set(
+  const individualSessionProgIds = new Set(
     allProgs
       .filter((p: any) => {
-        const pMax = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
         const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
-        return pMax === 1 && pSess === sessionType && !isGeneralProgram(p);
+        return pSess === sessionType && !isGeneralProgram(p);
       })
       .map((p: any) => p.id)
   );
@@ -135,14 +131,14 @@ async function validateQuota(ctx: any, registration: any) {
     let count = 0;
     for (const r of allRegs) {
       if (r.id === registration.id || (r.programId === registration.programId && r.groupId === registration.groupId)) continue;
-      if (soloSessionProgIds.has(r.programId) && Array.isArray(r.participantIds) && r.participantIds.map(String).includes(sId)) {
+      if (individualSessionProgIds.has(r.programId) && Array.isArray(r.participantIds) && r.participantIds.map(String).includes(sId)) {
         count++;
       }
     }
 
     if (count >= maxLimit) {
       const studentName = studentMap.get(sId) || `Student ${sId}`;
-      throw new Error(`Quota exceeded: ${studentName} already has ${count} ${sessionType} solo entries (Max allowed: ${maxLimit}).`);
+      throw new Error(`Quota exceeded: ${studentName} already has ${count} ${sessionType} individual entries (Max allowed: ${maxLimit}).`);
     }
   }
 }
@@ -161,8 +157,6 @@ export const checkQuota = query({
       .first();
 
     if (!program) return { valid: false, error: "Program not found" };
-    const maxParts = program.maxParticipants !== undefined ? Number(program.maxParticipants) : 1;
-    if (maxParts !== 1) return { valid: true };
 
     const sessionType = (program.type || program.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
 
@@ -186,12 +180,11 @@ export const checkQuota = query({
       ctx.db.query("students").collect(),
     ]);
 
-    const soloSessionProgIds = new Set(
+    const individualSessionProgIds = new Set(
       allProgs
         .filter((p: any) => {
-          const pMax = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
           const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
-          return pMax === 1 && pSess === sessionType && !isGeneralProgram(p);
+          return pSess === sessionType && !isGeneralProgram(p);
         })
         .map((p: any) => p.id)
     );
@@ -207,7 +200,7 @@ export const checkQuota = query({
       for (const r of allRegs) {
         if (args.regId && r.id === args.regId) continue;
         if (args.groupId && r.programId === args.programId && r.groupId === args.groupId) continue;
-        if (soloSessionProgIds.has(r.programId) && Array.isArray(r.participantIds) && r.participantIds.map(String).includes(sId)) {
+        if (individualSessionProgIds.has(r.programId) && Array.isArray(r.participantIds) && r.participantIds.map(String).includes(sId)) {
           count++;
         }
       }
@@ -216,7 +209,7 @@ export const checkQuota = query({
         const studentName = studentMap.get(sId) || `Student ${sId}`;
         return {
           valid: false,
-          error: `Quota exceeded: ${studentName} already has ${count} ${sessionType} solo entries (Max allowed: ${maxLimit}).`,
+          error: `Quota exceeded: ${studentName} already has ${count} ${sessionType} individual entries (Max allowed: ${maxLimit}).`,
           studentId: sId,
           studentName,
           count,
@@ -261,7 +254,15 @@ export const addRegistration = mutation({
       }
       await validateLock(ctx, args.registration);
       await validateQuota(ctx, args.registration);
+      const existing = await ctx.db
+        .query("registrations")
+        .filter((q) => q.eq(q.field("id"), args.registration.id))
+        .first();
       const doc = cleanDoc(args.registration);
+      if (existing) {
+        await ctx.db.patch(existing._id, doc);
+        return { success: true, id: doc.id };
+      }
       await ctx.db.insert("registrations", doc);
       return { success: true, id: doc.id };
     } catch (error) {

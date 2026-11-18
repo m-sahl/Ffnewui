@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Shield, Users, List, Crown, PenTool, ChevronDown } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useToast } from "../common/Toast";
 import { useApp } from "../../context/AppContext";
 import Ic from "../common/Ic";
 import { Topbar } from "../common/Topbar";
@@ -104,6 +107,105 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       } catch {}
     }
   }, []);
+  const showToast = useToast();
+  const serverJudgePasscode = useQuery(api.settings.getJudgePasscode);
+  const setServerJudgePasscode = useMutation(api.settings.setJudgePasscode);
+  const currentJudgePasscode = serverJudgePasscode || "judge2026";
+  const [editingJudgePasscode, setEditingJudgePasscode] = useState(false);
+  const [tempJudgePasscode, setTempJudgePasscode] = useState("");
+  const [copiedPortalLink, setCopiedPortalLink] = useState(false);
+  const [isSavingPasscode, setIsSavingPasscode] = useState(false);
+
+  const handleSaveJudgePasscode = async () => {
+    const clean = tempJudgePasscode.trim();
+    if (!clean) {
+      if (showToast) showToast("Passcode cannot be empty", "error");
+      return;
+    }
+    setIsSavingPasscode(true);
+    try {
+      await setServerJudgePasscode({ passcode: clean });
+      logActivity(user.name, "Changed Judge Passcode", `Updated passcode to "${clean}"`);
+      if (showToast) showToast("Judge Passcode updated successfully!", "success");
+      setEditingJudgePasscode(false);
+      setTempJudgePasscode("");
+    } catch (err) {
+      if (showToast) showToast(err?.message || "Failed to update passcode", "error");
+    } finally {
+      setIsSavingPasscode(false);
+    }
+  };
+
+  const handleShareJudgesPortalWhatsApp = () => {
+    const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin.replace(/\/+$/, "") : "";
+    const customOrigin = (() => {
+      try {
+        const saved = localStorage.getItem("ff_public_app_url");
+        if (saved && saved.trim()) {
+          const cleanSaved = saved.trim().replace(/\/+$/, "");
+          if (isLocalhost && cleanSaved.includes("vercel.app")) {
+            return currentOrigin;
+          }
+          return cleanSaved;
+        }
+      } catch {}
+      return currentOrigin;
+    })();
+
+    const portalUrl = `${customOrigin}/#/judge`;
+    const text = [
+      `🏆 *COGNIZANCE* — *Official Judges Scoring Portal*`,
+      ``,
+      `Welcome, Honorable Judges!`,
+      `Please use the official portal link below to log in and enter program results:`,
+      ``,
+      `👉 *Scoring Portal Link:*`,
+      `${portalUrl}`,
+      ``,
+      `🔑 *Judge Passcode:* \`${currentJudgePasscode}\``,
+      ``,
+      `📋 *Quick Instructions:*`,
+      `1. Open the link above on your phone or tablet.`,
+      `2. Enter the Judge Passcode to open your scoring dashboard.`,
+      `3. Filter by Category or Session to find your assigned events.`,
+      `4. Enter contestant marks (0–100) anonymously using Code Letters.`,
+      `5. Submit your evaluation to transmit results directly to the control room.`,
+      ``,
+      `_Student identities and chest numbers remain protected via blind evaluation._`,
+    ].join("\n");
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    logActivity(user.name, "Shared Judges Portal invite", `Sent WhatsApp invitation with passcode`);
+  };
+
+  const handleCopyJudgesPortalLink = () => {
+    const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin.replace(/\/+$/, "") : "";
+    const customOrigin = (() => {
+      try {
+        const saved = localStorage.getItem("ff_public_app_url");
+        if (saved && saved.trim()) {
+          const cleanSaved = saved.trim().replace(/\/+$/, "");
+          if (isLocalhost && cleanSaved.includes("vercel.app")) {
+            return currentOrigin;
+          }
+          return cleanSaved;
+        }
+      } catch {}
+      return currentOrigin;
+    })();
+
+    const portalUrl = `${customOrigin}/#/judge`;
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(portalUrl);
+      setCopiedPortalLink(true);
+      setTimeout(() => setCopiedPortalLink(false), 2000);
+      if (showToast) showToast("Judges Portal link copied to clipboard!", "success");
+      logActivity(user.name, "Copied Judges Portal link", portalUrl);
+    }
+  };
+
   const [adminNewPwd, setAdminNewPwd]             = useState("");
   const [adminNewPwdConfirm, setAdminNewPwdConfirm] = useState("");
   const [adminPwdSuccess, setAdminPwdSuccess]     = useState(false);
@@ -2186,6 +2288,195 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         </div>
 
+        {/* Unified Judges Scoring Portal Banner */}
+        <div
+          style={{
+            backgroundColor: dark ? "rgba(241,77,77,0.07)" : "rgba(241,77,77,0.04)",
+            border: `1.5px solid ${dark ? "rgba(241,77,77,0.22)" : "rgba(241,77,77,0.18)"}`,
+            borderRadius: 16,
+            padding: "16px 20px",
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "linear-gradient(135deg, #f14d4d, #dc2626)",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 14px rgba(241,77,77,0.28)",
+                flexShrink: 0,
+              }}
+            >
+              <Ic name="award" size={22} />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 15, fontWeight: 800, color: dark ? "#f3f4f6" : "#0f172a" }}>
+                  Judges Scoring Portal
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    backgroundColor: dark ? "rgba(16,185,129,0.2)" : "rgba(16,185,129,0.12)",
+                    color: "#10b981",
+                    padding: "2px 8px",
+                    borderRadius: 8,
+                  }}
+                >
+                  Blind Evaluation
+                </span>
+              </div>
+              <div style={{ fontSize: 12.5, color: mutedTx, marginTop: 2 }}>
+                Judges log in with one passcode and score all their lot-ready programs without multiple WhatsApp links.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Passcode display & edit */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: cardBg,
+                border: `1px solid ${border}`,
+                borderRadius: 10,
+                padding: "6px 12px",
+              }}
+            >
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: mutedTx }}>Passcode:</span>
+              <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "1px", color: ACCENT }}>
+                {currentJudgePasscode}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempJudgePasscode(currentJudgePasscode);
+                  setEditingJudgePasscode(true);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: mutedTx,
+                  cursor: "pointer",
+                  padding: 2,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                title="Change Judge Passcode"
+              >
+                <Ic name="edit" size={13} />
+              </button>
+            </div>
+
+            {/* Share via WhatsApp */}
+            <button
+              type="button"
+              onClick={handleShareJudgesPortalWhatsApp}
+              className="btn btn-sm"
+              style={{
+                backgroundColor: "#25D366",
+                color: "#ffffff",
+                border: "none",
+                fontWeight: 700,
+                fontSize: 12.5,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                borderRadius: 10,
+                boxShadow: "0 2px 8px rgba(37,211,102,0.25)",
+              }}
+              title="Share Judges Portal link & passcode on WhatsApp"
+            >
+              <Ic name="whatsapp" size={14} />
+              <span>Share Portal on WhatsApp</span>
+            </button>
+
+            {/* Copy Portal Link */}
+            <button
+              type="button"
+              onClick={handleCopyJudgesPortalLink}
+              className="btn btn-ghost btn-sm"
+              style={{
+                border: `1px solid ${border}`,
+                fontWeight: 600,
+                fontSize: 12.5,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                borderRadius: 10,
+              }}
+              title="Copy Judges Portal link to clipboard"
+            >
+              <Ic name={copiedPortalLink ? "check" : "copy"} size={14} />
+              <span>{copiedPortalLink ? "Copied!" : "Copy Link"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Modal to edit Judge Passcode */}
+        {editingJudgePasscode && (
+          <Modal
+            open={editingJudgePasscode}
+            onClose={() => setEditingJudgePasscode(false)}
+            title="Edit Judges Portal Passcode"
+            dark={dark}
+          >
+            <div style={{ padding: "8px 0" }}>
+              <p style={{ fontSize: 13, color: mutedTx, marginBottom: 16, lineHeight: 1.5 }}>
+                All festival judges use this single shared passcode to unlock their scoring dashboard at <code>/#/judge</code>.
+              </p>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: mutedTx, marginBottom: 6, textTransform: "uppercase" }}>
+                  New Judge Passcode
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  className="input"
+                  value={tempJudgePasscode}
+                  onChange={(e) => setTempJudgePasscode(e.target.value)}
+                  placeholder="e.g. judge2026"
+                  style={{ height: 46, fontSize: 16, fontWeight: 700 }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setEditingJudgePasscode(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={!tempJudgePasscode.trim() || isSavingPasscode}
+                  onClick={handleSaveJudgePasscode}
+                  style={{ fontWeight: 700 }}
+                >
+                  {isSavingPasscode ? "Saving..." : "Save Passcode"}
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
         {/* Toolbar: Category filter pills on left, Status Dropdown aligned on the right */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -3096,6 +3387,88 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               >
                 Update Admin Password
               </button>
+            </div>
+          </div>
+
+          {/* Card 3B: Judges Scoring Portal Access */}
+          <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(241,77,77,0.1)", color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic name="award" size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>Judges Scoring Portal</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Master passcode for judge evaluation portal at /#/judge</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ padding: "12px 14px", borderRadius: 12, background: rowBg, border: cardBorder, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: mutedTx, textTransform: "uppercase" }}>Current Passcode</div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: ACCENT, letterSpacing: "1px", marginTop: 2 }}>
+                    {currentJudgePasscode}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ borderRadius: 8, fontWeight: 700 }}
+                  onClick={() => {
+                    setTempJudgePasscode(currentJudgePasscode);
+                    setEditingJudgePasscode(true);
+                  }}
+                >
+                  Change Passcode
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={handleShareJudgesPortalWhatsApp}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#25D366",
+                    color: "#ffffff",
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    borderRadius: 10,
+                    height: 38,
+                  }}
+                >
+                  <Ic name="whatsapp" size={14} />
+                  <span>Share on WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleCopyJudgesPortalLink}
+                  style={{
+                    border: cardBorder,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    borderRadius: 10,
+                    height: 38,
+                  }}
+                >
+                  <Ic name={copiedPortalLink ? "check" : "copy"} size={14} />
+                  <span>{copiedPortalLink ? "Copied" : "Copy Link"}</span>
+                </button>
+              </div>
+
+              <div style={{ fontSize: 11.5, color: mutedTx, lineHeight: 1.4 }}>
+                Judges open <code>/#/judge</code>, enter this passcode, and directly enter blind marks for all lot-ready events.
+              </div>
             </div>
           </div>
 

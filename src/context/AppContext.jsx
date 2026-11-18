@@ -708,8 +708,6 @@ export const AppProvider = ({ children }) => {
 
       const p = programMap.get(r.programId);
       if (!p) continue;
-      const maxP = p.maxParticipants !== undefined ? Number(p.maxParticipants) : 1;
-      if (maxP !== 1) continue; // Solo items only count against personal limit
 
       const sessionType = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
 
@@ -723,6 +721,7 @@ export const AppProvider = ({ children }) => {
         continue;
       }
 
+      // Individual category events count against personal limit
       if (sessionType === "Off-Stage") {
         offStageCount++;
       } else {
