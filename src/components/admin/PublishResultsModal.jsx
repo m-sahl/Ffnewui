@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { calculateEntryPoints, simulateLeaderboardImpact } from "../../utils/scoring";
+import { getProgramLots } from "../../utils/lotUtils";
 
 const PLACES = ["1st", "2nd", "3rd"];
 const GRADES = ["A", "B", "C", "—"];
@@ -32,7 +33,7 @@ export default function PublishResultsModal({
 
   // Extract participants roster with secret code letters assigned by desk (ffcontrol)
   const historyList = useMemo(() => {
-    const raw = event?.codeLetters || event?.participantsHistory || event?.codeAllocations || [];
+    const raw = getProgramLots(event);
     return Array.isArray(raw) ? raw : [];
   }, [event]);
 

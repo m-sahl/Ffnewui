@@ -360,7 +360,7 @@ const SettingsPanel = ({ dark, setDark, onClose, context, onLogout, isAdmin, ver
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Sign Out</div>
-                <div className="text-muted" style={{ fontSize: 12 }}>End your current session</div>
+                <div className="text-muted" style={{ fontSize: 12 }}>End your current session · 30m idle timeout</div>
               </div>
               <button className="btn btn-danger btn-sm" onClick={() => setConfirming(true)}>Sign Out</button>
             </div>

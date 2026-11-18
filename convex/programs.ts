@@ -7,6 +7,20 @@ const cleanDoc = (obj: any) => {
   return rest;
 };
 
+export const getActiveLots = (program: any) => {
+  if (!program) return [];
+  if (Array.isArray(program.codeLetters) && program.codeLetters.length > 0) {
+    return program.codeLetters;
+  }
+  if (Array.isArray(program.codeAllocations) && program.codeAllocations.length > 0) {
+    return program.codeAllocations;
+  }
+  if (Array.isArray(program.participantsHistory) && program.participantsHistory.length > 0) {
+    return program.participantsHistory;
+  }
+  return [];
+};
+
 export const normalizeCategory = (cat?: string): string | undefined => {
   if (!cat || cat.toLowerCase() === "all") return undefined;
   const c = String(cat).trim().toLowerCase();
@@ -44,6 +58,24 @@ export const update = mutation({
     if (existing) {
       const clean = cleanDoc(args.program);
       const merged: any = { ...existing, ...clean };
+
+      // Ensure bi-directional sync between codeLetters and codeAllocations
+      if (Array.isArray(clean.codeLetters) && clean.codeLetters.length > 0) {
+        if (!clean.codeAllocations || (Array.isArray(clean.codeAllocations) && clean.codeAllocations.length === 0)) {
+          merged.codeAllocations = clean.codeLetters;
+        }
+      } else if (Array.isArray(clean.codeAllocations) && clean.codeAllocations.length > 0) {
+        if (!clean.codeLetters || (Array.isArray(clean.codeLetters) && clean.codeLetters.length === 0)) {
+          merged.codeLetters = clean.codeAllocations
+            .filter((c: any) => c && c.codeLetter)
+            .map((c: any) => ({
+              codeLetter: String(c.codeLetter || "").toUpperCase().trim(),
+              chestNo: String(c.chestNo || "").trim(),
+              studentId: c.studentId ? String(c.studentId) : undefined,
+            }));
+        }
+      }
+
       if (
         clean.confirmedResults === null ||
         (clean.confirmedResults === undefined && "confirmedResults" in clean)
@@ -119,6 +151,19 @@ export const updateStatus = mutation({
       if (args.codeAllocations !== undefined) {
         patch.codeAllocations = args.codeAllocations;
       }
+
+      // Automatically mirror to codeLetters so codeLetters column is never empty
+      const sourceLots = patch.codeAllocations ?? patch.participantsHistory;
+      if (Array.isArray(sourceLots) && sourceLots.length > 0) {
+        patch.codeLetters = sourceLots
+          .filter((c: any) => c && c.codeLetter)
+          .map((c: any) => ({
+            codeLetter: String(c.codeLetter || "").toUpperCase().trim(),
+            chestNo: String(c.chestNo || "").trim(),
+            studentId: c.studentId ? String(c.studentId) : undefined,
+          }));
+      }
+
       await ctx.db.patch(existing._id, patch);
     }
   },
@@ -137,9 +182,10 @@ export const updateParticipantsHistory = mutation({
       .filter((q) => q.eq(q.field("id"), args.id))
       .first();
     if (existing) {
+      const sourceLots = args.codeAllocations !== undefined ? args.codeAllocations : args.participantsHistory;
       const patch: any = {
         participantsHistory: args.participantsHistory,
-        codeAllocations: args.codeAllocations !== undefined ? args.codeAllocations : args.participantsHistory,
+        codeAllocations: sourceLots,
       };
       if (args.status !== undefined) {
         patch.status = args.status;
@@ -150,6 +196,18 @@ export const updateParticipantsHistory = mutation({
       if (!existing.evaluationStatus || existing.evaluationStatus === "pending_lots") {
         patch.evaluationStatus = "ready_for_judge";
       }
+
+      // Automatically mirror to codeLetters so codeLetters column is never empty
+      if (Array.isArray(sourceLots) && sourceLots.length > 0) {
+        patch.codeLetters = sourceLots
+          .filter((c: any) => c && c.codeLetter)
+          .map((c: any) => ({
+            codeLetter: String(c.codeLetter || "").toUpperCase().trim(),
+            chestNo: String(c.chestNo || "").trim(),
+            studentId: c.studentId ? String(c.studentId) : undefined,
+          }));
+      }
+
       await ctx.db.patch(existing._id, patch);
     }
   },
@@ -520,8 +578,24 @@ export const saveCodeLetters = mutation({
         ? existing.evaluationStatus
         : "ready_for_judge";
 
+    // Synchronize participantsHistory so that any existing records get the updated codeLetter
+    let updatedHistory = existing.participantsHistory;
+    if (Array.isArray(existing.participantsHistory)) {
+      updatedHistory = existing.participantsHistory.map((ph: any) => {
+        const match = args.codeLetters.find(
+          (cl) =>
+            (cl.studentId && String(cl.studentId) === String(ph.studentId)) ||
+            (cl.chestNo && String(cl.chestNo) === String(ph.chestNo))
+        );
+        return match ? { ...ph, codeLetter: match.codeLetter } : ph;
+      });
+    }
+
+    // Keep codeLetters, codeAllocations, and participantsHistory in full sync
     await ctx.db.patch(existing._id, {
       codeLetters: args.codeLetters,
+      codeAllocations: args.codeLetters,
+      participantsHistory: updatedHistory,
       judgeToken: token,
       evaluationStatus: nextStatus,
     });
@@ -622,6 +696,65 @@ export const unpublishResults = mutation({
     });
 
     return { success: true };
+  },
+});
+
+export const syncExistingCodeAllocations = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allPrograms = await ctx.db.query("programs").collect();
+    let syncedCount = 0;
+    const details: any[] = [];
+
+    for (const p of allPrograms) {
+      const hasCodeLetters = Array.isArray(p.codeLetters) && p.codeLetters.length > 0;
+      const hasCodeAllocations = Array.isArray(p.codeAllocations) && p.codeAllocations.length > 0;
+      const hasParticipantsHistory = Array.isArray(p.participantsHistory) && p.participantsHistory.length > 0;
+
+      let patch: any = null;
+
+      // 1. If codeAllocations has data but codeLetters is empty or missing: backfill codeLetters from codeAllocations
+      if (hasCodeAllocations && !hasCodeLetters) {
+        const formattedLetters = p.codeAllocations
+          .filter((c: any) => c && c.codeLetter)
+          .map((c: any) => ({
+            codeLetter: String(c.codeLetter || "").toUpperCase().trim(),
+            chestNo: String(c.chestNo || "").trim(),
+            studentId: c.studentId ? String(c.studentId) : undefined,
+          }));
+        if (formattedLetters.length > 0) {
+          patch = { codeLetters: formattedLetters };
+        }
+      }
+      // 2. If neither codeLetters nor codeAllocations, but participantsHistory has data
+      else if (!hasCodeLetters && !hasCodeAllocations && hasParticipantsHistory) {
+        const formattedLetters = p.participantsHistory
+          .filter((c: any) => c && c.codeLetter)
+          .map((c: any) => ({
+            codeLetter: String(c.codeLetter || "").toUpperCase().trim(),
+            chestNo: String(c.chestNo || "").trim(),
+            studentId: c.studentId ? String(c.studentId) : undefined,
+          }));
+        if (formattedLetters.length > 0) {
+          patch = {
+            codeLetters: formattedLetters,
+            codeAllocations: formattedLetters,
+          };
+        }
+      }
+      // 3. If codeLetters has edited data but codeAllocations is empty or missing: backfill codeAllocations
+      else if (hasCodeLetters && !hasCodeAllocations) {
+        patch = { codeAllocations: p.codeLetters };
+      }
+
+      if (patch) {
+        await ctx.db.patch(p._id, patch);
+        syncedCount++;
+        details.push({ id: p.id, name: p.name, ...patch });
+      }
+    }
+
+    return { total: allPrograms.length, synced: syncedCount, details };
   },
 });
 

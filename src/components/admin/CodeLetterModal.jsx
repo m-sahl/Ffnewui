@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Ic from "../common/Ic";
+import { getProgramLots } from "../../utils/lotUtils";
 
 export default function CodeLetterModal({
   open,
@@ -78,7 +79,7 @@ export default function CodeLetterModal({
   useEffect(() => {
     if (!open || !program) return;
 
-    const existingLots = program.codeLetters || program.participantsHistory || program.codeAllocations || [];
+    const existingLots = getProgramLots(program);
     const mapByStudentId = new Map();
     const mapByChestNo = new Map();
 

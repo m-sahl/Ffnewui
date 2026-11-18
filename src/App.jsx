@@ -6,7 +6,9 @@ import LandingPage from "./components/landing/LandingPage";
 import LeaderPortal from "./components/leader/LeaderPortal";
 import AdminPortal from "./components/admin/AdminPortal";
 import JudgePortal from "./components/judge/JudgePortal";
-import { ToastProvider } from "./components/common/Toast";
+import { ToastProvider, useToast } from "./components/common/Toast";
+import SessionTimeoutModal from "./components/common/SessionTimeoutModal";
+import { useSessionTimeout, SESSION_TIMEOUT_MS, SESSION_STORAGE_KEY } from "./utils/useSessionTimeout";
 
 import { clearHashRoute, setHashRoute, parseHash } from "./utils/useRouting";
 
@@ -14,11 +16,28 @@ const safeGet    = (key) => { try { const s = localStorage.getItem(key); return 
 const safeSet    = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
 const safeRemove = (key) => { try { localStorage.removeItem(key); } catch {} };
 
+const checkInitialSession = () => {
+  const saved = safeGet("ff_user");
+  if (!saved) return { user: null, expired: false };
+  const lastActiveStr = localStorage.getItem(SESSION_STORAGE_KEY);
+  if (lastActiveStr) {
+    const lastActive = parseInt(lastActiveStr, 10);
+    if (!isNaN(lastActive) && Date.now() - lastActive >= SESSION_TIMEOUT_MS) {
+      safeRemove("ff_user");
+      safeRemove(SESSION_STORAGE_KEY);
+      return { user: null, expired: true };
+    }
+  }
+  return { user: saved, expired: false };
+};
+
 const AppContent = () => {
   const { groups, users } = useApp();  // single call
+  const showToast = useToast();
 
-  const [user, setUser]       = useState(() => safeGet("ff_user"));
-  const [loading, setLoading] = useState(() => !safeGet("ff_user"));
+  const [initialSession]      = useState(checkInitialSession);
+  const [user, setUser]       = useState(initialSession.user);
+  const [loading, setLoading] = useState(() => !initialSession.user);
   const [dark, setDark]       = useState(() => {
     try {
       const saved = localStorage.getItem("ff_dark");
@@ -32,6 +51,13 @@ const AppContent = () => {
   });
   const [isJudgeMode, setIsJudgeMode] = useState(() => parseHash().prefix === "judge");
   const [judgeToken, setJudgeToken]   = useState(() => parseHash().prefix === "judge" ? (parseHash().token || "") : "");
+
+  // Notify if previous session timed out while tab was closed/away
+  useEffect(() => {
+    if (initialSession.expired) {
+      showToast("Session expired due to 30 minutes of inactivity. Please log in again.", "info", 5000);
+    }
+  }, [initialSession.expired, showToast]);
 
   useEffect(() => {
     const handleHash = () => {
@@ -62,6 +88,7 @@ const AppContent = () => {
     } else {
       setUser(null);
       safeRemove("ff_user");
+      safeRemove(SESSION_STORAGE_KEY);
       clearHashRoute();
     }
   }, [users]);
@@ -78,7 +105,15 @@ const AppContent = () => {
       }
     } catch {}
   }, [dark]);
-  useEffect(() => { user ? safeSet("ff_user", user) : safeRemove("ff_user"); }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      safeSet("ff_user", user);
+    } else {
+      safeRemove("ff_user");
+      safeRemove(SESSION_STORAGE_KEY);
+    }
+  }, [user]);
 
   // Enforce role route boundary: if user clicks Back into another role/team's URL, intercept it
   useEffect(() => {
@@ -112,7 +147,11 @@ const AppContent = () => {
   }, [user]);
 
   const handleSplashDone = useCallback(() => setLoading(false), []);
-  const handleLogin      = useCallback((u) => {
+
+  const handleLogin = useCallback((u) => {
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, String(Date.now()));
+    } catch {}
     setUser(u);
     const { prefix, subroute } = parseHash();
     if (u.role === "group") {
@@ -123,20 +162,37 @@ const AppContent = () => {
       setHashRoute("admin", targetSub, true);
     }
   }, []);
-  const handleLogout     = useCallback(() => {
+
+  const handleLogout = useCallback((reason) => {
     setUser(null);
     safeRemove("ff_user");
+    safeRemove(SESSION_STORAGE_KEY);
     clearHashRoute();
-  }, []);
+    if (reason === "inactivity") {
+      showToast("Session expired due to 30 minutes of inactivity. Please log in again.", "info", 5000);
+    }
+  }, [showToast]);
 
-  if (loading) {
-    // Show splash screen as an overlay on top of LandingPage to ensure a seamless transition
-  }
+  // 30-minute session inactivity timer and warning modal hook
+  const { showWarning, remainingSeconds, extendSession } = useSessionTimeout({
+    user,
+    onLogout: handleLogout,
+  });
 
   return (
-    <ToastProvider>
+    <>
       <GlobalStyles dark={dark} />
       {loading && <SplashScreen onDone={handleSplashDone} dark={dark} />}
+
+      {showWarning && (
+        <SessionTimeoutModal
+          remainingSeconds={remainingSeconds}
+          onExtend={extendSession}
+          onLogout={() => handleLogout()}
+          dark={dark}
+        />
+      )}
+
       {isJudgeMode ? (
         <JudgePortal
           token={judgeToken}
@@ -162,13 +218,15 @@ const AppContent = () => {
       ) : (
         <AdminPortal user={user} dark={dark} setDark={setDark} onBack={handleLogout} />
       )}
-    </ToastProvider>
+    </>
   );
 };
 
 const App = () => (
   <AppProvider>
-    <AppContent />
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   </AppProvider>
 );
 

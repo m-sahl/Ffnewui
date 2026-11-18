@@ -2150,7 +2150,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#f8fafc" : "#0f172a" }}>Sign Out</div>
-                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 1 }}>End your current session as {group.name}</div>
+                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 1 }}>End your current session as {group.name} · 30m idle timeout</div>
                   </div>
                 </div>
 

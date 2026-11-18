@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import Ic from "../common/Ic";
-import { STUDENT_CATS, catColor, ACCENT } from "../../styles/DesignTokens";
+import { CATS, catColor, ACCENT } from "../../styles/DesignTokens";
 import { calculateEntryPoints, simulateLeaderboardImpact } from "../../utils/scoring";
 
 export default function PublishingSection({
@@ -62,7 +62,7 @@ export default function PublishingSection({
   // Filtered by category and search
   const filteredPrograms = useMemo(() => {
     return relevantPrograms.filter((p) => {
-      if (catFilter !== "All" && p.category !== catFilter) return false;
+      if (catFilter !== "All" && (p.category || "General").toLowerCase() !== catFilter.toLowerCase()) return false;
       const isPublished = p.status === "published";
       if (statusFilter === "confirmed" && isPublished) return false;
       if (statusFilter === "published" && !isPublished) return false;
@@ -258,11 +258,11 @@ export default function PublishingSection({
       {/* Category Pills & Filters */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {["All", ...STUDENT_CATS].map((cat) => {
+          {["All", ...CATS].map((cat) => {
             const active = catFilter === cat;
             const count = cat === "All"
               ? relevantPrograms.length
-              : relevantPrograms.filter((p) => p.category === cat).length;
+              : relevantPrograms.filter((p) => (p.category || "General").toLowerCase() === cat.toLowerCase()).length;
             const pillColor = catColor[cat] || theme.accent;
 
             return (
