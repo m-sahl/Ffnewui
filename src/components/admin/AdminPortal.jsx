@@ -13,6 +13,7 @@ import PublishResultsModal from "./PublishResultsModal";
 import EvaluationReviewModal from "./EvaluationReviewModal";
 import CodeLetterModal from "./CodeLetterModal";
 import PublishingSection from "./PublishingSection";
+import { getProgramLots } from "../../utils/lotUtils";
 import { buildJudgeMessage } from "../../utils/formatMessage";
 import * as XLSX from "xlsx";
 import { CATS, STUDENT_CATS, ACCENT, catColor, ACCENT4 } from "../../styles/DesignTokens";
@@ -77,7 +78,7 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
 };
 
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
-  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, revertEvaluation, publishResults, unpublishResults, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage } = useApp();
+  const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, revertEvaluation, publishResults, unpublishResults, syncCodeAllocations, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage } = useApp();
 
   const [view, setViewState]         = useState(() => getHashRoute("admin", "students", VALID_VIEWS, { programs: "events" }));
   const setViewSync                   = useHashSync("admin", view, setViewState, VALID_VIEWS, { programs: "events" });
@@ -128,6 +129,30 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     setTimeout(() => {
       setAdminPwdSuccess(false);
     }, 3000);
+  };
+
+  const [isSyncingLots, setIsSyncingLots] = useState(false);
+  const [syncLotsResult, setSyncLotsResult] = useState(null);
+
+  const handleSyncCodeAllocations = async () => {
+    setIsSyncingLots(true);
+    setSyncLotsResult(null);
+    try {
+      const res = await syncCodeAllocations();
+      setSyncLotsResult({
+        success: true,
+        message: `Successfully synchronized ${res?.synced ?? 0} programs.`,
+      });
+      logActivity(user.name, "Synchronized code allocations", `${res?.synced ?? 0} programs updated`);
+      setTimeout(() => setSyncLotsResult(null), 5000);
+    } catch (err) {
+      setSyncLotsResult({
+        success: false,
+        message: err?.message || "Sync failed",
+      });
+    } finally {
+      setIsSyncingLots(false);
+    }
   };
 
   // ── Festival Scoring Engine & Real-Time Standings ─────────────────────────────
@@ -197,7 +222,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const [importModal, setImportModal]             = useState(false);
   const [progImportModal, setProgImportModal]     = useState(false);
   const [selectedEntryInfo, setSelectedEntryInfo] = useState(null);
-  const [resCatFilter, setResCatFilter]         = useState("Low");
+  const [resCatFilter, setResCatFilter]         = useState("All");
   const [resStatusFilter, setResStatusFilter]   = useState("all");
   const [resSearch, setResSearch]               = useState("");
   const [resSearchOpen, setResSearchOpen]       = useState(true);
@@ -1305,7 +1330,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           .filter(r => {
             if (regCatFilter === "All") return true;
             const p = programs.find(pg => pg.id === r.programId);
-            return p?.category === regCatFilter;
+            return (p?.category || "General").toLowerCase() === regCatFilter.toLowerCase();
           })
           .filter(r => {
             if (!regSearch.trim()) return true;
@@ -1393,7 +1418,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       ? progEntries
           .filter(entry => {
             if (regCatFilter === "All") return true;
-            return entry.program.category === regCatFilter;
+            return (entry.program.category || "General").toLowerCase() === regCatFilter.toLowerCase();
           })
           .filter(entry => {
             if (!regSearch.trim()) return true;
@@ -1411,7 +1436,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           ? registrations.length
           : registrations.filter(r => {
               const p = programs.find(pg => pg.id === r.programId);
-              return p?.category === regCatFilter;
+              return (p?.category || "General").toLowerCase() === regCatFilter.toLowerCase();
             }).length)
       : 0;
 
@@ -1452,13 +1477,13 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                     ? registrations.length
                     : registrations.filter(r => {
                         const p = programs.find(pg => pg.id === r.programId);
-                        return p?.category === cat;
+                        return (p?.category || "General").toLowerCase() === cat.toLowerCase();
                       }).length)
                 : (cat === "All"
                     ? rawRegs.length
                     : rawRegs.filter(r => {
                         const p = programs.find(pg => pg.id === r.programId);
-                        return p?.category === cat;
+                        return (p?.category || "General").toLowerCase() === cat.toLowerCase();
                       }).length);
               const pillColor = cat === "All" ? ACCENT : (catColor[cat] || ACCENT);
               return (
@@ -1776,7 +1801,14 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 return (
                   <div key={r.id} style={{ display: "grid", gridTemplateColumns: "48px 1fr 110px 1fr 40px", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i > 0 ? `1px solid ${border}` : "none", background: i % 2 === 0 ? cardBg : "transparent" }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 13, color: mutedTx }}>{p?.order ? `${p.order}` : ""}</span>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{p?.name}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{p?.name}</div>
+                      {p?.category && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: catColor[p.category] || mutedTx, marginTop: 2 }}>
+                          {p.category}
+                        </div>
+                      )}
+                    </div>
                     <Tag label={p?.session} dark={dark} />
                     <div>
                       {parts.length === 0 ? (
@@ -1842,8 +1874,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     const list = [];
     const seenIds = new Set();
 
-    // 0. Include desk participantsHistory with secret code letters first
-    const hist = activeResultProg.participantsHistory || activeResultProg.codeAllocations || [];
+    // 0. Include desk participantsHistory / codeLetters / codeAllocations
+    const hist = getProgramLots(activeResultProg);
     hist.forEach(h => {
       const sId = String(h.studentId || h.id);
       if (sId && !seenIds.has(sId)) {
@@ -1882,7 +1914,8 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
     });
 
     // 2. Fallback contestants in this category
-    const allInCat = Object.values(students).flat().filter(s => s.category === activeResultProg.category);
+    const isGeneral = !activeResultProg.category || activeResultProg.category.toLowerCase() === "general";
+    const allInCat = Object.values(students).flat().filter(s => isGeneral ? true : s.category === activeResultProg.category);
     allInCat.forEach(st => {
       if (!seenIds.has(String(st.id))) {
         seenIds.add(String(st.id));
@@ -1919,8 +1952,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       const sId = String(studentId || "");
       const cLetter = codeLetter ? String(codeLetter).trim().toUpperCase() : "";
 
-      // 0. Check participantsHistory / codeAllocations
-      const hist = activeResultProg?.participantsHistory || activeResultProg?.codeAllocations || prog?.participantsHistory || prog?.codeAllocations || [];
+      // 0. Check codeLetters / codeAllocations / participantsHistory
+      const activeHist = getProgramLots(activeResultProg);
+      const progHist = getProgramLots(prog);
+      const hist = activeHist.length > 0 ? activeHist : progHist;
       const histMatch = hist.find(h =>
         (sId && String(h.studentId) === sId) ||
         (cLetter && String(h.codeLetter).trim().toUpperCase() === cLetter)
@@ -2024,8 +2059,10 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   };
 
   const renderResults = () => {
-    // 1. Filter by the selected category among the three: Low, Mid, High
-    const catPrograms = programs.filter(p => p.category === resCatFilter);
+    // 1. Filter by the selected category among CATS or "All"
+    const catPrograms = resCatFilter === "All"
+      ? programs
+      : programs.filter(p => (p.category || "General").toLowerCase() === resCatFilter.toLowerCase());
 
     // 2. Filter by publication status
     const statusFiltered = catPrograms.filter(p => {
@@ -2078,7 +2115,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           ? "Confirmed"
           : p.evaluationStatus === "submitted" || !!p.judgeSubmission
           ? "Judge Submitted"
-          : (p.codeLetters?.length > 0 || p.codeAllocations?.length > 0)
+          : (getProgramLots(p).length > 0)
           ? "Ready for Judge"
           : "Pending Lots";
 
@@ -2105,7 +2142,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
         { wch: 60 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, `${resCatFilter || "All"} Judges`);
-      XLSX.writeFile(wb, `Cognizance_${resCatFilter}_Judge_Links.xlsx`);
+      XLSX.writeFile(wb, `Cognizance_${resCatFilter || "All"}_Judge_Links.xlsx`);
       logActivity(user.name, "Exported judge links to Excel", `${progsToExport.length} program links exported`);
     };
 
@@ -2118,7 +2155,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               Results
             </div>
             <div style={{ fontSize: 13, color: mutedTx, marginTop: 3 }}>
-              {resCatFilter} · {filteredResults.length} {filteredResults.length === 1 ? "program" : "programs"} ({pubCount} published)
+              {resCatFilter === "All" ? "All Categories" : resCatFilter} · {filteredResults.length} {filteredResults.length === 1 ? "program" : "programs"} ({pubCount} published)
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -2149,13 +2186,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           </div>
         </div>
 
-        {/* Toolbar: Exactly the three category fields (Low, Mid, High) on left, Status Dropdown aligned on the right */}
+        {/* Toolbar: Category filter pills on left, Status Dropdown aligned on the right */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {STUDENT_CATS.map(cat => {
+            {["All", ...CATS].map(cat => {
               const active = resCatFilter === cat;
-              const count = programs.filter(p => p.category === cat).length;
-              const pillColor = catColor[cat] || ACCENT;
+              const count = cat === "All"
+                ? programs.length
+                : programs.filter(p => (p.category || "General").toLowerCase() === cat.toLowerCase()).length;
+              const pillColor = cat === "All" ? ACCENT : (catColor[cat] || ACCENT);
               return (
                 <button
                   key={cat}
@@ -2281,13 +2320,15 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             <div style={{ fontSize: 40, marginBottom: 12 }}>🏆</div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>
               {catPrograms.length === 0
-                ? `No programs in ${resCatFilter}`
+                ? (resCatFilter === "All" ? "No programs found" : `No programs in ${resCatFilter}`)
                 : `No ${resStatusFilter !== "all" ? resStatusFilter : ""} programs found`}
             </div>
             <div style={{ fontSize: 13 }}>
               {resSearch.trim()
                 ? `No programs matching "${resSearch}"`
-                : `There are no ${resCatFilter} programs matching the current filters.`}
+                : (resCatFilter === "All"
+                    ? "There are no programs matching the current filters."
+                    : `There are no ${resCatFilter} programs matching the current filters.`)}
             </div>
             {resStatusFilter !== "all" && catPrograms.length > 0 && (
               <button
@@ -2349,7 +2390,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   const isConfirmed = p.evaluationStatus === "confirmed" || !!p.confirmedResults;
                   const isPublished = p.status === "published";
                   const isCompleted = isSubmitted || isConfirmed || isPublished;
-                  const rawLots = p.codeLetters || p.participantsHistory || p.codeAllocations || [];
+                  const rawLots = getProgramLots(p);
                   const lotsCount = rawLots.filter(l => l && (l.codeLetter || l.studentId || l.chestNo)).length;
                   const hasLots = lotsCount > 0;
                   const isReadyForJudge = hasLots && !isCompleted;
@@ -2447,11 +2488,21 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                         }}>
                           {p.name}
                         </div>
-                        {(p.session || p.type) && (
-                          <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>
-                            {p.session || p.type}
-                          </div>
-                        )}
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
+                          {p.category && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: catColor[p.category] || mutedTx }}>
+                              {p.category}
+                            </span>
+                          )}
+                          {p.category && (p.session || p.type) && (
+                            <span style={{ fontSize: 11, color: mutedTx }}>·</span>
+                          )}
+                          {(p.session || p.type) && (
+                            <span style={{ fontSize: 11.5, color: mutedTx }}>
+                              {p.session || p.type}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* 3. Status */}
@@ -3082,13 +3133,71 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             </div>
           </div>
 
+          {/* Card 5: Lot Allocations & Code Letters Sync */}
+          <div style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, boxShadow: dark ? "none" : "0 2px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic name="refresh" size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>Code Letters & Lot Sync</div>
+                <div style={{ fontSize: 12, color: mutedTx }}>Synchronize and backfill assigned lots between database columns</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontSize: 12.5, color: mutedTx, lineHeight: 1.5 }}>
+                Ensures code letters in <code>codeAllocations</code> and <code>codeLetters</code> are 100% in sync across dev and production databases. Safely backfills without overwriting.
+              </div>
+
+              {syncLotsResult && (
+                <div style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  background: syncLotsResult.success ? "rgba(16,185,129,0.08)" : "rgba(225,29,72,0.08)",
+                  border: `1px solid ${syncLotsResult.success ? "rgba(16,185,129,0.2)" : "rgba(225,29,72,0.2)"}`,
+                  color: syncLotsResult.success ? "#10b981" : "#e11d48",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}>
+                  {syncLotsResult.success ? "✓ " : "✕ "}
+                  {syncLotsResult.message}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={isSyncingLots}
+                style={{
+                  height: 40,
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+                onClick={handleSyncCodeAllocations}
+              >
+                <Ic name="refresh" size={15} />
+                <span>{isSyncingLots ? "Synchronizing..." : "Sync Database Code Letters"}</span>
+              </button>
+            </div>
+          </div>
+
         </div>
 
         {/* System & Session Card */}
         <div style={{ marginTop: 20, borderRadius: 16, border: cardBorder, background: cardBg, padding: 22, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>Admin Session</div>
-            <div style={{ fontSize: 12, color: mutedTx }}>Signed in as System Administrator ({user.name})</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>Admin Session</div>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(16, 185, 129, 0.12)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                30m Auto-Logout Active
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: mutedTx, marginTop: 4 }}>Signed in as System Administrator ({user.name}) · Automatic logout after 30 minutes of inactivity</div>
           </div>
           <button
             type="button"
@@ -4340,7 +4449,7 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
           : 1;
 
         const histMap = new Map();
-        (selectedEntryInfo.program?.participantsHistory || selectedEntryInfo.program?.codeAllocations || []).forEach(h => {
+        getProgramLots(selectedEntryInfo.program).forEach(h => {
           if (h.studentId) histMap.set(String(h.studentId), h.codeLetter);
           if (h.id) histMap.set(String(h.id), h.codeLetter);
           if (h.chestNo) histMap.set(String(h.chestNo), h.codeLetter);
@@ -4675,9 +4784,9 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
             maxParticipants: activeResultProg.maxParticipants || 1,
             results: activeResultProg.results,
             status: activeResultProg.status,
-            codeLetters: activeResultProg.codeLetters || [],
-            participantsHistory: activeResultProg.participantsHistory || activeResultProg.codeAllocations || activeResultProg.codeLetters || [],
-            codeAllocations: activeResultProg.codeAllocations || activeResultProg.participantsHistory || activeResultProg.codeLetters || [],
+            codeLetters: getProgramLots(activeResultProg),
+            participantsHistory: activeResultProg.participantsHistory || getProgramLots(activeResultProg),
+            codeAllocations: getProgramLots(activeResultProg),
           }}
           students={currentProgramCandidates}
           allPrograms={programs}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Ic from "../common/Ic";
+import { getProgramLots } from "../../utils/lotUtils";
 
 // Grading scale specified:
 // 90-100: A+
@@ -44,10 +45,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
   const [errorMessage, setErrorMessage] = useState("");
 
   const codeLetters = useMemo(() => {
-    if (program?.codeLetters && program.codeLetters.length > 0) {
-      return program.codeLetters;
-    }
-    const raw = program?.participantsHistory || program?.codeAllocations || [];
+    const raw = getProgramLots(program);
     if (raw.length > 0) {
       return raw
         .filter((c) => c && c.codeLetter)

@@ -11,9 +11,10 @@ export const normalizeCategoryName = (c) => {
   if (!c) return c;
   const s = String(c).trim();
   const lower = s.toLowerCase();
-  if (lower === "sub-junior" || lower === "sub junior" || lower === "subjunior" || lower === "sj") return "Low";
-  if (lower === "junior" || lower === "jr") return "Mid";
-  if (lower === "senior" || lower === "seniors" || lower === "sr") return "High";
+  if (lower === "sub-junior" || lower === "sub junior" || lower === "subjunior" || lower === "sj" || lower === "low") return "Low";
+  if (lower === "junior" || lower === "jr" || lower === "mid") return "Mid";
+  if (lower === "senior" || lower === "seniors" || lower === "sr" || lower === "high") return "High";
+  if (lower === "general" || lower === "gen") return "General";
   return s;
 };
 
@@ -39,6 +40,7 @@ export const AppProvider = ({ children }) => {
   const revertConvexEvaluation    = useMutation(api.programs.revertEvaluation);
   const publishConvexResults      = useMutation(api.programs.publishConfirmedResults);
   const unpublishConvexResults    = useMutation(api.programs.unpublishResults);
+  const syncConvexCodeAllocations = useMutation(api.programs.syncExistingCodeAllocations);
 
   const setGroupConvexStudents    = useMutation(api.students.setGroupStudents);
   const setAllConvexStudents      = useMutation(api.students.setAll);
@@ -413,6 +415,16 @@ export const AppProvider = ({ children }) => {
     removeConvexProgram({ id }).catch(err => console.error("Convex deleteProgram error:", err));
   };
 
+  const syncCodeAllocations = async () => {
+    try {
+      const res = await syncConvexCodeAllocations();
+      return res;
+    } catch (err) {
+      console.error("Convex syncCodeAllocations error:", err);
+      throw err;
+    }
+  };
+
   const setStudents = (action) => {
     setStudentsState(prev => {
       const next = typeof action === "function" ? action(prev) : action;
@@ -715,7 +727,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       groups, programs, setPrograms, addProgram, updateProgram, deleteProgram,
-      revertEvaluation, publishResults, unpublishResults,
+      revertEvaluation, publishResults, unpublishResults, syncCodeAllocations,
       students, setStudents, updateStudent,
       registrations, setRegistrations, addRegistration, updateRegistration, removeRegistration,
       users, setUsers, addUser, updateUser, deleteUser,

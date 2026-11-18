@@ -3,6 +3,7 @@ import Ic from "../common/Ic";
 import { calculateGrade } from "../judge/JudgePortal";
 import { buildJudgeMessage } from "../../utils/formatMessage";
 import { calculateFestivalRanks } from "../../utils/ranking";
+import { getProgramLots } from "../../utils/lotUtils";
 
 export default function EvaluationReviewModal({
   open,
@@ -144,7 +145,7 @@ export default function EvaluationReviewModal({
   // Code letters list (from program.codeLetters or participantsHistory or codeAllocations)
   const lots = useMemo(() => {
     if (!program) return [];
-    const existing = program.codeLetters || program.participantsHistory || program.codeAllocations || [];
+    const existing = getProgramLots(program);
     if (!existing.length) return [];
 
     return existing.map((item, idx) => {
