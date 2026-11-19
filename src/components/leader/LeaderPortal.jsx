@@ -709,7 +709,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Session</div>
-                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered · Limit: {programLimits?.maxStage || 3} solo/student (General excluded)</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{stageRegs.length} Registered · Limit: {programLimits?.maxStage || 6} per student (General excluded)</div>
                   </div>
                   <span style={{
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -731,7 +731,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                 }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Session</div>
-                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 3} solo/student (General excluded)</div>
+                    <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>{offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 20} per student (General excluded)</div>
                   </div>
                   <span style={{
                     fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 8, flexShrink: 0,
@@ -2295,7 +2295,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Stage Events</div>
                     <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
-                      {stageRegs.length} Registered · Solo Limit: {programLimits?.maxStage || 3} (General excluded)
+                      {stageRegs.length} Registered · Limit: {programLimits?.maxStage || 6} (General excluded)
                     </div>
                   </div>
                   <span style={{
@@ -2318,7 +2318,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#f8fafc" : "#0f172a" }}>Off-Stage Events</div>
                     <div style={{ fontSize: 11, color: mutedTx, marginTop: 1 }}>
-                      {offStageRegs.length} Registered · Solo Limit: {programLimits?.maxOffStage || 3} (General excluded)
+                      {offStageRegs.length} Registered · Limit: {programLimits?.maxOffStage || 20} (General excluded)
                     </div>
                   </div>
                   <span style={{
@@ -2581,6 +2581,27 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                               letterSpacing: 0.3,
                             }}>
                               {progSession.toUpperCase()} LIMIT REACHED ({progSession === "Off-Stage" ? quota.offStage : quota.stage}/{progSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage})
+                            </span>
+                          ) : isProgGeneral ? (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "#10b981",
+                              background: dark ? "rgba(16, 185, 129, 0.12)" : "rgba(16, 185, 129, 0.08)",
+                              border: "1px solid rgba(16, 185, 129, 0.25)",
+                              padding: "2px 7px",
+                              borderRadius: 6,
+                              letterSpacing: 0.3,
+                            }}>
+                              UNLIMITED (General)
+                            </span>
+                          ) : quota ? (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: mutedTx,
+                            }}>
+                              {progSession === "Off-Stage" ? quota.offStage : quota.stage}/{progSession === "Off-Stage" ? quota.maxOffStage : quota.maxStage}
                             </span>
                           ) : null}
                         </div>

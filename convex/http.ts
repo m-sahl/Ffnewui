@@ -271,13 +271,16 @@ http.route({
         };
       });
 
-      const maxStage = typeof programLimits?.maxStage === "number" ? programLimits.maxStage : 3;
-      const maxOffStage = typeof programLimits?.maxOffStage === "number" ? programLimits.maxOffStage : 3;
+      const maxStage = typeof programLimits?.maxStage === "number" ? programLimits.maxStage : 6;
+      const maxOffStage = typeof programLimits?.maxOffStage === "number" ? programLimits.maxOffStage : 20;
 
       const isGeneral = (p: any): boolean => {
         if (!p) return false;
         const cat = String(p.category || "").trim().toLowerCase();
-        return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+        if (cat === "general" || cat === "gen" || cat.startsWith("gen")) return true;
+        const name = String(p.name || "").trim().toLowerCase();
+        if (name.includes("(general)") || name.includes("[general]")) return true;
+        return false;
       };
 
       const soloProgs = (allPrograms || []).filter((p: any) => {

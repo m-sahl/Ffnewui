@@ -2,8 +2,8 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const DEFAULT_LIMITS = {
-  maxStage: 3,
-  maxOffStage: 3,
+  maxStage: 6,
+  maxOffStage: 20,
 };
 
 export const DEFAULT_JUDGE_PASSCODE = "judge2026";

@@ -21,7 +21,10 @@ export const normalizeCategoryName = (c) => {
 export const isGeneralProgram = (p) => {
   if (!p) return false;
   const cat = String(p.category || "").trim().toLowerCase();
-  return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+  if (cat === "general" || cat === "gen" || cat.startsWith("gen")) return true;
+  const name = String(p.name || "").trim().toLowerCase();
+  if (name.includes("(general)") || name.includes("[general]")) return true;
+  return false;
 };
 
 const AppContext = createContext();
@@ -127,8 +130,8 @@ export const AppProvider = ({ children }) => {
   const [programLimits, setProgramLimitsState] = useState(() => {
     try {
       const s = localStorage.getItem("ff_program_limits");
-      return s ? JSON.parse(s) : { maxStage: 3, maxOffStage: 3 };
-    } catch { return { maxStage: 3, maxOffStage: 3 }; }
+      return s ? JSON.parse(s) : { maxStage: 6, maxOffStage: 20 };
+    } catch { return { maxStage: 6, maxOffStage: 20 }; }
   });
 
   const initialSynced = useRef(false);
@@ -689,7 +692,20 @@ export const AppProvider = ({ children }) => {
   };
 
   const getStudentQuotaUsage = (studentId, excludeRegId = null) => {
-    if (!studentId) return { stage: 0, offStage: 0, maxStage: programLimits.maxStage, maxOffStage: programLimits.maxOffStage, stageFull: false, offStageFull: false, generalStage: 0, generalOffStage: 0, generalTotal: 0 };
+    const maxStage = typeof programLimits?.maxStage === "number" ? programLimits.maxStage : 6;
+    const maxOffStage = typeof programLimits?.maxOffStage === "number" ? programLimits.maxOffStage : 20;
+
+    if (!studentId) return {
+      stage: 0,
+      offStage: 0,
+      maxStage,
+      maxOffStage,
+      stageFull: false,
+      offStageFull: false,
+      generalStage: 0,
+      generalOffStage: 0,
+      generalTotal: 0,
+    };
     const sId = String(studentId);
 
     let stageCount = 0;
@@ -709,9 +725,9 @@ export const AppProvider = ({ children }) => {
       const p = programMap.get(r.programId);
       if (!p) continue;
 
-      const sessionType = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+      const sessionType = (p.type || p.session || "Stage").toLowerCase() === "off-stage" ? "Off-Stage" : "Stage";
 
-      // General programs should not be counted in the individual programs
+      // General programs are exempt from quotas and strictly excluded from individual counts
       if (isGeneralProgram(p)) {
         if (sessionType === "Off-Stage") {
           generalOffStageCount++;
@@ -721,16 +737,13 @@ export const AppProvider = ({ children }) => {
         continue;
       }
 
-      // Individual category events count against personal limit
+      // Individual category events strictly count against personal limit
       if (sessionType === "Off-Stage") {
         offStageCount++;
       } else {
         stageCount++;
       }
     }
-
-    const maxStage = programLimits?.maxStage ?? 3;
-    const maxOffStage = programLimits?.maxOffStage ?? 3;
 
     return {
       stage: stageCount,
