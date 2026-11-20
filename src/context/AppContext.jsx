@@ -1,6 +1,11 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import {
+  DEFAULT_SCORING_RULES,
+  getScoringRules,
+  saveScoringRules,
+} from "../utils/scoring";
 
 export const INITIAL_USERS         = [{ id: "u-admin", name: "System Admin", role: "admin", pin: "admin" }];
 export const INITIAL_PROGRAMS      = [];
@@ -21,7 +26,10 @@ export const normalizeCategoryName = (c) => {
 export const isGeneralProgram = (p) => {
   if (!p) return false;
   const cat = String(p.category || "").trim().toLowerCase();
-  return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+  if (cat === "general" || cat === "gen" || cat.startsWith("gen")) return true;
+  const name = String(p.name || "").trim().toLowerCase();
+  if (name.includes("(general)") || name.includes("[general]")) return true;
+  return false;
 };
 
 const AppContext = createContext();
@@ -37,6 +45,7 @@ export const AppProvider = ({ children }) => {
   const convexMessages      = useQuery(api.messages.get);
   const convexLogs          = useQuery(api.logs.get);
   const convexSettings      = useQuery(api.settings.getLimits);
+  const convexScoringRules  = useQuery(api.settings.getScoringRules);
 
   // Convex Live Mutations
   const setAllConvexPrograms      = useMutation(api.programs.setAll);
@@ -71,6 +80,7 @@ export const AppProvider = ({ children }) => {
   const addConvexLog              = useMutation(api.logs.add);
   const clearConvexLogs           = useMutation(api.logs.clear);
   const updateConvexLimits        = useMutation(api.settings.updateLimits);
+  const updateConvexScoringRules  = useMutation(api.settings.updateScoringRules);
 
   // Local State
   const [programs, setProgramsState] = useState(() => {
@@ -127,9 +137,11 @@ export const AppProvider = ({ children }) => {
   const [programLimits, setProgramLimitsState] = useState(() => {
     try {
       const s = localStorage.getItem("ff_program_limits");
-      return s ? JSON.parse(s) : { maxStage: 3, maxOffStage: 3 };
-    } catch { return { maxStage: 3, maxOffStage: 3 }; }
+      return s ? JSON.parse(s) : { maxStage: 6, maxOffStage: 20 };
+    } catch { return { maxStage: 6, maxOffStage: 20 }; }
   });
+
+  const [scoringRules, setScoringRulesState] = useState(() => getScoringRules());
 
   const initialSynced = useRef(false);
 
@@ -243,6 +255,23 @@ export const AppProvider = ({ children }) => {
       setProgramLimitsState(convexSettings);
     }
   }, [convexSettings]);
+
+  useEffect(() => {
+    if (convexScoringRules) {
+      const merged = {
+        ...DEFAULT_SCORING_RULES,
+        ...convexScoringRules,
+        individual: { ...DEFAULT_SCORING_RULES.individual, ...(convexScoringRules.individual || {}) },
+        group: { ...DEFAULT_SCORING_RULES.group, ...(convexScoringRules.group || {}) },
+        generalDefaultSolo: { ...DEFAULT_SCORING_RULES.generalDefaultSolo, ...(convexScoringRules.generalDefaultSolo || {}) },
+        generalDefaultGroup: { ...DEFAULT_SCORING_RULES.generalDefaultGroup, ...(convexScoringRules.generalDefaultGroup || {}) },
+        grades: { ...DEFAULT_SCORING_RULES.grades, ...(convexScoringRules.grades || {}) },
+        customProgramPoints: { ...(convexScoringRules.customProgramPoints || {}) },
+      };
+      setScoringRulesState(merged);
+      saveScoringRules(merged);
+    }
+  }, [convexScoringRules]);
 
   useEffect(() => {
     if (convexPrograms !== undefined && convexStudents !== undefined && convexUsers !== undefined) {
@@ -688,8 +717,37 @@ export const AppProvider = ({ children }) => {
     updateConvexLimits(next).catch(err => console.error("Convex updateLimits error:", err));
   };
 
+  const updateScoringRules = (newRules) => {
+    const merged = {
+      ...DEFAULT_SCORING_RULES,
+      ...newRules,
+      individual: { ...DEFAULT_SCORING_RULES.individual, ...(newRules?.individual || {}) },
+      group: { ...DEFAULT_SCORING_RULES.group, ...(newRules?.group || {}) },
+      generalDefaultSolo: { ...DEFAULT_SCORING_RULES.generalDefaultSolo, ...(newRules?.generalDefaultSolo || {}) },
+      generalDefaultGroup: { ...DEFAULT_SCORING_RULES.generalDefaultGroup, ...(newRules?.generalDefaultGroup || {}) },
+      grades: { ...DEFAULT_SCORING_RULES.grades, ...(newRules?.grades || {}) },
+      customProgramPoints: { ...(newRules?.customProgramPoints || {}) },
+    };
+    setScoringRulesState(merged);
+    saveScoringRules(merged);
+    updateConvexScoringRules({ rules: merged }).catch(err => console.error("Convex updateScoringRules error:", err));
+  };
+
   const getStudentQuotaUsage = (studentId, excludeRegId = null) => {
-    if (!studentId) return { stage: 0, offStage: 0, maxStage: programLimits.maxStage, maxOffStage: programLimits.maxOffStage, stageFull: false, offStageFull: false, generalStage: 0, generalOffStage: 0, generalTotal: 0 };
+    const maxStage = typeof programLimits?.maxStage === "number" ? programLimits.maxStage : 6;
+    const maxOffStage = typeof programLimits?.maxOffStage === "number" ? programLimits.maxOffStage : 20;
+
+    if (!studentId) return {
+      stage: 0,
+      offStage: 0,
+      maxStage,
+      maxOffStage,
+      stageFull: false,
+      offStageFull: false,
+      generalStage: 0,
+      generalOffStage: 0,
+      generalTotal: 0,
+    };
     const sId = String(studentId);
 
     let stageCount = 0;
@@ -709,9 +767,9 @@ export const AppProvider = ({ children }) => {
       const p = programMap.get(r.programId);
       if (!p) continue;
 
-      const sessionType = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+      const sessionType = (p.type || p.session || "Stage").toLowerCase() === "off-stage" ? "Off-Stage" : "Stage";
 
-      // General programs should not be counted in the individual programs
+      // General programs are exempt from quotas and strictly excluded from individual counts
       if (isGeneralProgram(p)) {
         if (sessionType === "Off-Stage") {
           generalOffStageCount++;
@@ -721,16 +779,13 @@ export const AppProvider = ({ children }) => {
         continue;
       }
 
-      // Individual category events count against personal limit
+      // Individual category events strictly count against personal limit
       if (sessionType === "Off-Stage") {
         offStageCount++;
       } else {
         stageCount++;
       }
     }
-
-    const maxStage = programLimits?.maxStage ?? 3;
-    const maxOffStage = programLimits?.maxOffStage ?? 3;
 
     return {
       stage: stageCount,
@@ -757,6 +812,7 @@ export const AppProvider = ({ children }) => {
       locks, toggleLock, isLocked,
       nextChestNo,
       programLimits, updateProgramLimits, getStudentQuotaUsage, isGeneralProgram,
+      scoringRules, updateScoringRules,
     }}>
       {children}
     </AppContext.Provider>

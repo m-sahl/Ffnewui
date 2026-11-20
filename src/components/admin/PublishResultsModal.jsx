@@ -4,7 +4,7 @@ import { calculateEntryPoints, simulateLeaderboardImpact } from "../../utils/sco
 import { getProgramLots } from "../../utils/lotUtils";
 
 const PLACES = ["1st", "2nd", "3rd"];
-const GRADES = ["A", "B", "C", "—"];
+const GRADES = ["A+", "A", "B", "C", "—"];
 
 const emptyEntry = { studentId: "", codeLetter: "", points: "", grade: "" };
 
@@ -887,7 +887,7 @@ export default function PublishResultsModal({
                   </Field>
 
                   <Field label="Grade" error={touched && !current.grade && "Pick a grade"}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }} role="radiogroup" aria-label="Grade">
+                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${GRADES.length}, 1fr)`, gap: 8 }} role="radiogroup" aria-label="Grade">
                       {GRADES.map((g) => {
                         const on = current.grade === g;
                         return (
@@ -900,7 +900,7 @@ export default function PublishResultsModal({
                               const autoPts = calculateEntryPoints(step + 1, g, event, scoringRules);
                               update({
                                 grade: g,
-                                points: current.points === "" || current.points === undefined ? String(autoPts) : current.points,
+                                points: String(autoPts),
                               });
                             }}
                             style={{

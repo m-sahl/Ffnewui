@@ -71,10 +71,13 @@ async function validateLock(ctx: any, registration: any) {
   }
 }
 
-const isGeneralProgram = (p: any): boolean => {
+export const isGeneralProgram = (p: any): boolean => {
   if (!p) return false;
   const cat = String(p.category || "").trim().toLowerCase();
-  return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+  if (cat === "general" || cat === "gen" || cat.startsWith("gen")) return true;
+  const name = String(p.name || "").trim().toLowerCase();
+  if (name.includes("(general)") || name.includes("[general]")) return true;
+  return false;
 };
 
 async function validateQuota(ctx: any, registration: any) {
@@ -93,17 +96,17 @@ async function validateQuota(ctx: any, registration: any) {
   // General programs are exempt from individual quotas and do not count against limits
   if (isGeneralProgram(program)) return;
 
-  const sessionType = (program.type || program.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+  const sessionType = (program.type || program.session || "Stage").toLowerCase() === "off-stage" ? "Off-Stage" : "Stage";
 
-  // Get current limits
+  // Get current limits (defaults: maxStage: 6, maxOffStage: 20)
   const setting = await ctx.db
     .query("settings")
     .filter((q: any) => q.eq(q.field("key"), "programLimits"))
     .first();
 
   const maxLimit = sessionType === "Off-Stage" 
-    ? (typeof setting?.value?.maxOffStage === "number" ? setting.value.maxOffStage : 3) 
-    : (typeof setting?.value?.maxStage === "number" ? setting.value.maxStage : 3);
+    ? (typeof setting?.value?.maxOffStage === "number" ? setting.value.maxOffStage : 20) 
+    : (typeof setting?.value?.maxStage === "number" ? setting.value.maxStage : 6);
 
   // Fetch all registrations and all individual (non-general) programs in this session to count
   const [allRegs, allProgs, allStudents] = await Promise.all([
@@ -115,7 +118,7 @@ async function validateQuota(ctx: any, registration: any) {
   const individualSessionProgIds = new Set(
     allProgs
       .filter((p: any) => {
-        const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+        const pSess = (p.type || p.session || "Stage").toLowerCase() === "off-stage" ? "Off-Stage" : "Stage";
         return pSess === sessionType && !isGeneralProgram(p);
       })
       .map((p: any) => p.id)
@@ -158,11 +161,11 @@ export const checkQuota = query({
 
     if (!program) return { valid: false, error: "Program not found" };
 
-    const sessionType = (program.type || program.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+    const sessionType = (program.type || program.session || "Stage").toLowerCase() === "off-stage" ? "Off-Stage" : "Stage";
 
-    // General programs are not counted in individual programs and are not limited by individual quota
+    // General programs are exempt from individual quotas and do not count against limits
     if (isGeneralProgram(program)) {
-      return { valid: true, maxLimit: 0, sessionType };
+      return { valid: true, maxLimit: 0, sessionType, count: 0 };
     }
 
     const setting = await ctx.db
@@ -171,8 +174,8 @@ export const checkQuota = query({
       .first();
 
     const maxLimit = sessionType === "Off-Stage" 
-      ? (typeof setting?.value?.maxOffStage === "number" ? setting.value.maxOffStage : 3) 
-      : (typeof setting?.value?.maxStage === "number" ? setting.value.maxStage : 3);
+      ? (typeof setting?.value?.maxOffStage === "number" ? setting.value.maxOffStage : 20) 
+      : (typeof setting?.value?.maxStage === "number" ? setting.value.maxStage : 6);
 
     const [allRegs, allProgs, allStudents] = await Promise.all([
       ctx.db.query("registrations").collect(),
@@ -183,7 +186,7 @@ export const checkQuota = query({
     const individualSessionProgIds = new Set(
       allProgs
         .filter((p: any) => {
-          const pSess = (p.type || p.session || "Stage") === "Off-Stage" ? "Off-Stage" : "Stage";
+          const pSess = (p.type || p.session || "Stage").toLowerCase() === "off-stage" ? "Off-Stage" : "Stage";
           return pSess === sessionType && !isGeneralProgram(p);
         })
         .map((p: any) => p.id)
