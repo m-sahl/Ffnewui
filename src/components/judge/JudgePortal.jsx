@@ -159,7 +159,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       setIsLoggedIn(true);
       setPasscodeInput("");
     } else {
-      setAuthError("Incorrect Judge Passcode. Please check with the festival control room.");
+      setAuthError("Incorrect Judge Passcode. Please check with festival control room.");
     }
   };
 
@@ -282,8 +282,34 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     return { total: list.length, submitted, pending };
   }, [catalogPrograms]);
 
+  // Mobile-first CSS injected once
+  const mobileStyles = `
+    .judge-mobile-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .judge-mobile-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .judge-touch-card {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .judge-touch-card:active {
+      transform: scale(0.985);
+    }
+    @keyframes pulseScore {
+      0%, 100% { box-shadow: 0 4px 16px rgba(241,77,77,0.3); }
+      50% { box-shadow: 0 4px 24px rgba(241,77,77,0.6); }
+    }
+  `;
+
   // =========================================================================
-  // SCREEN 1: PASSCODE LOGIN SCREEN (If not authenticated and no direct program token)
+  // SCREEN 1: PASSCODE LOGIN SCREEN (Mobile-Optimized)
   // =========================================================================
   if (!isLoggedIn && !currentToken) {
     return (
@@ -295,13 +321,15 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 24,
+          padding: "20px 16px",
           fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Soft background ambient glow */}
+        <style>{mobileStyles}</style>
+
+        {/* Ambient background glow */}
         <div
           style={{
             position: "fixed",
@@ -317,12 +345,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
 
         <div
           style={{
-            maxWidth: 440,
+            maxWidth: 420,
             width: "100%",
             backgroundColor: theme.card,
             border: `1px solid ${theme.cardBorder}`,
             borderRadius: 24,
-            padding: "38px 28px",
+            padding: "32px 22px",
             textAlign: "center",
             boxShadow: dark ? "0 24px 60px rgba(0,0,0,0.5)" : "0 20px 48px rgba(0,0,0,0.08)",
             position: "relative",
@@ -332,25 +360,25 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           {/* Festival Emblem */}
           <div
             style={{
-              width: 68,
-              height: 68,
-              borderRadius: 22,
+              width: 60,
+              height: 60,
+              borderRadius: 18,
               background: "linear-gradient(135deg, #f14d4d, #dc2626)",
               color: "#ffffff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              margin: "0 auto 20px",
-              boxShadow: "0 10px 28px rgba(241,77,77,0.35)",
+              margin: "0 auto 16px",
+              boxShadow: "0 8px 24px rgba(241,77,77,0.35)",
             }}
           >
-            <Ic n="award" s={32} />
+            <Ic n="award" s={28} />
           </div>
 
-          <h2 style={{ fontSize: 23, fontWeight: 900, margin: "0 0 6px", letterSpacing: "-0.5px" }}>
+          <h2 style={{ fontSize: 21, fontWeight: 900, margin: "0 0 6px", letterSpacing: "-0.5px" }}>
             Judges Scoring Portal
           </h2>
-          <p style={{ fontSize: 13, color: theme.subtext, lineHeight: 1.5, margin: "0 0 26px" }}>
+          <p style={{ fontSize: 13, color: theme.subtext, lineHeight: 1.5, margin: "0 0 22px" }}>
             Cognizance Arts & Cultural Fest · Official Evaluation
           </p>
 
@@ -361,9 +389,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 border: "1px solid rgba(239,68,68,0.25)",
                 color: "#ef4444",
                 borderRadius: 14,
-                padding: "11px 14px",
-                marginBottom: 20,
-                fontSize: 13,
+                padding: "10px 14px",
+                marginBottom: 18,
+                fontSize: 12.5,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
@@ -375,18 +403,18 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </div>
           )}
 
-          <form onSubmit={handlePasscodeLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <form onSubmit={handlePasscodeLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
               <label
                 style={{
                   display: "block",
                   textAlign: "left",
-                  fontSize: 12,
+                  fontSize: 11.5,
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
                   color: theme.subtext,
-                  marginBottom: 8,
+                  marginBottom: 6,
                 }}
               >
                 Festival Judge Passcode
@@ -403,7 +431,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   }}
                   style={{
                     width: "100%",
-                    height: 52,
+                    height: 50,
                     padding: "0 46px 0 16px",
                     fontSize: 16,
                     fontWeight: 600,
@@ -421,7 +449,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   onClick={() => setShowPasscode(!showPasscode)}
                   style={{
                     position: "absolute",
-                    right: 12,
+                    right: 8,
                     top: "50%",
                     transform: "translateY(-50%)",
                     background: "none",
@@ -431,7 +459,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    padding: 4,
+                    padding: 8,
                   }}
                   title={showPasscode ? "Hide Passcode" : "Show Passcode"}
                 >
@@ -466,19 +494,20 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           </form>
 
           {/* Accordion for single program code */}
-          <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${theme.cardBorder}` }}>
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${theme.cardBorder}` }}>
             <button
               onClick={() => setShowSingleCodeTab(!showSingleCodeTab)}
               style={{
                 background: "none",
                 border: "none",
                 color: theme.subtext,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                padding: 4,
               }}
             >
               <span>Have a single program 6-character code?</span>
@@ -486,7 +515,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </button>
 
             {showSingleCodeTab && (
-              <form onSubmit={handleSingleCodeSubmit} style={{ marginTop: 14, display: "flex", gap: 8 }}>
+              <form onSubmit={handleSingleCodeSubmit} style={{ marginTop: 12, display: "flex", gap: 8 }}>
                 <input
                   type="text"
                   placeholder="e.g. 7K9A2F"
@@ -531,7 +560,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             <button
               onClick={onExit}
               style={{
-                marginTop: 22,
+                marginTop: 20,
                 background: "transparent",
                 border: "none",
                 color: theme.subtext,
@@ -541,6 +570,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                padding: "8px 12px",
               }}
             >
               <span>← Back to Festival Home</span>
@@ -552,7 +582,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
   }
 
   // =========================================================================
-  // SCREEN 2: PROGRAM CATALOG DASHBOARD (Judge is logged in, no program opened)
+  // SCREEN 2: PROGRAM CATALOG DASHBOARD (Mobile-First)
   // =========================================================================
   if (isLoggedIn && !currentToken) {
     return (
@@ -562,10 +592,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           backgroundColor: theme.bg,
           color: theme.text,
           fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-          paddingBottom: 80,
+          paddingBottom: "calc(32px + env(safe-area-inset-bottom, 0px))",
         }}
       >
-        {/* Top Header */}
+        <style>{mobileStyles}</style>
+
+        {/* Compact Mobile-First Sticky Header */}
         <header
           style={{
             backgroundColor: theme.card,
@@ -578,41 +610,41 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         >
           <div
             style={{
-              maxWidth: 960,
+              maxWidth: 720,
               margin: "0 auto",
-              padding: "12px 20px",
+              padding: "10px 14px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              gap: 12,
+              gap: 8,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div
                 style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
                   background: "linear-gradient(135deg, #f14d4d, #dc2626)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#fff",
-                  boxShadow: "0 4px 12px rgba(241,77,77,0.3)",
+                  boxShadow: "0 3px 10px rgba(241,77,77,0.3)",
                   flexShrink: 0,
                 }}
               >
-                <Ic n="award" s={20} />
+                <Ic n="award" s={18} />
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.6px", color: theme.accent }}>
-                  Cognizance Arts Fest
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: theme.accent, lineHeight: 1.1 }}>
+                  Cognizance Fest
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>Judges Portal</div>
+                <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2 }}>Judges Portal</div>
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {setDark && (
                 <button
                   onClick={() => setDark(!dark)}
@@ -620,8 +652,8 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     background: theme.inputBg,
                     border: `1px solid ${theme.cardBorder}`,
                     color: theme.text,
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     borderRadius: 10,
                     display: "flex",
                     alignItems: "center",
@@ -630,7 +662,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   }}
                   aria-label="Toggle Theme"
                 >
-                  <Ic n={dark ? "sun" : "moon"} s={16} />
+                  <Ic n={dark ? "sun" : "moon"} s={15} />
                 </button>
               )}
 
@@ -640,233 +672,204 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   background: dark ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.1)",
                   border: "1px solid rgba(239,68,68,0.3)",
                   color: "#ef4444",
-                  padding: "7px 14px",
+                  height: 34,
+                  padding: "0 10px",
                   borderRadius: 10,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: 700,
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: 4,
                 }}
-                title="Log out of Judges Portal"
+                title="Log out"
               >
-                <Ic n="logout" s={14} />
-                <span>Log Out</span>
+                <Ic n="logout" s={13} />
+                <span>Exit</span>
               </button>
             </div>
           </div>
         </header>
 
-        {/* Catalog Main Content */}
-        <main style={{ maxWidth: 960, margin: "0 auto", padding: "20px 16px" }}>
-          {/* Welcome & Stats Banner */}
-          <div
-            style={{
-              backgroundColor: theme.card,
-              border: `1px solid ${theme.cardBorder}`,
-              borderRadius: 20,
-              padding: "20px 24px",
-              marginBottom: 20,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 20,
-              flexWrap: "wrap",
-            }}
-          >
-            <div>
-              <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.4px" }}>
-                Festival Scoring Sheet
-              </h1>
-              <p style={{ fontSize: 13, color: theme.subtext, margin: 0 }}>
-                Select an event below to enter results. Student identities are masked for blind evaluation.
-              </p>
-            </div>
-
-            {/* Quick Counters */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <div
-                style={{
-                  backgroundColor: theme.accentSoft,
-                  border: `1px solid ${theme.accent}30`,
-                  borderRadius: 14,
-                  padding: "10px 16px",
-                  textAlign: "center",
-                  minWidth: 90,
-                }}
-              >
-                <div style={{ fontSize: 20, fontWeight: 900, color: theme.accent }}>{catalogStats.pending}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: theme.subtext }}>
-                  Pending
-                </div>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: theme.successSoft,
-                  border: "1px solid rgba(16,185,129,0.3)",
-                  borderRadius: 14,
-                  padding: "10px 16px",
-                  textAlign: "center",
-                  minWidth: 90,
-                }}
-              >
-                <div style={{ fontSize: 20, fontWeight: 900, color: theme.success }}>{catalogStats.submitted}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: theme.subtext }}>
-                  Submitted
-                </div>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: theme.badgeBg,
-                  border: `1px solid ${theme.cardBorder}`,
-                  borderRadius: 14,
-                  padding: "10px 16px",
-                  textAlign: "center",
-                  minWidth: 90,
-                }}
-              >
-                <div style={{ fontSize: 20, fontWeight: 900 }}>{catalogStats.total}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: theme.subtext }}>
-                  Total Lot-Ready
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Search & Filter Bar */}
+        {/* Mobile Container */}
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: "14px 14px" }}>
+          {/* Mobile 3-Column Compact Stats Strip */}
           <div
             style={{
               backgroundColor: theme.card,
               border: `1px solid ${theme.cardBorder}`,
               borderRadius: 18,
-              padding: "16px",
-              marginBottom: 20,
-              display: "flex",
-              flexDirection: "column",
-              gap: 14,
+              padding: "12px 14px",
+              marginBottom: 14,
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 8,
+              textAlign: "center",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.03)",
             }}
           >
-            {/* Search Input */}
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: theme.subtext }}>
-                <Ic n="search" s={18} />
-              </span>
-              <input
-                type="text"
-                placeholder="Search program by name, category, or order #..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  height: 46,
-                  padding: "0 16px 0 42px",
-                  fontSize: 14,
-                  backgroundColor: theme.inputBg,
-                  border: `1px solid ${theme.inputBorder}`,
-                  borderRadius: 12,
-                  color: theme.text,
-                  outline: "none",
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  style={{
-                    position: "absolute",
-                    right: 12,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: theme.subtext,
-                    cursor: "pointer",
-                    padding: 4,
-                  }}
-                >
-                  <Ic n="x" s={16} />
-                </button>
-              )}
+            <div
+              style={{
+                backgroundColor: theme.accentSoft,
+                borderRadius: 12,
+                padding: "8px 4px",
+                border: `1px solid ${theme.accent}25`,
+              }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 900, color: theme.accent, lineHeight: 1.1 }}>{catalogStats.pending}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: theme.subtext, marginTop: 2 }}>
+                Pending
+              </div>
             </div>
 
-            {/* Filter Pills */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              {/* Category Pills */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: theme.subtext, marginRight: 4 }}>Category:</span>
-                {["All", "Low", "Mid", "High", "General"].map((cat) => {
-                  const active = categoryFilter === cat;
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat)}
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: active ? 700 : 600,
-                        backgroundColor: active ? theme.accent : theme.badgeBg,
-                        color: active ? "#ffffff" : theme.subtext,
-                        border: `1px solid ${active ? theme.accent : theme.cardBorder}`,
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {cat}
-                    </button>
-                  );
-                })}
+            <div
+              style={{
+                backgroundColor: theme.successSoft,
+                borderRadius: 12,
+                padding: "8px 4px",
+                border: "1px solid rgba(16,185,129,0.25)",
+              }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 900, color: theme.success, lineHeight: 1.1 }}>{catalogStats.submitted}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: theme.subtext, marginTop: 2 }}>
+                Submitted
               </div>
+            </div>
 
-              {/* Session Pills */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: theme.subtext, marginRight: 4 }}>Session:</span>
-                {["All", "Stage", "Off-Stage"].map((sess) => {
-                  const active = sessionFilter === sess;
-                  return (
-                    <button
-                      key={sess}
-                      onClick={() => setSessionFilter(sess)}
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: active ? 700 : 600,
-                        backgroundColor: active ? (dark ? "rgba(255,255,255,0.2)" : "#334155") : theme.badgeBg,
-                        color: active ? "#ffffff" : theme.subtext,
-                        border: `1px solid ${active ? "transparent" : theme.cardBorder}`,
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {sess}
-                    </button>
-                  );
-                })}
+            <div
+              style={{
+                backgroundColor: theme.badgeBg,
+                borderRadius: 12,
+                padding: "8px 4px",
+                border: `1px solid ${theme.cardBorder}`,
+              }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.1 }}>{catalogStats.total}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: theme.subtext, marginTop: 2 }}>
+                Lot-Ready
               </div>
             </div>
           </div>
 
-          {/* Programs List */}
+          {/* Search Bar */}
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: theme.subtext }}>
+              <Ic n="search" s={16} />
+            </span>
+            <input
+              type="text"
+              placeholder="Search program by name or #..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                height: 44,
+                padding: "0 38px 0 40px",
+                fontSize: 13.5,
+                backgroundColor: theme.card,
+                border: `1px solid ${theme.cardBorder}`,
+                borderRadius: 14,
+                color: theme.text,
+                outline: "none",
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: theme.subtext,
+                  cursor: "pointer",
+                  padding: 4,
+                }}
+              >
+                <Ic n="x" s={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Horizontal Scrolling Filter Pills (Mobile First Native Experience) */}
+          <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            {/* Category Pills Strip */}
+            <div className="judge-mobile-scroll">
+              {["All", "Low", "Mid", "High", "General"].map((cat) => {
+                const active = categoryFilter === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: active ? 800 : 600,
+                      backgroundColor: active ? theme.accent : theme.card,
+                      color: active ? "#ffffff" : theme.subtext,
+                      border: `1px solid ${active ? theme.accent : theme.cardBorder}`,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      transition: "all 0.15s ease",
+                      boxShadow: active ? "0 2px 8px rgba(241,77,77,0.3)" : "none",
+                    }}
+                  >
+                    {cat === "All" ? "All Categories" : cat}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Session Pills Strip */}
+            <div className="judge-mobile-scroll">
+              {["All", "Stage", "Off-Stage"].map((sess) => {
+                const active = sessionFilter === sess;
+                return (
+                  <button
+                    key={sess}
+                    onClick={() => setSessionFilter(sess)}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 16,
+                      fontSize: 11.5,
+                      fontWeight: active ? 700 : 600,
+                      backgroundColor: active ? (dark ? "rgba(255,255,255,0.2)" : "#334155") : theme.card,
+                      color: active ? "#ffffff" : theme.subtext,
+                      border: `1px solid ${active ? "transparent" : theme.cardBorder}`,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {sess === "All" ? "All Sessions" : sess}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Program Cards (Single Column, Thumb Friendly) */}
           {catalogPrograms === undefined ? (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: theme.subtext }}>
+            <div style={{ textAlign: "center", padding: "50px 20px", color: theme.subtext }}>
               <div
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   border: `3px solid ${theme.accentSoft}`,
                   borderTopColor: theme.accent,
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
-                  margin: "0 auto 16px",
+                  margin: "0 auto 14px",
                 }}
               />
-              <div style={{ fontWeight: 600, fontSize: 15 }}>Loading Programs Catalog...</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>Loading Programs...</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : filteredCatalog.length === 0 ? (
@@ -875,25 +878,26 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 backgroundColor: theme.card,
                 border: `1px solid ${theme.cardBorder}`,
                 borderRadius: 20,
-                padding: "50px 24px",
+                padding: "40px 20px",
                 textAlign: "center",
               }}
             >
-              <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>No Lot-Ready Programs Found</h3>
-              <p style={{ fontSize: 13, color: theme.subtext, margin: 0, maxWidth: 420, marginInline: "auto" }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 6px" }}>No Lot-Ready Programs</h3>
+              <p style={{ fontSize: 12.5, color: theme.subtext, margin: 0, lineHeight: 1.4 }}>
                 {searchQuery || categoryFilter !== "All" || sessionFilter !== "All"
-                  ? "No programs matched your current search or filters. Try adjusting your filters."
-                  : "Programs will appear here as soon as contestant lots and code letters are drawn by the stage manager."}
+                  ? "No programs matched your current search or filters."
+                  : "Programs will appear here as soon as contestant lots are drawn by the stage manager."}
               </p>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {filteredCatalog.map((p) => {
                 const isSub = p.isSubmitted || p.isConfirmed || p.isPublished;
                 return (
                   <div
                     key={p.id}
+                    className="judge-touch-card"
                     onClick={() => {
                       const token = p.judgeToken || p.id;
                       setCurrentToken(token);
@@ -903,37 +907,27 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     }}
                     style={{
                       backgroundColor: theme.card,
-                      border: `1px solid ${isSub ? "rgba(16,185,129,0.3)" : theme.cardBorder}`,
+                      border: `1.5px solid ${isSub ? "rgba(16,185,129,0.3)" : theme.cardBorder}`,
                       borderRadius: 18,
-                      padding: "18px 20px",
+                      padding: "16px",
                       cursor: "pointer",
                       display: "flex",
                       flexDirection: "column",
-                      justifyContent: "space-between",
-                      transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-3px)";
-                      e.currentTarget.style.borderColor = isSub ? "#10b981" : theme.accent;
-                      e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.borderColor = isSub ? "rgba(16,185,129,0.3)" : theme.cardBorder;
-                      e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.03)";
+                      gap: 12,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                      transition: "transform 0.15s ease, border-color 0.15s ease",
                     }}
                   >
                     <div>
-                      {/* Top Badges */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {/* Top Badges Row */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span
                             style={{
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: 800,
-                              padding: "3px 8px",
-                              borderRadius: 8,
+                              padding: "2px 7px",
+                              borderRadius: 6,
                               backgroundColor: theme.badgeBg,
                               color: theme.subtext,
                             }}
@@ -943,11 +937,11 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                           {p.category && (
                             <span
                               style={{
-                                fontSize: 11,
-                                fontWeight: 700,
+                                fontSize: 10.5,
+                                fontWeight: 800,
                                 textTransform: "uppercase",
-                                padding: "3px 8px",
-                                borderRadius: 8,
+                                padding: "2px 8px",
+                                borderRadius: 6,
                                 backgroundColor: theme.accentSoft,
                                 color: theme.accent,
                               }}
@@ -958,10 +952,10 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                           {p.session && (
                             <span
                               style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: "3px 8px",
-                                borderRadius: 8,
+                                fontSize: 10.5,
+                                fontWeight: 700,
+                                padding: "2px 7px",
+                                borderRadius: 6,
                                 backgroundColor: theme.badgeBg,
                                 color: theme.subtext,
                               }}
@@ -971,19 +965,22 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                           )}
                         </div>
 
-                        {/* Status Indicator */}
+                        {/* Status Badge */}
                         <span
                           style={{
                             fontSize: 11,
-                            fontWeight: 700,
+                            fontWeight: 800,
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
+                            padding: "2px 8px",
+                            borderRadius: 12,
+                            backgroundColor: isSub ? theme.successSoft : theme.accentSoft,
                             color: isSub ? theme.success : theme.accent,
                           }}
                         >
                           <Ic n={isSub ? "checkCircle" : "edit"} s={12} />
-                          {isSub ? "Submitted" : "Ready"}
+                          <span>{isSub ? "Submitted" : "Ready"}</span>
                         </span>
                       </div>
 
@@ -992,41 +989,39 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                         style={{
                           fontSize: 16,
                           fontWeight: 800,
-                          margin: "0 0 10px",
+                          margin: "0 0 6px",
                           letterSpacing: "-0.3px",
-                          lineHeight: 1.35,
+                          lineHeight: 1.3,
                         }}
                       >
                         {p.name}
                       </h3>
 
-                      <div style={{ fontSize: 12, color: theme.subtext, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Ic n="users" s={14} />
+                      <div style={{ fontSize: 12, color: theme.subtext, display: "flex", alignItems: "center", gap: 5 }}>
+                        <Ic n="users" s={13} />
                         <span>{p.contestantCount} Contestants</span>
                       </div>
                     </div>
 
-                    {/* Bottom Action */}
-                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${theme.cardBorder}` }}>
-                      <div
-                        style={{
-                          width: "100%",
-                          padding: "9px 0",
-                          borderRadius: 12,
-                          backgroundColor: isSub ? theme.badgeBg : theme.accent,
-                          color: isSub ? theme.text : "#ffffff",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          textAlign: "center",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <span>{isSub ? "View Submitted Scores" : "Start Evaluation"}</span>
-                        <Ic n={isSub ? "chevronRight" : "chevronRight"} s={14} />
-                      </div>
+                    {/* Touch Action Button */}
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 42,
+                        borderRadius: 12,
+                        backgroundColor: isSub ? (dark ? "rgba(255,255,255,0.06)" : "#f1f5f9") : theme.accent,
+                        color: isSub ? theme.text : "#ffffff",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        boxShadow: isSub ? "none" : "0 3px 12px rgba(241,77,77,0.25)",
+                      }}
+                    >
+                      <span>{isSub ? "View Submitted Scores" : "Start Evaluation"}</span>
+                      <Ic n="chevronRight" s={15} />
                     </div>
                   </div>
                 );
@@ -1039,7 +1034,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
   }
 
   // =========================================================================
-  // SCREEN 3: PROGRAM SCORING SHEET (Blind Evaluation)
+  // SCREEN 3: PROGRAM SCORING SHEET (Mobile-First Blind Evaluation)
   // =========================================================================
 
   // If loading program
@@ -1059,16 +1054,16 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: 40,
+              height: 40,
               border: `3px solid ${theme.accentSoft}`,
               borderTopColor: theme.accent,
               borderRadius: "50%",
               animation: "spin 0.8s linear infinite",
-              margin: "0 auto 16px",
+              margin: "0 auto 14px",
             }}
           />
-          <div style={{ fontWeight: 600, fontSize: 16 }}>Loading Score Sheet...</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>Loading Score Sheet...</div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
@@ -1086,25 +1081,25 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 24,
+          padding: 20,
           fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         }}
       >
         <div
           style={{
-            maxWidth: 420,
+            maxWidth: 380,
             width: "100%",
             backgroundColor: theme.card,
             border: `1px solid ${theme.cardBorder}`,
-            borderRadius: 24,
-            padding: "36px 28px",
+            borderRadius: 22,
+            padding: "32px 20px",
             textAlign: "center",
           }}
         >
-          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Program Not Found</h2>
-          <p style={{ fontSize: 13, color: theme.subtext, margin: "0 0 20px" }}>
-            The code or program reference <strong>"{currentToken}"</strong> could not be located.
+          <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+          <h2 style={{ fontSize: 19, fontWeight: 800, margin: "0 0 6px" }}>Program Not Found</h2>
+          <p style={{ fontSize: 13, color: theme.subtext, margin: "0 0 18px" }}>
+            The code <strong>"{currentToken}"</strong> was not found.
           </p>
           <button
             onClick={() => {
@@ -1112,12 +1107,14 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               if (typeof window !== "undefined") window.location.hash = "#/judge";
             }}
             style={{
-              padding: "10px 20px",
+              width: "100%",
+              height: 46,
               backgroundColor: theme.accent,
               color: "#fff",
               border: "none",
               borderRadius: 12,
-              fontWeight: 700,
+              fontWeight: 800,
+              fontSize: 14,
               cursor: "pointer",
             }}
           >
@@ -1128,7 +1125,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     );
   }
 
-  // Main Scoring Sheet
+  // Main Mobile Scoring Sheet
   return (
     <div
       style={{
@@ -1136,10 +1133,14 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         backgroundColor: theme.bg,
         color: theme.text,
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-        paddingBottom: 120,
+        paddingBottom: isLocked
+          ? "calc(32px + env(safe-area-inset-bottom, 0px))"
+          : "calc(110px + env(safe-area-inset-bottom, 0px))",
       }}
     >
-      {/* Top Header */}
+      <style>{mobileStyles}</style>
+
+      {/* Compact Mobile Top Sticky Bar */}
       <header
         style={{
           backgroundColor: theme.card,
@@ -1152,12 +1153,13 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       >
         <div
           style={{
-            maxWidth: 680,
+            maxWidth: 640,
             margin: "0 auto",
-            padding: "12px 20px",
+            padding: "10px 14px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 10,
           }}
         >
           <button
@@ -1174,19 +1176,31 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: 6,
-              padding: 0,
+              gap: 4,
+              padding: "4px 8px 4px 0",
+              flexShrink: 0,
             }}
           >
             <Ic n="back" s={18} />
-            <span>All Programs</span>
+            <span>Programs</span>
           </button>
 
-          <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 800,
+              color: theme.text,
+              textAlign: "center",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flex: 1,
+            }}
+          >
             {program.name}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             {setDark && (
               <button
                 onClick={() => setDark(!dark)}
@@ -1194,9 +1208,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   background: theme.inputBg,
                   border: `1px solid ${theme.cardBorder}`,
                   color: theme.text,
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1204,35 +1218,35 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 }}
                 aria-label="Toggle Theme"
               >
-                <Ic n={dark ? "sun" : "moon"} s={15} />
+                <Ic n={dark ? "sun" : "moon"} s={14} />
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Main Scoring Sheet Container */}
-      <main style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
-        {/* Program Info Card */}
+      {/* Main Container */}
+      <main style={{ maxWidth: 640, margin: "0 auto", padding: "14px 14px" }}>
+        {/* Program Header Card */}
         <div
           style={{
             backgroundColor: theme.card,
             border: `1px solid ${theme.cardBorder}`,
             borderRadius: 20,
-            padding: "20px 24px",
-            marginBottom: 20,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+            padding: "16px 18px",
+            marginBottom: 14,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.03)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
             {program.category && (
               <span
                 style={{
                   fontSize: 11,
-                  fontWeight: 700,
+                  fontWeight: 800,
                   textTransform: "uppercase",
-                  padding: "4px 10px",
-                  borderRadius: 20,
+                  padding: "3px 8px",
+                  borderRadius: 8,
                   backgroundColor: theme.accentSoft,
                   color: theme.accent,
                 }}
@@ -1244,9 +1258,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               <span
                 style={{
                   fontSize: 11,
-                  fontWeight: 600,
-                  padding: "4px 10px",
-                  borderRadius: 20,
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: 8,
                   backgroundColor: theme.badgeBg,
                   color: theme.subtext,
                 }}
@@ -1257,9 +1271,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             <span
               style={{
                 fontSize: 11,
-                fontWeight: 600,
-                padding: "4px 10px",
-                borderRadius: 20,
+                fontWeight: 700,
+                padding: "3px 8px",
+                borderRadius: 8,
                 backgroundColor: isLocked ? theme.successSoft : "rgba(59,130,246,0.15)",
                 color: isLocked ? theme.success : "#3b82f6",
                 display: "inline-flex",
@@ -1267,37 +1281,37 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 gap: 4,
               }}
             >
-              <Ic n={isLocked ? "check" : "edit"} s={12} />
-              {isLocked ? "Submitted & Locked" : "Scoring Open"}
+              <Ic n={isLocked ? "check" : "edit"} s={11} />
+              {isLocked ? "Locked" : "Open"}
             </span>
           </div>
 
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px", letterSpacing: "-0.4px" }}>
+          <h1 style={{ fontSize: 18, fontWeight: 900, margin: "0 0 6px", letterSpacing: "-0.4px", lineHeight: 1.25 }}>
             {program.name}
           </h1>
 
-          <div style={{ fontSize: 13, color: theme.subtext, display: "flex", alignItems: "center", gap: 16 }}>
-            <span>Contestants: <strong>{codeLetters.length}</strong></span>
+          <div style={{ fontSize: 12.5, color: theme.subtext, display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+            <span><strong>{codeLetters.length}</strong> Contestants</span>
+            <span>•</span>
             <span>Scale: <strong>0 – 100 Marks</strong></span>
           </div>
 
-          {/* Blind Evaluation Notice */}
+          {/* Blind Evaluation Reminder */}
           <div
             style={{
-              marginTop: 14,
-              padding: "10px 14px",
-              borderRadius: 12,
+              padding: "8px 12px",
+              borderRadius: 10,
               backgroundColor: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
               border: `1px dashed ${theme.cardBorder}`,
-              fontSize: 12,
+              fontSize: 11.5,
               color: theme.subtext,
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 6,
             }}
           >
-            <Ic n="shield" s={16} />
-            <span><strong>Blind Evaluation:</strong> Student names and chest numbers are masked with Code Letters.</span>
+            <Ic n="shield" s={14} />
+            <span><strong>Blind Scoring:</strong> Contestants are identified only by Code Letters.</span>
           </div>
         </div>
 
@@ -1308,17 +1322,17 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               backgroundColor: theme.successSoft,
               border: "1px solid rgba(16,185,129,0.3)",
               borderRadius: 16,
-              padding: "16px 20px",
-              marginBottom: 20,
+              padding: "14px 16px",
+              marginBottom: 14,
               display: "flex",
               alignItems: "center",
-              gap: 14,
+              gap: 12,
             }}
           >
             <div
               style={{
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 borderRadius: "50%",
                 backgroundColor: theme.success,
                 color: "#ffffff",
@@ -1328,12 +1342,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 flexShrink: 0,
               }}
             >
-              <Ic n="check" s={22} />
+              <Ic n="check" s={20} />
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: theme.success }}>Evaluation Submitted</div>
-              <div style={{ fontSize: 13, color: theme.subtext, marginTop: 2 }}>
-                Your scores have been safely recorded and forwarded to the festival control room.
+              <div style={{ fontWeight: 800, fontSize: 14, color: theme.success }}>Evaluation Submitted</div>
+              <div style={{ fontSize: 12, color: theme.subtext, marginTop: 1 }}>
+                Scores are safely locked in the festival control room.
               </div>
             </div>
           </div>
@@ -1346,54 +1360,54 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               backgroundColor: "rgba(239,68,68,0.12)",
               border: "1px solid rgba(239,68,68,0.3)",
               color: "#ef4444",
-              borderRadius: 14,
-              padding: "12px 16px",
-              marginBottom: 16,
-              fontSize: 13,
+              borderRadius: 12,
+              padding: "10px 14px",
+              marginBottom: 14,
+              fontSize: 12.5,
               display: "flex",
               alignItems: "center",
               gap: 8,
             }}
           >
-            <Ic n="alert" s={18} />
+            <Ic n="alert" s={16} />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        {/* Code Letters Scoring List */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Code Letters Scoring List (Mobile First Thumb Ergonomics) */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {codeLetters.map((item, idx) => {
             const letter = item.codeLetter;
             const currentScore = scores[letter] || "";
-            const gradeInfo = calculateGrade(currentScore);
+            const isFilled = currentScore !== "";
 
             return (
               <div
                 key={letter}
                 style={{
                   backgroundColor: theme.card,
-                  border: `1.5px solid ${currentScore !== "" ? theme.accent : theme.cardBorder}`,
-                  borderRadius: 18,
-                  padding: "16px 20px",
+                  border: `1.5px solid ${isFilled ? theme.accent : theme.cardBorder}`,
+                  borderRadius: 16,
+                  padding: "12px 14px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 16,
-                  transition: "all 0.2s ease",
-                  boxShadow: currentScore !== "" ? "0 4px 16px rgba(241,77,77,0.08)" : "none",
+                  gap: 12,
+                  boxShadow: isFilled ? "0 3px 12px rgba(241,77,77,0.08)" : "none",
+                  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                 }}
               >
-                {/* Code Letter Indicator */}
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                {/* Left: Code Letter Emblem */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                   <div
                     style={{
                       width: 44,
                       height: 44,
-                      borderRadius: 14,
-                      backgroundColor: theme.accentSoft,
-                      color: theme.accent,
+                      borderRadius: 12,
+                      backgroundColor: isFilled ? theme.accent : theme.accentSoft,
+                      color: isFilled ? "#ffffff" : theme.accent,
                       fontSize: 18,
-                      fontWeight: 800,
+                      fontWeight: 900,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1403,56 +1417,43 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   >
                     {letter}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700 }}>Code {letter}</div>
-                    <div style={{ fontSize: 12, color: theme.subtext }}>Contestant {idx + 1}</div>
+
+                  {/* Middle Info */}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2 }}>
+                      Code {letter}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: theme.subtext, marginTop: 2 }}>
+                      Contestant #{idx + 1}
+                    </div>
                   </div>
                 </div>
 
-                {/* Score Input & Grade Preview */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  {/* Grade Badge */}
-                  {currentScore !== "" && (
-                    <div
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 12,
-                        backgroundColor: gradeInfo.bg,
-                        color: gradeInfo.color,
-                        fontWeight: 700,
-                        fontSize: 13,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {gradeInfo.label}
-                    </div>
-                  )}
-
-                  {/* Input Box */}
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      disabled={isLocked}
-                      placeholder="0–100"
-                      value={currentScore}
-                      onChange={(e) => handleScoreChange(letter, e.target.value)}
-                      style={{
-                        width: 84,
-                        height: 46,
-                        textAlign: "center",
-                        fontSize: 18,
-                        fontWeight: 800,
-                        backgroundColor: isLocked ? theme.badgeBg : theme.inputBg,
-                        border: `1.5px solid ${currentScore !== "" ? theme.accent : theme.inputBorder}`,
-                        borderRadius: 14,
-                        color: theme.text,
-                        outline: "none",
-                        fontFamily: "inherit",
-                        cursor: isLocked ? "not-allowed" : "text",
-                      }}
-                    />
-                  </div>
+                {/* Right: Score Input */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9.]*"
+                    disabled={isLocked}
+                    placeholder="—"
+                    value={currentScore}
+                    onChange={(e) => handleScoreChange(letter, e.target.value)}
+                    style={{
+                      width: 78,
+                      height: 46,
+                      textAlign: "center",
+                      fontSize: 19,
+                      fontWeight: 900,
+                      backgroundColor: isLocked ? theme.badgeBg : theme.inputBg,
+                      border: `1.5px solid ${isFilled ? theme.accent : theme.inputBorder}`,
+                      borderRadius: 12,
+                      color: theme.text,
+                      outline: "none",
+                      fontFamily: "inherit",
+                      cursor: isLocked ? "not-allowed" : "text",
+                    }}
+                  />
                 </div>
               </div>
             );
@@ -1460,7 +1461,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         </div>
       </main>
 
-      {/* Sticky Bottom Action Bar */}
+      {/* Mobile Sticky Bottom Submission Bar (Thumb Reached) */}
       {!isLocked && (
         <div
           style={{
@@ -1470,103 +1471,126 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             right: 0,
             backgroundColor: theme.card,
             borderTop: `1px solid ${theme.cardBorder}`,
-            padding: "14px 20px",
-            zIndex: 30,
-            boxShadow: "0 -8px 24px rgba(0,0,0,0.08)",
+            padding: "10px 14px calc(10px + env(safe-area-inset-bottom, 0px))",
+            zIndex: 40,
+            boxShadow: "0 -6px 20px rgba(0,0,0,0.1)",
           }}
         >
           <div
             style={{
-              maxWidth: 680,
+              maxWidth: 640,
               margin: "0 auto",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
+              flexDirection: "column",
+              gap: 8,
             }}
           >
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>
-                {filledCount} of {codeLetters.length} contestants scored
-              </div>
-              <div style={{ fontSize: 12, color: theme.subtext }}>
-                {isComplete ? "All marks entered. Ready to submit." : "Enter marks (0–100) for all contestants"}
-              </div>
+            {/* Progress indicator */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, fontWeight: 700 }}>
+              <span style={{ color: theme.subtext }}>
+                Scored: <strong style={{ color: theme.text }}>{filledCount} of {codeLetters.length}</strong>
+              </span>
+              <span style={{ color: isComplete ? theme.success : theme.subtext }}>
+                {isComplete ? "✓ All scores entered" : "Enter marks for all contestants"}
+              </span>
             </div>
 
+            {/* Mini Progress Bar */}
+            <div
+              style={{
+                width: "100%",
+                height: 4,
+                backgroundColor: theme.badgeBg,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${codeLetters.length ? (filledCount / codeLetters.length) * 100 : 0}%`,
+                  backgroundColor: isComplete ? theme.success : theme.accent,
+                  transition: "width 0.25s ease",
+                }}
+              />
+            </div>
+
+            {/* Submit Button */}
             <button
               onClick={() => setShowConfirm(true)}
               disabled={!isComplete || submitting}
               style={{
+                width: "100%",
+                height: 48,
                 backgroundColor: isComplete ? theme.accent : dark ? "rgba(255,255,255,0.08)" : "#e2e8f0",
                 color: isComplete ? "#ffffff" : theme.subtext,
                 border: "none",
                 borderRadius: 14,
-                padding: "12px 24px",
                 fontWeight: 800,
                 fontSize: 15,
                 cursor: isComplete && !submitting ? "pointer" : "not-allowed",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 8,
                 boxShadow: isComplete ? "0 4px 16px rgba(241,77,77,0.3)" : "none",
                 transition: "all 0.2s ease",
               }}
             >
-              <span>Submit Evaluation</span>
+              <span>Submit Evaluation ({filledCount}/{codeLetters.length})</span>
               <Ic n="check" s={18} />
             </button>
           </div>
         </div>
       )}
 
-      {/* Submit Confirmation Modal */}
+      {/* Submit Confirmation Modal (Mobile Bottom-Sheet / Dialog) */}
       {showConfirm && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.6)",
+            backgroundColor: "rgba(0,0,0,0.65)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 100,
-            padding: 20,
+            padding: 16,
           }}
         >
           <div
             style={{
               backgroundColor: theme.card,
               border: `1px solid ${theme.cardBorder}`,
-              borderRadius: 24,
-              padding: "28px 24px",
-              maxWidth: 440,
+              borderRadius: 22,
+              padding: "24px 20px",
+              maxWidth: 380,
               width: "100%",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.3)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
             }}
           >
             <div
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 16,
+                width: 46,
+                height: 46,
+                borderRadius: 14,
                 backgroundColor: theme.accentSoft,
                 color: theme.accent,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: "0 auto 16px",
+                margin: "0 auto 12px",
               }}
             >
-              <Ic n="check" s={26} />
+              <Ic n="check" s={22} />
             </div>
 
-            <h3 style={{ fontSize: 18, fontWeight: 800, textAlign: "center", margin: "0 0 8px" }}>
+            <h3 style={{ fontSize: 17, fontWeight: 900, textAlign: "center", margin: "0 0 6px" }}>
               Confirm Official Submission?
             </h3>
-            <p style={{ fontSize: 13, color: theme.subtext, textAlign: "center", lineHeight: 1.5, margin: "0 0 20px" }}>
-              Please verify your scores. Once submitted, your scores will be locked and sent directly to the festival control room.
+            <p style={{ fontSize: 12.5, color: theme.subtext, textAlign: "center", lineHeight: 1.4, margin: "0 0 16px" }}>
+              Scores will be locked and sent directly to the festival control room.
             </p>
 
             {/* Score Summary List */}
@@ -1576,13 +1600,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 overflowY: "auto",
                 backgroundColor: theme.inputBg,
                 borderRadius: 14,
-                padding: "8px 14px",
-                marginBottom: 20,
+                padding: "8px 12px",
+                marginBottom: 18,
               }}
             >
               {codeLetters.map((c) => {
                 const s = scores[c.codeLetter] || 0;
-                const g = calculateGrade(s);
                 return (
                   <div
                     key={c.codeLetter}
@@ -1590,56 +1613,53 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "6px 0",
+                      padding: "7px 0",
                       borderBottom: `1px solid ${theme.cardBorder}`,
                       fontSize: 13,
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>Code {c.codeLetter}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontWeight: 800 }}>{s} Marks</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: g.color }}>({g.grade})</span>
-                    </div>
+                    <span style={{ fontWeight: 800 }}>Code {c.codeLetter}</span>
+                    <span style={{ fontWeight: 900, color: theme.accent }}>{s} Marks</span>
                   </div>
                 );
               })}
             </div>
 
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => setShowConfirm(false)}
                 disabled={submitting}
                 style={{
                   flex: 1,
+                  height: 44,
                   backgroundColor: dark ? "rgba(255,255,255,0.08)" : "#f1f5f9",
                   color: theme.text,
                   border: "none",
                   borderRadius: 12,
-                  padding: "12px 16px",
-                  fontWeight: 600,
-                  fontSize: 14,
+                  fontWeight: 700,
+                  fontSize: 13.5,
                   cursor: "pointer",
                 }}
               >
-                Back to Edit
+                Back
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
                 style={{
-                  flex: 1,
+                  flex: 1.4,
+                  height: 44,
                   backgroundColor: theme.accent,
                   color: "#ffffff",
                   border: "none",
                   borderRadius: 12,
-                  padding: "12px 16px",
-                  fontWeight: 700,
-                  fontSize: 14,
+                  fontWeight: 800,
+                  fontSize: 13.5,
                   cursor: submitting ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 8,
+                  gap: 6,
                 }}
               >
                 {submitting ? "Submitting..." : "Yes, Submit"}

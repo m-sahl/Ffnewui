@@ -201,7 +201,7 @@ const LeaderDesktopNav = ({ tab, setTab, group, dark, setDark, onSignOut, unread
 };
 
 const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
-  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, locks, isLocked, programLimits, getStudentQuotaUsage } = useApp();
+  const { groups, programs, students, registrations, setRegistrations, addRegistration, removeRegistration, updateRegistration, logActivity, messages, sendMessage, markRead, setMessages, deleteMessage, locks, isLocked, programLimits, getStudentQuotaUsage, scoringRules: appScoringRules } = useApp();
   const showToast = useToast();
 
   const [tab, setTabState]               = useState(() => getHashRoute("leader", "home", VALID_TABS, { programs: "events", messages: "results" }));
@@ -1157,7 +1157,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [programs]);
 
-  const scoringRules = useMemo(() => getScoringRules(), []);
+  const scoringRules = appScoringRules || getScoringRules();
 
   const teamStandings = useMemo(() => {
     return calculateTeamStandings(programs, groups, students, scoringRules);
@@ -1496,7 +1496,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   gap: 5,
                 }}>
                   <Ic name="star" size={12} color="#f59e0b" />
-                  <span>STAR OF THE FEST · STAGE KING</span>
+                  <span>STAR OF THE FEST</span>
                 </span>
                 {studentStandings.starOfTheFest && (
                   <span style={{ fontSize: 13, fontWeight: 900, color: "#f59e0b" }}>
@@ -1549,7 +1549,7 @@ const LeaderPortal = ({ user, group, dark, setDark, onBack }) => {
                   gap: 5,
                 }}>
                   <Ic name="pen" size={12} color="#8b5cf6" />
-                  <span>PEN OF THE FEST · OFF-STAGE KING</span>
+                  <span>PEN OF THE FEST</span>
                 </span>
                 {studentStandings.penOfTheFest && (
                   <span style={{ fontSize: 13, fontWeight: 900, color: "#8b5cf6" }}>

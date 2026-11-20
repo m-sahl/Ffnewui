@@ -8,6 +8,37 @@ export const DEFAULT_LIMITS = {
 
 export const DEFAULT_JUDGE_PASSCODE = "judge2026";
 
+export const DEFAULT_SCORING_RULES = {
+  individual: {
+    first: 3,
+    second: 2,
+    third: 1,
+  },
+  group: {
+    first: 6,
+    second: 4,
+    third: 2,
+  },
+  generalDefaultSolo: {
+    first: 3,
+    second: 2,
+    third: 1,
+  },
+  generalDefaultGroup: {
+    first: 6,
+    second: 4,
+    third: 2,
+  },
+  grades: {
+    "A+": 6,
+    A: 5,
+    B: 3,
+    C: 1,
+  },
+  mode: "position_and_grade",
+  customProgramPoints: {},
+};
+
 export const getJudgePasscode = query({
   args: {},
   handler: async (ctx) => {
@@ -97,6 +128,39 @@ export const get = query({
       .filter((q) => q.eq(q.field("key"), args.key))
       .first();
     return setting?.value ?? null;
+  },
+});
+
+export const getScoringRules = query({
+  args: {},
+  handler: async (ctx) => {
+    const setting = await ctx.db
+      .query("settings")
+      .filter((q) => q.eq(q.field("key"), "scoringRules"))
+      .first();
+    return setting?.value ?? DEFAULT_SCORING_RULES;
+  },
+});
+
+export const updateScoringRules = mutation({
+  args: {
+    rules: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("settings")
+      .filter((q) => q.eq(q.field("key"), "scoringRules"))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { value: args.rules });
+    } else {
+      await ctx.db.insert("settings", {
+        key: "scoringRules",
+        value: args.rules,
+      });
+    }
+    return args.rules;
   },
 });
 

@@ -13,25 +13,49 @@
 export const DEFAULT_SCORING_RULES = {
   // Position points for Individual programs (maxParticipants === 1)
   individual: {
-    first: 5,
-    second: 3,
+    first: 3,
+    second: 2,
     third: 1,
   },
   // Position points for Group programs (maxParticipants > 1)
   group: {
-    first: 10,
-    second: 5,
-    third: 3,
+    first: 6,
+    second: 4,
+    third: 2,
+  },
+  // Default position points for General Individual programs
+  generalDefaultSolo: {
+    first: 3,
+    second: 2,
+    third: 1,
+  },
+  // Default position points for General Group programs
+  generalDefaultGroup: {
+    first: 6,
+    second: 4,
+    third: 2,
   },
   // Quality grade points
   grades: {
+    "A+": 6,
     A: 5,
     B: 3,
     C: 1,
   },
-  // Scoring mode: "position_only" | "position_and_grade" | "grade_only"
-  mode: "position_only",
+  // Scoring mode: "position_and_grade" | "position_only" | "grade_only"
+  mode: "position_and_grade",
+  // Specific program overrides: { [programId]: { first: number, second: number, third: number } }
+  customProgramPoints: {},
 };
+
+/**
+ * Checks whether a program belongs to the General category.
+ */
+export function isGeneralProgram(p) {
+  if (!p) return false;
+  const cat = String(p.category || "").trim().toLowerCase();
+  return !p.category || cat === "general" || cat === "gen" || cat.includes("gen");
+}
 
 /**
  * Loads custom scoring rules from localStorage if configured, fallback to defaults.
@@ -46,7 +70,10 @@ export function getScoringRules() {
         ...parsed,
         individual: { ...DEFAULT_SCORING_RULES.individual, ...(parsed.individual || {}) },
         group: { ...DEFAULT_SCORING_RULES.group, ...(parsed.group || {}) },
+        generalDefaultSolo: { ...DEFAULT_SCORING_RULES.generalDefaultSolo, ...(parsed.generalDefaultSolo || {}) },
+        generalDefaultGroup: { ...DEFAULT_SCORING_RULES.generalDefaultGroup, ...(parsed.generalDefaultGroup || {}) },
         grades: { ...DEFAULT_SCORING_RULES.grades, ...(parsed.grades || {}) },
+        customProgramPoints: { ...(parsed.customProgramPoints || {}) },
       };
     }
   } catch {}
@@ -68,22 +95,44 @@ export function saveScoringRules(rules) {
 export function calculateEntryPoints(place, grade, program, customRules = null) {
   const rules = customRules || getScoringRules();
   const isGroup = Number(program?.maxParticipants || 1) > 1;
-  const posScale = isGroup ? rules.group : rules.individual;
+  const isGeneral = isGeneralProgram(program);
+  const progId = program?.id ? String(program.id) : "";
+
+  // 1. Resolve position points scale (program-specific override -> general default -> regular default)
+  let posScale = null;
+  if (progId && rules.customProgramPoints && rules.customProgramPoints[progId]) {
+    posScale = rules.customProgramPoints[progId];
+  } else if (isGeneral) {
+    posScale = isGroup
+      ? (rules.generalDefaultGroup || rules.group || { first: 6, second: 4, third: 2 })
+      : (rules.generalDefaultSolo || rules.individual || { first: 3, second: 2, third: 1 });
+  } else {
+    posScale = isGroup
+      ? (rules.group || { first: 6, second: 4, third: 2 })
+      : (rules.individual || { first: 3, second: 2, third: 1 });
+  }
 
   let posPoints = 0;
   const pNum = Number(place);
-  if (pNum === 1) posPoints = posScale.first ?? (isGroup ? 10 : 5);
-  else if (pNum === 2) posPoints = posScale.second ?? (isGroup ? 5 : 3);
-  else if (pNum === 3) posPoints = posScale.third ?? (isGroup ? 3 : 1);
+  if (pNum === 1) posPoints = Number(posScale.first ?? (isGroup ? 6 : 3));
+  else if (pNum === 2) posPoints = Number(posScale.second ?? (isGroup ? 4 : 2));
+  else if (pNum === 3) posPoints = Number(posScale.third ?? (isGroup ? 2 : 1));
 
   let gradePoints = 0;
   const cleanGrade = (grade || "").toUpperCase().trim();
-  if (cleanGrade.startsWith("A")) gradePoints = rules.grades?.A ?? 5;
-  else if (cleanGrade.startsWith("B")) gradePoints = rules.grades?.B ?? 3;
-  else if (cleanGrade.startsWith("C")) gradePoints = rules.grades?.C ?? 1;
+  if (cleanGrade === "A+" || cleanGrade === "A PLUS" || cleanGrade.includes("A+")) {
+    gradePoints = Number(rules.grades?.["A+"] ?? 6);
+  } else if (cleanGrade === "A") {
+    gradePoints = Number(rules.grades?.A ?? 5);
+  } else if (cleanGrade === "B+" || cleanGrade === "B") {
+    gradePoints = Number(rules.grades?.B ?? 3);
+  } else if (cleanGrade === "C+" || cleanGrade === "C") {
+    gradePoints = Number(rules.grades?.C ?? 1);
+  }
 
-  if (rules.mode === "grade_only") return gradePoints;
-  if (rules.mode === "position_and_grade") return posPoints + gradePoints;
+  const mode = rules.mode || "position_and_grade";
+  if (mode === "grade_only") return gradePoints;
+  if (mode === "position_and_grade") return posPoints + gradePoints;
   return posPoints; // default position_only
 }
 
@@ -183,10 +232,8 @@ export function calculateTeamStandings(programs = [], groups = [], students = {}
         };
       }
 
-      // If entry has explicit points, use it; otherwise compute via rules
-      const pts = e.points !== undefined && e.points !== "" && !isNaN(Number(e.points))
-        ? Number(e.points)
-        : calculateEntryPoints(e.place, e.grade, prog, rules);
+      // Compute entry points dynamically using active festival rules
+      const pts = calculateEntryPoints(e.place, e.grade, prog, rules);
 
       scoresByGroup[gid].totalPoints += pts;
       if (isStage) scoresByGroup[gid].stagePoints += pts;
@@ -198,7 +245,8 @@ export function calculateTeamStandings(programs = [], groups = [], students = {}
       else if (place === 3) scoresByGroup[gid].thirds += 1;
 
       const grade = (e.grade || "").toUpperCase();
-      if (grade.startsWith("A")) scoresByGroup[gid].gradeA += 1;
+      if (grade.includes("A+")) scoresByGroup[gid].gradeAPlus = (scoresByGroup[gid].gradeAPlus || 0) + 1;
+      else if (grade.startsWith("A")) scoresByGroup[gid].gradeA += 1;
       else if (grade.startsWith("B")) scoresByGroup[gid].gradeB += 1;
       else if (grade.startsWith("C")) scoresByGroup[gid].gradeC += 1;
 
@@ -240,7 +288,8 @@ export function calculateTeamStandings(programs = [], groups = [], students = {}
       }
 
       const grade = (o.grade || "").toUpperCase();
-      if (grade.startsWith("A")) scoresByGroup[gid].gradeA += 1;
+      if (grade.includes("A+")) scoresByGroup[gid].gradeAPlus = (scoresByGroup[gid].gradeAPlus || 0) + 1;
+      else if (grade.startsWith("A")) scoresByGroup[gid].gradeA += 1;
       else if (grade.startsWith("B")) scoresByGroup[gid].gradeB += 1;
       else if (grade.startsWith("C")) scoresByGroup[gid].gradeC += 1;
 
@@ -276,6 +325,10 @@ export function calculateTeamStandings(programs = [], groups = [], students = {}
  * - "Star of the Fest" (Stage King: Top points in Stage items)
  * - "Pen of the Fest" (Off-Stage King: Top points in Off-Stage items)
  * - Overall Top Students
+ * 
+ * Rules:
+ * - Solo events (regular and general solo, maxParticipants === 1) award points to both Team and Student.
+ * - Group events (maxParticipants > 1) award points only to Team, not to individual student awards.
  */
 export function calculateStudentStandings(programs = [], students = {}, groups = [], customRules = null) {
   const rules = customRules || getScoringRules();
@@ -315,7 +368,13 @@ export function calculateStudentStandings(programs = [], students = {}, groups =
 
   publishedProgs.forEach((prog) => {
     const isStage = (prog.type || prog.session || "Stage").toLowerCase() === "stage";
+    const isGroup = Number(prog.maxParticipants || 1) > 1;
+
+    // Group events award points only to the team; individual solo events (both regular & general) count for students
+    if (isGroup) return;
+
     const entries = prog.results?.entries || [];
+    const otherGrades = prog.results?.otherGrades || [];
 
     entries.forEach((e) => {
       const resolved = resolveEntryParticipant(e, students);
@@ -352,9 +411,7 @@ export function calculateStudentStandings(programs = [], students = {}, groups =
         };
       }
 
-      const pts = e.points !== undefined && e.points !== "" && !isNaN(Number(e.points))
-        ? Number(e.points)
-        : calculateEntryPoints(e.place, e.grade, prog, rules);
+      const pts = calculateEntryPoints(e.place, e.grade, prog, rules);
 
       const place = Number(e.place);
       if (place === 1) studentScores[sId].firsts += 1;
@@ -385,6 +442,70 @@ export function calculateStudentStandings(programs = [], students = {}, groups =
         studentScores[sId].offStageAwards.push(awardItem);
       }
     });
+
+    // Other grades for solo events also award grade quality points to students
+    if (rules.mode === "position_and_grade" || rules.mode === "grade_only") {
+      otherGrades.forEach((o) => {
+        const resolved = resolveEntryParticipant(o, students);
+        const sId = resolved.studentId;
+        if (!sId) return;
+
+        if (!studentScores[sId]) {
+          const fallbackStudent = {
+            id: sId,
+            name: resolved.studentName,
+            chestNo: resolved.chestNo,
+            category: prog.category || "General",
+            groupId: resolved.groupId,
+          };
+          studentScores[sId] = {
+            student: fallbackStudent,
+            id: sId,
+            name: resolved.studentName,
+            chestNo: resolved.chestNo,
+            category: prog.category || "General",
+            groupId: resolved.groupId,
+            group: groups.find((g) => g.id === resolved.groupId) || { id: resolved.groupId, name: resolved.groupName, color: resolved.groupColor },
+            stagePoints: 0,
+            offStagePoints: 0,
+            totalPoints: 0,
+            firsts: 0,
+            seconds: 0,
+            thirds: 0,
+            stageFirsts: 0,
+            offStageFirsts: 0,
+            totalAwards: 0,
+            stageAwards: [],
+            offStageAwards: [],
+          };
+        }
+
+        const gradePts = calculateEntryPoints(null, o.grade, prog, rules);
+        if (gradePts > 0) {
+          studentScores[sId].totalPoints += gradePts;
+          studentScores[sId].totalAwards += 1;
+
+          const awardItem = {
+            programId: prog.id,
+            programName: prog.name,
+            category: prog.category,
+            session: isStage ? "Stage" : "Off-Stage",
+            place: null,
+            placeLabel: "Grade",
+            points: gradePts,
+            grade: o.grade,
+          };
+
+          if (isStage) {
+            studentScores[sId].stagePoints += gradePts;
+            studentScores[sId].stageAwards.push(awardItem);
+          } else {
+            studentScores[sId].offStagePoints += gradePts;
+            studentScores[sId].offStageAwards.push(awardItem);
+          }
+        }
+      });
+    }
   });
 
   const studentsList = Object.values(studentScores);
