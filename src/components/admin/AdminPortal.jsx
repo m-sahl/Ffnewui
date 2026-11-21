@@ -82,6 +82,346 @@ const SettingsBtn = ({ dark, setDark, userPin, onLogout }) => {
   );
 };
 
+// Searchable program select dropdown with inline search and category filters
+function SearchableProgramSelect({
+  value,
+  onChange,
+  programs = [],
+  scoringRules = null,
+  dark = false,
+  cardBorder = "1px solid rgba(0,0,0,0.1)",
+  rowBg = "#ffffff",
+  primaryHeadingColor = "#0f172a",
+  mutedTx = "#64748b",
+  ACCENT = "#f14d4d",
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedCat, setSelectedCat] = useState("All");
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const selectedProg = useMemo(
+    () => programs.find((p) => String(p.id) === String(value)),
+    [programs, value]
+  );
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape" && isOpen) {
+        setIsOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  const filteredPrograms = useMemo(() => {
+    let list = programs;
+    if (selectedCat !== "All") {
+      list = list.filter((p) => (p.category || "General").toLowerCase() === selectedCat.toLowerCase());
+    }
+    if (!search.trim()) return list;
+    const q = search.toLowerCase().trim();
+    const cleanQ = q.replace(/^#/, "").trim();
+    return list.filter((p) => {
+      const name = (p.name || "").toLowerCase();
+      const cat = (p.category || "").toLowerCase();
+      const sess = (p.session || p.type || "").toLowerCase();
+      const code = String(p.order ?? p.code ?? "");
+      return (
+        name.includes(q) ||
+        cat.includes(q) ||
+        sess.includes(q) ||
+        code.includes(cleanQ) ||
+        code.includes(q)
+      );
+    });
+  }, [programs, search, selectedCat]);
+
+  const popoverBg = dark ? "#1e222b" : "#ffffff";
+  const itemHoverBg = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+      {/* Trigger Button */}
+      <div
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="input"
+        style={{
+          height: 38,
+          width: "100%",
+          padding: "0 10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          userSelect: "none",
+          fontSize: 12.5,
+          fontWeight: 700,
+          background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+          borderColor: isOpen ? ACCENT : undefined,
+          boxShadow: isOpen ? `0 0 0 2px ${ACCENT}25` : undefined,
+          gap: 8,
+        }}
+      >
+        {selectedProg ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 800,
+              padding: "1px 6px",
+              borderRadius: 4,
+              background: "rgba(59,130,246,0.12)",
+              color: "#3b82f6",
+              flexShrink: 0,
+            }}>
+              {selectedProg.category || "General"}
+            </span>
+            <span style={{ color: primaryHeadingColor, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              #{selectedProg.order ?? selectedProg.code ?? "?"} {selectedProg.name}
+            </span>
+            <span style={{ fontSize: 10, color: mutedTx, flexShrink: 0 }}>
+              ({selectedProg.session || selectedProg.type || "Stage"})
+            </span>
+            {scoringRules?.customProgramPoints?.[selectedProg.id] && (
+              <span style={{ fontSize: 10, color: ACCENT, fontWeight: 800, flexShrink: 0 }}>★</span>
+            )}
+          </div>
+        ) : (
+          <span style={{ color: mutedTx, fontWeight: 500 }}>— Search or select a program —</span>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {selectedProg && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+              }}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: mutedTx,
+                cursor: "pointer",
+                padding: "2px 4px",
+                fontSize: 12,
+                borderRadius: 4,
+                display: "grid",
+                placeItems: "center",
+              }}
+              title="Clear selection"
+            >
+              ✕
+            </button>
+          )}
+          <span style={{ fontSize: 10, color: mutedTx, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+            ▼
+          </span>
+        </div>
+      </div>
+
+      {/* Dropdown Menu with Search */}
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            width: "100%",
+            minWidth: 320,
+            maxWidth: 440,
+            zIndex: 999,
+            background: popoverBg,
+            border: cardBorder,
+            borderRadius: 12,
+            boxShadow: dark ? "0 14px 36px rgba(0,0,0,0.5)" : "0 12px 32px rgba(0,0,0,0.12)",
+            padding: "8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          {/* Search Box Input */}
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <span style={{ position: "absolute", left: 10, fontSize: 12, color: mutedTx, pointerEvents: "none" }}>
+              🔍
+            </span>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, #code, category..."
+              className="input"
+              style={{
+                height: 34,
+                width: "100%",
+                paddingLeft: 30,
+                paddingRight: search ? 28 : 10,
+                fontSize: 12,
+                fontWeight: 600,
+                background: dark ? "rgba(255,255,255,0.05)" : "#f8fafc",
+                borderRadius: 8,
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                style={{
+                  position: "absolute",
+                  right: 6,
+                  border: "none",
+                  background: "transparent",
+                  color: mutedTx,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: "2px 6px",
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Quick Category Filter Pills */}
+          <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+            {["All", "Low", "Mid", "High", "General"].map((cat) => {
+              const active = selectedCat === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCat(cat)}
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: active ? 800 : 600,
+                    padding: "3px 8px",
+                    borderRadius: 6,
+                    border: "none",
+                    cursor: "pointer",
+                    background: active ? ACCENT : (dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"),
+                    color: active ? "#ffffff" : mutedTx,
+                    transition: "all 0.15s",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Program Items List */}
+          <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2, paddingRight: 2 }}>
+            {filteredPrograms.length === 0 ? (
+              <div style={{ padding: "16px 8px", textAlign: "center", color: mutedTx, fontSize: 12 }}>
+                No programs found matching "{search}"
+              </div>
+            ) : (
+              filteredPrograms.map((p) => {
+                const isSelected = String(p.id) === String(value);
+                const isCustom = !!scoringRules?.customProgramPoints?.[p.id];
+                const customPoints = scoringRules?.customProgramPoints?.[p.id];
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => {
+                      onChange(p.id);
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      background: isSelected
+                        ? (dark ? "rgba(241,77,77,0.18)" : "rgba(241,77,77,0.08)")
+                        : "transparent",
+                      border: isSelected ? `1px solid ${ACCENT}40` : "1px solid transparent",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = itemHoverBg;
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{
+                        fontSize: 9.5,
+                        fontWeight: 800,
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        background: "rgba(59,130,246,0.12)",
+                        color: "#3b82f6",
+                        flexShrink: 0,
+                      }}>
+                        {p.category || "General"}
+                      </span>
+                      <span style={{ fontWeight: 800, fontSize: 12, color: primaryHeadingColor }}>
+                        #{p.order ?? p.code ?? "?"}
+                      </span>
+                      <span style={{
+                        fontSize: 12,
+                        fontWeight: isSelected ? 800 : 600,
+                        color: isSelected ? ACCENT : primaryHeadingColor,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}>
+                        {p.name}
+                      </span>
+                      <span style={{ fontSize: 10, color: mutedTx, flexShrink: 0 }}>
+                        · {p.session || p.type || "Stage"}
+                      </span>
+                    </div>
+
+                    {isCustom && (
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        background: "rgba(241,77,77,0.12)",
+                        color: ACCENT,
+                        flexShrink: 0,
+                      }}>
+                        ★ {customPoints?.first ?? 3}-{customPoints?.second ?? 2}-{customPoints?.third ?? 1}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const AdminPortal = ({ user, dark, setDark, onBack }) => {
   const { groups, programs, setPrograms, addProgram, updateProgram, deleteProgram, revertEvaluation, publishResults, unpublishResults, syncCodeAllocations, students, setStudents, updateStudent, registrations, setRegistrations, addRegistration, removeRegistration, users, setUsers, addUser, updateUser, deleteUser, activityLogs, logActivity, clearLogs, messages, locks, toggleLock, isLocked, nextChestNo, programLimits, updateProgramLimits, getStudentQuotaUsage, scoringRules: contextScoringRules, updateScoringRules: contextUpdateScoringRules, isGeneralProgram: contextIsGeneralProgram } = useApp();
 
@@ -3310,25 +3650,21 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
-                  {/* Program Selector */}
-                  <div style={{ flex: "1 1 280px", minWidth: 260 }}>
+                  {/* Program Selector with Search inside Dropdown */}
+                  <div style={{ flex: "1 1 300px", minWidth: 260 }}>
                     <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: mutedTx, marginBottom: 4 }}>Select Program</label>
-                    <select
+                    <SearchableProgramSelect
                       value={selectedCustomProgId}
-                      onChange={e => handleSelectProgramToCustomize(e.target.value)}
-                      className="input"
-                      style={{ height: 38, width: "100%", fontSize: 12.5, fontWeight: 700 }}
-                    >
-                      <option value="">— Select a Program to Customize —</option>
-                      {selectableProgramsList.map((p) => {
-                        const isCustom = !!scoringRules.customProgramPoints?.[p.id];
-                        return (
-                          <option key={p.id} value={p.id}>
-                            [{p.category || "General"}] #{p.order ?? p.code ?? "?"} {p.name} ({p.session || p.type || "Stage"}) {isCustom ? "★ Customized" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
+                      onChange={handleSelectProgramToCustomize}
+                      programs={selectableProgramsList}
+                      scoringRules={scoringRules}
+                      dark={dark}
+                      cardBorder={cardBorder}
+                      rowBg={rowBg}
+                      primaryHeadingColor={primaryHeadingColor}
+                      mutedTx={mutedTx}
+                      ACCENT={ACCENT}
+                    />
                   </div>
 
                   {/* 1st Place */}
