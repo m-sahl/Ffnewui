@@ -245,7 +245,31 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     }
   };
 
-  const isLocked = program?.isSubmitted || submittedSuccess;
+  // Admin verification check: verified if evaluationStatus is "confirmed" or "published", or if confirmedResults exist
+  const isAdminVerified = !!(
+    program?.isConfirmed ||
+    program?.isPublished ||
+    program?.evaluationStatus === "confirmed" ||
+    program?.evaluationStatus === "published" ||
+    program?.confirmedResults
+  );
+
+  // Partial completion check: at least 1 contestant scored, but not all contestants scored yet
+  const isPartiallyCompleted =
+    codeLetters.length > 0 &&
+    filledCount > 0 &&
+    filledCount < codeLetters.length &&
+    !isAdminVerified;
+
+  // Fully completed: all contestants scored AND submitted
+  const isFullyCompletedAndSubmitted =
+    codeLetters.length > 0 &&
+    filledCount === codeLetters.length &&
+    (program?.isSubmitted || submittedSuccess);
+
+  // Locked strictly if admin has verified OR if all contestants are fully completed & submitted.
+  // If only partially completed, allow continuing scoring until admin verifies!
+  const isLocked = isAdminVerified || (!isPartiallyCompleted && isFullyCompletedAndSubmitted);
 
   // Filter Catalog Programs
   const filteredCatalog = useMemo(() => {
@@ -277,20 +301,30 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
 
       return true;
     }).sort((a, b) => {
-      const aSub = !!(a.isSubmitted || a.isConfirmed || a.isPublished);
-      const bSub = !!(b.isSubmitted || b.isConfirmed || b.isPublished);
-      if (aSub !== bSub) return aSub ? 1 : -1;
+      const aDone = !!(a.isConfirmed || a.isPublished || (a.isSubmitted && !a.isPartial && a.submittedCount >= a.contestantCount));
+      const bDone = !!(b.isConfirmed || b.isPublished || (b.isSubmitted && !b.isPartial && b.submittedCount >= b.contestantCount));
+      if (aDone !== bDone) return aDone ? 1 : -1;
       return (a.order || 0) - (b.order || 0);
     });
   }, [catalogPrograms, categoryFilter, sessionFilter, searchQuery]);
 
-  // Partition into Ready (upper) and Submitted (down) programs
+  // Partition into Ready / In-Progress (upper) and Submitted / Verified (down) programs
   const readyPrograms = useMemo(() => {
-    return filteredCatalog.filter((p) => !(p.isSubmitted || p.isConfirmed || p.isPublished));
+    return filteredCatalog.filter((p) => {
+      const isConfirmed = !!(p.isConfirmed || p.isPublished);
+      if (isConfirmed) return false;
+      const isPart = !!(p.isPartial || (p.isSubmitted && typeof p.submittedCount === "number" && p.submittedCount < p.contestantCount));
+      return !p.isSubmitted || isPart;
+    });
   }, [filteredCatalog]);
 
   const submittedPrograms = useMemo(() => {
-    return filteredCatalog.filter((p) => (p.isSubmitted || p.isConfirmed || p.isPublished));
+    return filteredCatalog.filter((p) => {
+      const isConfirmed = !!(p.isConfirmed || p.isPublished);
+      if (isConfirmed) return true;
+      const isPart = !!(p.isPartial || (p.isSubmitted && typeof p.submittedCount === "number" && p.submittedCount < p.contestantCount));
+      return p.isSubmitted && !isPart;
+    });
   }, [filteredCatalog]);
 
   // Stage and Off-Stage Counters
@@ -299,9 +333,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       const sess = (p.session || p.type || "").toLowerCase();
       return !sess.includes("off");
     });
-    const submitted = list.filter((p) => p.isSubmitted || p.isConfirmed || p.isPublished).length;
-    const pending = list.length - submitted;
-    return { total: list.length, submitted, pending };
+    const done = list.filter((p) => p.isConfirmed || p.isPublished || (p.isSubmitted && !p.isPartial && p.submittedCount >= p.contestantCount)).length;
+    const pending = list.length - done;
+    return { total: list.length, submitted: done, pending };
   }, [catalogPrograms]);
 
   const offStageStats = useMemo(() => {
@@ -309,9 +343,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       const sess = (p.session || p.type || "").toLowerCase();
       return sess.includes("off");
     });
-    const submitted = list.filter((p) => p.isSubmitted || p.isConfirmed || p.isPublished).length;
-    const pending = list.length - submitted;
-    return { total: list.length, submitted, pending };
+    const done = list.filter((p) => p.isConfirmed || p.isPublished || (p.isSubmitted && !p.isPartial && p.submittedCount >= p.contestantCount)).length;
+    const pending = list.length - done;
+    return { total: list.length, submitted: done, pending };
   }, [catalogPrograms]);
 
   const currentSessionStats = sessionFilter === "Stage" ? stageStats : offStageStats;
@@ -939,6 +973,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   )}
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {readyPrograms.map((p) => {
+                      const isPartialProgram = !!(p.isPartial || (p.isSubmitted && typeof p.submittedCount === "number" && p.submittedCount < p.contestantCount));
                       return (
                         <div
                           key={p.id}
@@ -952,7 +987,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                           }}
                           style={{
                             backgroundColor: theme.card,
-                            border: `1.5px solid ${theme.cardBorder}`,
+                            border: isPartialProgram ? "1.5px solid rgba(234, 179, 8, 0.5)" : `1.5px solid ${theme.cardBorder}`,
                             borderRadius: 18,
                             padding: "16px",
                             cursor: "pointer",
@@ -1020,12 +1055,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                                   gap: 4,
                                   padding: "2px 8px",
                                   borderRadius: 12,
-                                  backgroundColor: theme.accentSoft,
-                                  color: theme.accent,
+                                  backgroundColor: isPartialProgram ? (dark ? "rgba(234, 179, 8, 0.2)" : "rgba(234, 179, 8, 0.12)") : theme.accentSoft,
+                                  color: isPartialProgram ? (dark ? "#fde047" : "#b45309") : theme.accent,
                                 }}
                               >
                                 <Ic n="edit" s={12} />
-                                <span>Ready</span>
+                                <span>{isPartialProgram ? `In Progress (${p.submittedCount}/${p.contestantCount})` : "Ready"}</span>
                               </span>
                             </div>
 
@@ -1054,18 +1089,19 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                               width: "100%",
                               height: 42,
                               borderRadius: 12,
-                              backgroundColor: theme.accent,
-                              color: "#ffffff",
+                              backgroundColor: isPartialProgram ? (dark ? "rgba(234, 179, 8, 0.2)" : "rgba(234, 179, 8, 0.12)") : theme.accent,
+                              color: isPartialProgram ? (dark ? "#fde047" : "#b45309") : "#ffffff",
+                              border: isPartialProgram ? "1px solid rgba(234, 179, 8, 0.4)" : "none",
                               fontSize: 13,
                               fontWeight: 800,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
                               gap: 6,
-                              boxShadow: "0 3px 12px rgba(241,77,77,0.25)",
+                              boxShadow: isPartialProgram ? "none" : "0 3px 12px rgba(241,77,77,0.25)",
                             }}
                           >
-                            <span>Start Evaluation</span>
+                            <span>{isPartialProgram ? `Continue Evaluation (${p.submittedCount}/${p.contestantCount})` : "Start Evaluation"}</span>
                             <Ic n="chevronRight" s={15} />
                           </div>
                         </div>
@@ -1605,15 +1641,15 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 fontWeight: 700,
                 padding: "3px 8px",
                 borderRadius: 8,
-                backgroundColor: isLocked ? theme.successSoft : "rgba(59,130,246,0.15)",
-                color: isLocked ? theme.success : "#3b82f6",
+                backgroundColor: isLocked ? theme.successSoft : ((program?.isSubmitted || submittedSuccess) ? (dark ? "rgba(234, 179, 8, 0.2)" : "rgba(234, 179, 8, 0.15)") : "rgba(59,130,246,0.15)"),
+                color: isLocked ? theme.success : ((program?.isSubmitted || submittedSuccess) ? (dark ? "#fde047" : "#b45309") : "#3b82f6"),
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
               }}
             >
               <Ic n={isLocked ? "check" : "edit"} s={11} />
-              {isLocked ? "Locked" : "Open"}
+              {isLocked ? (isAdminVerified ? "Verified" : "Locked") : ((program?.isSubmitted || submittedSuccess) ? "In Progress" : "Open")}
             </span>
           </div>
 
@@ -1628,7 +1664,47 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           </div>
         </div>
 
-        {/* Lock Banner if already submitted */}
+        {/* Banner for Partially Submitted (Still open to continue scoring until admin verifies) */}
+        {!isLocked && (program?.isSubmitted || submittedSuccess) && isPartiallyCompleted && (
+          <div
+            style={{
+              backgroundColor: dark ? "rgba(234, 179, 8, 0.12)" : "rgba(234, 179, 8, 0.08)",
+              border: "1px solid rgba(234, 179, 8, 0.35)",
+              borderRadius: 16,
+              padding: "12px 16px",
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                backgroundColor: "#eab308",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Ic n="edit" s={18} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#fde047" : "#b45309" }}>
+                Partially Submitted ({filledCount} of {codeLetters.length} Scored)
+              </div>
+              <div style={{ fontSize: 11.5, color: theme.subtext, marginTop: 1 }}>
+                You can continue entering marks for remaining contestants until admin verification.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lock Banner if fully submitted or verified by admin */}
         {isLocked && (
           <div
             style={{
@@ -1658,9 +1734,13 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               <Ic n="check" s={20} />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: theme.success }}>Evaluation Submitted</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: theme.success }}>
+                {isAdminVerified ? "Evaluation Verified & Locked" : "Evaluation Submitted & Locked"}
+              </div>
               <div style={{ fontSize: 12, color: theme.subtext, marginTop: 1 }}>
-                Scores are safely locked in the festival control room.
+                {isAdminVerified
+                  ? "Admin has verified this evaluation. Further edits are closed."
+                  : "All contestant marks have been officially submitted to the festival control room."}
               </div>
             </div>
           </div>

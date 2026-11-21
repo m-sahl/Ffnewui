@@ -479,6 +479,9 @@ export const getProgramByJudgeToken = query({
       })
       .sort((a: any, b: any) => a.codeLetter.localeCompare(b.codeLetter));
 
+    const isConfirmed = program.evaluationStatus === "confirmed" || !!program.confirmedResults;
+    const isPublished = program.status === "published";
+
     return {
       id: program.id,
       name: program.name,
@@ -487,6 +490,8 @@ export const getProgramByJudgeToken = query({
       session: program.session,
       codeLetters: blindCodeLetters,
       isSubmitted: !!program.judgeSubmission,
+      isConfirmed,
+      isPublished,
       judgeSubmission: program.judgeSubmission || null,
       evaluationStatus: program.evaluationStatus || "ready_for_judge",
     };
@@ -514,6 +519,14 @@ export const getJudgeCatalog = query({
           return true;
         }).length;
 
+        const totalContestants = codeLetterCount || rawLots.length;
+        const submittedScores = Array.isArray(p.judgeSubmission?.scores) ? p.judgeSubmission.scores : [];
+        const submittedCount = submittedScores.length;
+        const isConfirmed = p.evaluationStatus === "confirmed" || !!p.confirmedResults;
+        const isPublished = p.status === "published";
+        const isSubmitted = !!p.judgeSubmission;
+        const isPartial = isSubmitted && submittedCount < totalContestants && !isConfirmed && !isPublished;
+
         return {
           id: p.id,
           order: p.order ?? idx + 1,
@@ -522,11 +535,13 @@ export const getJudgeCatalog = query({
           type: p.type,
           session: p.session,
           judgeToken: p.judgeToken || p.id,
-          contestantCount: codeLetterCount || rawLots.length,
+          contestantCount: totalContestants,
+          submittedCount,
+          isPartial,
           evaluationStatus: p.evaluationStatus || "ready_for_judge",
-          isSubmitted: !!p.judgeSubmission,
-          isConfirmed: p.evaluationStatus === "confirmed" || !!p.confirmedResults,
-          isPublished: p.status === "published",
+          isSubmitted,
+          isConfirmed,
+          isPublished,
         };
       })
       .sort((a, b) => (a.order || 0) - (b.order || 0));
