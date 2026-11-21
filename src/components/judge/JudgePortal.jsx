@@ -237,6 +237,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         scores: formattedScores,
       });
 
+      // Minimal breathing room for smooth submitting animation
+      await new Promise((r) => setTimeout(r, 600));
+
       setShowConfirm(false);
       setSubmittedSuccess(true);
 
@@ -408,6 +411,23 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     @keyframes pulseScore {
       0%, 100% { box-shadow: 0 4px 16px rgba(241,77,77,0.3); }
       50% { box-shadow: 0 4px 24px rgba(241,77,77,0.6); }
+    }
+    @keyframes judgeSpin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes judgePulseFade {
+      0%, 100% { opacity: 0.65; transform: scale(0.96); }
+      50% { opacity: 1; transform: scale(1.04); }
+    }
+    .judge-submitting-ring {
+      width: 17px;
+      height: 17px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: judgeSpin 0.75s linear infinite;
+      display: inline-block;
+      flex-shrink: 0;
     }
   `;
 
@@ -2064,12 +2084,21 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 transition: "all 0.2s ease",
               }}
             >
-              <span>
-                {filledCount === codeLetters.length
-                  ? `Submit Evaluation (${filledCount}/${codeLetters.length})`
-                  : `Submit Entered Marks (${filledCount}/${codeLetters.length})`}
-              </span>
-              <Ic n="check" s={18} />
+              {submitting ? (
+                <>
+                  <div className="judge-submitting-ring" />
+                  <span>Submitting Marks...</span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {filledCount === codeLetters.length
+                      ? `Submit Evaluation (${filledCount}/${codeLetters.length})`
+                      : `Submit Entered Marks (${filledCount}/${codeLetters.length})`}
+                  </span>
+                  <Ic n="check" s={18} />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -2095,114 +2124,153 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               backgroundColor: theme.card,
               border: `1px solid ${theme.cardBorder}`,
               borderRadius: 22,
-              padding: "24px 20px",
+              padding: submitting ? "36px 20px" : "24px 20px",
               maxWidth: 380,
               width: "100%",
               boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
+              transition: "all 0.2s ease",
             }}
           >
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                backgroundColor: theme.accentSoft,
-                color: theme.accent,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 12px",
-              }}
-            >
-              <Ic n="check" s={22} />
-            </div>
+            {submitting ? (
+              <div style={{ textAlign: "center", padding: "10px 0" }}>
+                <div
+                  style={{
+                    position: "relative",
+                    width: 56,
+                    height: 56,
+                    margin: "0 auto 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: "50%",
+                      border: `3px solid ${theme.accentSoft}`,
+                      borderTopColor: theme.accent,
+                      animation: "judgeSpin 0.75s linear infinite",
+                    }}
+                  />
+                  <div style={{ color: theme.accent, animation: "judgePulseFade 1.2s ease-in-out infinite" }}>
+                    <Ic n="upload" s={22} />
+                  </div>
+                </div>
 
-            <h3 style={{ fontSize: 17, fontWeight: 900, textAlign: "center", margin: "0 0 6px" }}>
-              Confirm Official Submission?
-            </h3>
-            <p style={{ fontSize: 12.5, color: theme.subtext, textAlign: "center", lineHeight: 1.4, margin: "0 0 16px" }}>
-              {filledCount === codeLetters.length
-                ? "Scores will be locked and sent directly to the festival control room."
-                : `Submitting marks for ${filledCount} entered ${filledCount === 1 ? "contestant" : "contestants"}. Unscored contestants will be omitted.`}
-            </p>
+                <h3 style={{ fontSize: 17, fontWeight: 900, margin: "0 0 6px", letterSpacing: "-0.2px" }}>
+                  Submitting Evaluation...
+                </h3>
+                <p style={{ fontSize: 13, color: theme.subtext, margin: 0, lineHeight: 1.4 }}>
+                  Recording marks securely in the festival control room.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 14,
+                    backgroundColor: theme.accentSoft,
+                    color: theme.accent,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 12px",
+                  }}
+                >
+                  <Ic n="check" s={22} />
+                </div>
 
-            {/* Score Summary List - Only displaying entered scores */}
-            <div
-              style={{
-                maxHeight: 180,
-                overflowY: "auto",
-                backgroundColor: theme.inputBg,
-                borderRadius: 14,
-                padding: "8px 12px",
-                marginBottom: 18,
-              }}
-            >
-              {codeLetters
-                .filter((c) => {
-                  const val = scores[c.codeLetter];
-                  return val !== "" && val !== undefined && val !== null && !isNaN(parseFloat(val));
-                })
-                .map((c) => {
-                  const s = scores[c.codeLetter];
-                  return (
-                    <div
-                      key={c.codeLetter}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "7px 0",
-                        borderBottom: `1px solid ${theme.cardBorder}`,
-                        fontSize: 13,
-                      }}
-                    >
-                      <span style={{ fontWeight: 800 }}>Code {c.codeLetter}</span>
-                      <span style={{ fontWeight: 900, color: theme.accent }}>{s} Marks</span>
-                    </div>
-                  );
-                })}
-            </div>
+                <h3 style={{ fontSize: 17, fontWeight: 900, textAlign: "center", margin: "0 0 6px" }}>
+                  Confirm Official Submission?
+                </h3>
+                <p style={{ fontSize: 12.5, color: theme.subtext, textAlign: "center", lineHeight: 1.4, margin: "0 0 16px" }}>
+                  {filledCount === codeLetters.length
+                    ? "Scores will be locked and sent directly to the festival control room."
+                    : `Submitting marks for ${filledCount} entered ${filledCount === 1 ? "contestant" : "contestants"}. Unscored contestants will be omitted.`}
+                </p>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setShowConfirm(false)}
-                disabled={submitting}
-                style={{
-                  flex: 1,
-                  height: 44,
-                  backgroundColor: dark ? "rgba(255,255,255,0.08)" : "#f1f5f9",
-                  color: theme.text,
-                  border: "none",
-                  borderRadius: 12,
-                  fontWeight: 700,
-                  fontSize: 13.5,
-                  cursor: "pointer",
-                }}
-              >
-                Back
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                style={{
-                  flex: 1.4,
-                  height: 44,
-                  backgroundColor: theme.accent,
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: 12,
-                  fontWeight: 800,
-                  fontSize: 13.5,
-                  cursor: submitting ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
-              >
-                {submitting ? "Submitting..." : "Yes, Submit"}
-              </button>
-            </div>
+                {/* Score Summary List - Only displaying entered scores */}
+                <div
+                  style={{
+                    maxHeight: 180,
+                    overflowY: "auto",
+                    backgroundColor: theme.inputBg,
+                    borderRadius: 14,
+                    padding: "8px 12px",
+                    marginBottom: 18,
+                  }}
+                >
+                  {codeLetters
+                    .filter((c) => {
+                      const val = scores[c.codeLetter];
+                      return val !== "" && val !== undefined && val !== null && !isNaN(parseFloat(val));
+                    })
+                    .map((c) => {
+                      const s = scores[c.codeLetter];
+                      return (
+                        <div
+                          key={c.codeLetter}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "7px 0",
+                            borderBottom: `1px solid ${theme.cardBorder}`,
+                            fontSize: 13,
+                          }}
+                        >
+                          <span style={{ fontWeight: 800 }}>Code {c.codeLetter}</span>
+                          <span style={{ fontWeight: 900, color: theme.accent }}>{s} Marks</span>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => setShowConfirm(false)}
+                    style={{
+                      flex: 1,
+                      height: 44,
+                      backgroundColor: dark ? "rgba(255,255,255,0.08)" : "#f1f5f9",
+                      color: theme.text,
+                      border: "none",
+                      borderRadius: 12,
+                      fontWeight: 700,
+                      fontSize: 13.5,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    style={{
+                      flex: 1.4,
+                      height: 44,
+                      backgroundColor: theme.accent,
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 12,
+                      fontWeight: 800,
+                      fontSize: 13.5,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span>Yes, Submit</span>
+                    <Ic n="check" s={16} />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
