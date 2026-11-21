@@ -99,11 +99,10 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         initial[s.codeLetter] = s.score !== undefined ? String(s.score) : "";
       });
       setScores(initial);
-      setSubmittedSuccess(true);
     } else {
-      setSubmittedSuccess(false);
       setScores({});
     }
+    setSubmittedSuccess(false);
     setErrorMessage("");
   }, [program]);
 
@@ -292,22 +291,30 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     program?.confirmedResults
   );
 
-  // Partial completion check: at least 1 contestant scored, but not all contestants scored yet
-  const isPartiallyCompleted =
-    codeLetters.length > 0 &&
-    filledCount > 0 &&
-    filledCount < codeLetters.length &&
-    !isAdminVerified;
+  // Scores officially recorded in the database
+  const dbSubmittedScores = useMemo(() => {
+    return Array.isArray(program?.judgeSubmission?.scores)
+      ? program.judgeSubmission.scores
+      : [];
+  }, [program]);
 
-  // Fully completed: all contestants scored AND submitted
-  const isFullyCompletedAndSubmitted =
+  // Is officially fully submitted in the database (all contestants recorded in DB)
+  const isDbFullySubmitted = Boolean(
     codeLetters.length > 0 &&
-    filledCount === codeLetters.length &&
-    (program?.isSubmitted || submittedSuccess);
+    dbSubmittedScores.length >= codeLetters.length
+  );
 
-  // Locked strictly if admin has verified OR if all contestants are fully completed & submitted.
-  // If only partially completed, allow continuing scoring until admin verifies!
-  const isLocked = isAdminVerified || (!isPartiallyCompleted && isFullyCompletedAndSubmitted);
+  // Is officially partially submitted in the database (at least 1, but not all contestants recorded in DB)
+  const isDbPartiallySubmitted = Boolean(
+    codeLetters.length > 0 &&
+    dbSubmittedScores.length > 0 &&
+    dbSubmittedScores.length < codeLetters.length
+  );
+
+  // Locked strictly if admin has verified, OR if all contestants were ALREADY officially fully submitted in DB,
+  // OR if the judge just successfully submitted in this session.
+  // CRITICAL: Simply typing all marks into the form must NEVER automatically lock the inputs before the judge submits!
+  const isLocked = Boolean(isAdminVerified || isDbFullySubmitted || submittedSuccess);
 
   // Filter Catalog Programs
   const filteredCatalog = useMemo(() => {
@@ -1791,15 +1798,25 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 fontWeight: 700,
                 padding: "3px 8px",
                 borderRadius: 8,
-                backgroundColor: isLocked ? theme.successSoft : ((program?.isSubmitted || submittedSuccess) ? (dark ? "rgba(234, 179, 8, 0.2)" : "rgba(234, 179, 8, 0.15)") : "rgba(59,130,246,0.15)"),
-                color: isLocked ? theme.success : ((program?.isSubmitted || submittedSuccess) ? (dark ? "#fde047" : "#b45309") : "#3b82f6"),
+                backgroundColor: isLocked
+                  ? theme.successSoft
+                  : isDbPartiallySubmitted
+                  ? (dark ? "rgba(234, 179, 8, 0.2)" : "rgba(234, 179, 8, 0.15)")
+                  : "rgba(59,130,246,0.15)",
+                color: isLocked
+                  ? theme.success
+                  : isDbPartiallySubmitted
+                  ? (dark ? "#fde047" : "#b45309")
+                  : "#3b82f6",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
               }}
             >
               <Ic n={isLocked ? "check" : "edit"} s={11} />
-              {isLocked ? (isAdminVerified ? "Verified" : "Locked") : ((program?.isSubmitted || submittedSuccess) ? "In Progress" : "Open")}
+              {isLocked
+                ? (isAdminVerified ? "Verified" : "Locked")
+                : (isDbPartiallySubmitted ? "In Progress" : "Open")}
             </span>
           </div>
 
@@ -1815,7 +1832,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         </div>
 
         {/* Banner for Partially Submitted (Still open to continue scoring until admin verifies) */}
-        {!isLocked && (program?.isSubmitted || submittedSuccess) && isPartiallyCompleted && (
+        {!isLocked && isDbPartiallySubmitted && (
           <div
             style={{
               backgroundColor: dark ? "rgba(234, 179, 8, 0.12)" : "rgba(234, 179, 8, 0.08)",
@@ -1845,7 +1862,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 13.5, color: dark ? "#fde047" : "#b45309" }}>
-                Partially Submitted ({filledCount} of {codeLetters.length} Scored)
+                Partially Submitted ({dbSubmittedScores.length} of {codeLetters.length} Scored in DB)
               </div>
               <div style={{ fontSize: 11.5, color: theme.subtext, marginTop: 1 }}>
                 You can continue entering marks for remaining contestants until admin verification.
