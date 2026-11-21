@@ -271,8 +271,22 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       }
 
       return true;
+    }).sort((a, b) => {
+      const aSub = !!(a.isSubmitted || a.isConfirmed || a.isPublished);
+      const bSub = !!(b.isSubmitted || b.isConfirmed || b.isPublished);
+      if (aSub !== bSub) return aSub ? 1 : -1;
+      return (a.order || 0) - (b.order || 0);
     });
   }, [catalogPrograms, categoryFilter, sessionFilter, searchQuery]);
+
+  // Partition into Ready (upper) and Submitted (down) programs
+  const readyPrograms = useMemo(() => {
+    return filteredCatalog.filter((p) => !(p.isSubmitted || p.isConfirmed || p.isPublished));
+  }, [filteredCatalog]);
+
+  const submittedPrograms = useMemo(() => {
+    return filteredCatalog.filter((p) => (p.isSubmitted || p.isConfirmed || p.isPublished));
+  }, [filteredCatalog]);
 
   // Stage and Off-Stage Counters
   const stageStats = useMemo(() => {
@@ -901,141 +915,312 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               </p>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {filteredCatalog.map((p) => {
-                const isSub = p.isSubmitted || p.isConfirmed || p.isPublished;
-                return (
-                  <div
-                    key={p.id}
-                    className="judge-touch-card"
-                    onClick={() => {
-                      const token = p.judgeToken || p.id;
-                      setCurrentToken(token);
-                      if (typeof window !== "undefined") {
-                        window.location.hash = `#/judge/${token}`;
-                      }
-                    }}
-                    style={{
-                      backgroundColor: theme.card,
-                      border: `1.5px solid ${isSub ? "rgba(16,185,129,0.3)" : theme.cardBorder}`,
-                      borderRadius: 18,
-                      padding: "16px",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-                      transition: "transform 0.15s ease, border-color 0.15s ease",
-                    }}
-                  >
-                    <div>
-                      {/* Top Badges Row */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span
-                            style={{
-                              fontSize: 10.5,
-                              fontWeight: 800,
-                              padding: "2px 7px",
-                              borderRadius: 6,
-                              backgroundColor: theme.badgeBg,
-                              color: theme.subtext,
-                            }}
-                          >
-                            #{p.order}
-                          </span>
-                          {p.category && (
-                            <span
-                              style={{
-                                fontSize: 10.5,
-                                fontWeight: 800,
-                                textTransform: "uppercase",
-                                padding: "2px 8px",
-                                borderRadius: 6,
-                                backgroundColor: theme.accentSoft,
-                                color: theme.accent,
-                              }}
-                            >
-                              {p.category}
-                            </span>
-                          )}
-                          {p.session && (
-                            <span
-                              style={{
-                                fontSize: 10.5,
-                                fontWeight: 700,
-                                padding: "2px 7px",
-                                borderRadius: 6,
-                                backgroundColor: theme.badgeBg,
-                                color: theme.subtext,
-                              }}
-                            >
-                              {p.session}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Status Badge */}
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 800,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            padding: "2px 8px",
-                            borderRadius: 12,
-                            backgroundColor: isSub ? theme.successSoft : theme.accentSoft,
-                            color: isSub ? theme.success : theme.accent,
-                          }}
-                        >
-                          <Ic n={isSub ? "checkCircle" : "edit"} s={12} />
-                          <span>{isSub ? "Submitted" : "Ready"}</span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {/* Upper Section: Ready Programs Pending Evaluation */}
+              {readyPrograms.length > 0 && (
+                <div style={{ marginBottom: submittedPrograms.length > 0 ? 22 : 0 }}>
+                  {submittedPrograms.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: theme.accent, display: "inline-block" }} />
+                        <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: theme.accent }}>
+                          Ready for Evaluation
                         </span>
                       </div>
-
-                      {/* Program Title */}
-                      <h3
-                        style={{
-                          fontSize: 16,
-                          fontWeight: 800,
-                          margin: "0 0 6px",
-                          letterSpacing: "-0.3px",
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {p.name}
-                      </h3>
-
-                      <div style={{ fontSize: 12, color: theme.subtext, display: "flex", alignItems: "center", gap: 5 }}>
-                        <Ic n="users" s={13} />
-                        <span>{p.contestantCount} Contestants</span>
-                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 10, backgroundColor: theme.accentSoft, color: theme.accent }}>
+                        {readyPrograms.length} Pending
+                      </span>
                     </div>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {readyPrograms.map((p) => {
+                      return (
+                        <div
+                          key={p.id}
+                          className="judge-touch-card"
+                          onClick={() => {
+                            const token = p.judgeToken || p.id;
+                            setCurrentToken(token);
+                            if (typeof window !== "undefined") {
+                              window.location.hash = `#/judge/${token}`;
+                            }
+                          }}
+                          style={{
+                            backgroundColor: theme.card,
+                            border: `1.5px solid ${theme.cardBorder}`,
+                            borderRadius: 18,
+                            padding: "16px",
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                            transition: "transform 0.15s ease, border-color 0.15s ease",
+                          }}
+                        >
+                          <div>
+                            {/* Top Badges Row */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 6 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    fontWeight: 800,
+                                    padding: "2px 7px",
+                                    borderRadius: 6,
+                                    backgroundColor: theme.badgeBg,
+                                    color: theme.subtext,
+                                  }}
+                                >
+                                  #{p.order}
+                                </span>
+                                {p.category && (
+                                  <span
+                                    style={{
+                                      fontSize: 10.5,
+                                      fontWeight: 800,
+                                      textTransform: "uppercase",
+                                      padding: "2px 8px",
+                                      borderRadius: 6,
+                                      backgroundColor: theme.accentSoft,
+                                      color: theme.accent,
+                                    }}
+                                  >
+                                    {p.category}
+                                  </span>
+                                )}
+                                {p.session && (
+                                  <span
+                                    style={{
+                                      fontSize: 10.5,
+                                      fontWeight: 700,
+                                      padding: "2px 7px",
+                                      borderRadius: 6,
+                                      backgroundColor: theme.badgeBg,
+                                      color: theme.subtext,
+                                    }}
+                                  >
+                                    {p.session}
+                                  </span>
+                                )}
+                              </div>
 
-                    {/* Touch Action Button */}
-                    <div
-                      style={{
-                        width: "100%",
-                        height: 42,
-                        borderRadius: 12,
-                        backgroundColor: isSub ? (dark ? "rgba(255,255,255,0.06)" : "#f1f5f9") : theme.accent,
-                        color: isSub ? theme.text : "#ffffff",
-                        fontSize: 13,
-                        fontWeight: 800,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        boxShadow: isSub ? "none" : "0 3px 12px rgba(241,77,77,0.25)",
-                      }}
-                    >
-                      <span>{isSub ? "View Submitted Scores" : "Start Evaluation"}</span>
-                      <Ic n="chevronRight" s={15} />
-                    </div>
+                              {/* Status Badge */}
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "2px 8px",
+                                  borderRadius: 12,
+                                  backgroundColor: theme.accentSoft,
+                                  color: theme.accent,
+                                }}
+                              >
+                                <Ic n="edit" s={12} />
+                                <span>Ready</span>
+                              </span>
+                            </div>
+
+                            {/* Program Title */}
+                            <h3
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 800,
+                                margin: "0 0 6px",
+                                letterSpacing: "-0.3px",
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {p.name}
+                            </h3>
+
+                            <div style={{ fontSize: 12, color: theme.subtext, display: "flex", alignItems: "center", gap: 5 }}>
+                              <Ic n="users" s={13} />
+                              <span>{p.contestantCount} Contestants</span>
+                            </div>
+                          </div>
+
+                          {/* Touch Action Button */}
+                          <div
+                            style={{
+                              width: "100%",
+                              height: 42,
+                              borderRadius: 12,
+                              backgroundColor: theme.accent,
+                              color: "#ffffff",
+                              fontSize: 13,
+                              fontWeight: 800,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                              boxShadow: "0 3px 12px rgba(241,77,77,0.25)",
+                            }}
+                          >
+                            <span>Start Evaluation</span>
+                            <Ic n="chevronRight" s={15} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Down Section: Submitted Remarks & Evaluations */}
+              {submittedPrograms.length > 0 && (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, marginTop: readyPrograms.length > 0 ? 8 : 0, padding: "0 2px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: theme.success, display: "inline-block" }} />
+                      <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: theme.success }}>
+                        Submitted Evaluations
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 10, backgroundColor: theme.successSoft, color: theme.success }}>
+                      {submittedPrograms.length} Submitted
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {submittedPrograms.map((p) => {
+                      return (
+                        <div
+                          key={p.id}
+                          className="judge-touch-card"
+                          onClick={() => {
+                            const token = p.judgeToken || p.id;
+                            setCurrentToken(token);
+                            if (typeof window !== "undefined") {
+                              window.location.hash = `#/judge/${token}`;
+                            }
+                          }}
+                          style={{
+                            backgroundColor: theme.card,
+                            border: "1.5px solid rgba(16,185,129,0.3)",
+                            borderRadius: 18,
+                            padding: "16px",
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            boxShadow: "none",
+                            transition: "transform 0.15s ease, border-color 0.15s ease",
+                            opacity: 0.94,
+                          }}
+                        >
+                          <div>
+                            {/* Top Badges Row */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 6 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    fontWeight: 800,
+                                    padding: "2px 7px",
+                                    borderRadius: 6,
+                                    backgroundColor: theme.badgeBg,
+                                    color: theme.subtext,
+                                  }}
+                                >
+                                  #{p.order}
+                                </span>
+                                {p.category && (
+                                  <span
+                                    style={{
+                                      fontSize: 10.5,
+                                      fontWeight: 800,
+                                      textTransform: "uppercase",
+                                      padding: "2px 8px",
+                                      borderRadius: 6,
+                                      backgroundColor: theme.accentSoft,
+                                      color: theme.accent,
+                                    }}
+                                  >
+                                    {p.category}
+                                  </span>
+                                )}
+                                {p.session && (
+                                  <span
+                                    style={{
+                                      fontSize: 10.5,
+                                      fontWeight: 700,
+                                      padding: "2px 7px",
+                                      borderRadius: 6,
+                                      backgroundColor: theme.badgeBg,
+                                      color: theme.subtext,
+                                    }}
+                                  >
+                                    {p.session}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Status Badge */}
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "2px 8px",
+                                  borderRadius: 12,
+                                  backgroundColor: theme.successSoft,
+                                  color: theme.success,
+                                }}
+                              >
+                                <Ic n="checkCircle" s={12} />
+                                <span>Submitted</span>
+                              </span>
+                            </div>
+
+                            {/* Program Title */}
+                            <h3
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 800,
+                                margin: "0 0 6px",
+                                letterSpacing: "-0.3px",
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {p.name}
+                            </h3>
+
+                            <div style={{ fontSize: 12, color: theme.subtext, display: "flex", alignItems: "center", gap: 5 }}>
+                              <Ic n="users" s={13} />
+                              <span>{p.contestantCount} Contestants</span>
+                            </div>
+                          </div>
+
+                          {/* Touch Action Button */}
+                          <div
+                            style={{
+                              width: "100%",
+                              height: 42,
+                              borderRadius: 12,
+                              backgroundColor: dark ? "rgba(255,255,255,0.06)" : "#f1f5f9",
+                              color: theme.text,
+                              fontSize: 13,
+                              fontWeight: 800,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span>View Submitted Scores</span>
+                            <Ic n="chevronRight" s={15} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
