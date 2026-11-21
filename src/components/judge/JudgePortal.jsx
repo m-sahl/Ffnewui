@@ -415,6 +415,24 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     .judge-touch-card:active {
       transform: scale(0.985);
     }
+    .judge-score-input:focus {
+      border-color: #f14d4d !important;
+      box-shadow: 0 0 0 3px rgba(241, 77, 77, 0.22) !important;
+    }
+    @keyframes slideUpSheet {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeInBackdrop {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .judge-bottom-sheet {
+      animation: slideUpSheet 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .judge-backdrop {
+      animation: fadeInBackdrop 0.18s ease forwards;
+    }
     @keyframes pulseScore {
       0%, 100% { box-shadow: 0 4px 16px rgba(241,77,77,0.3); }
       50% { box-shadow: 0 4px 24px rgba(241,77,77,0.6); }
@@ -823,7 +841,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         >
           <div
             style={{
-              maxWidth: 720,
+              maxWidth: 500,
               margin: "0 auto",
               padding: "10px 14px",
               display: "flex",
@@ -884,7 +902,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         </header>
 
         {/* Mobile Container */}
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: "14px 14px" }}>
+        <main style={{ maxWidth: 500, margin: "0 auto", padding: "14px 14px" }}>
           {/* Active Session Page Title Banner */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1695,9 +1713,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       >
         <div
           style={{
-            maxWidth: 640,
+            maxWidth: 500,
             margin: "0 auto",
-            padding: "10px 14px",
+            padding: "8px 14px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -1713,26 +1731,27 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               if (typeof window !== "undefined") window.location.hash = "#/judge";
             }}
             style={{
-              background: "none",
-              border: "none",
-              color: theme.subtext,
-              fontSize: 13,
+              background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              border: `1px solid ${theme.cardBorder}`,
+              borderRadius: 10,
+              color: theme.text,
+              fontSize: 12.5,
               fontWeight: 700,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 4,
-              padding: "4px 8px 4px 0",
+              padding: "6px 10px",
               flexShrink: 0,
             }}
           >
-            <Ic n="back" s={18} />
+            <Ic n="back" s={16} />
             <span>Programs</span>
           </button>
 
           <div
             style={{
-              fontSize: 13,
+              fontSize: 13.5,
               fontWeight: 800,
               color: theme.text,
               textAlign: "center",
@@ -1745,12 +1764,25 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             {program.name}
           </div>
 
-          <div style={{ width: 40, flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: 10.5,
+              fontWeight: 800,
+              padding: "3px 8px",
+              borderRadius: 8,
+              backgroundColor: theme.badgeBg,
+              color: theme.subtext,
+              border: `1px solid ${theme.cardBorder}`,
+              flexShrink: 0,
+            }}
+          >
+            {program.session || (sessionFilter === "Off-Stage" ? "Off-Stage" : "Stage")}
+          </span>
         </div>
       </header>
 
       {/* Main Container */}
-      <main style={{ maxWidth: 640, margin: "0 auto", padding: "14px 14px" }}>
+      <main style={{ maxWidth: 500, margin: "0 auto", padding: "14px 14px" }}>
         {/* Program Header Card */}
         <div
           style={{
@@ -1989,8 +2021,8 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                   </div>
                 </div>
 
-                {/* Right: Score Input */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                {/* Right: Score Input with Scale Indicator */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -1998,22 +2030,31 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     disabled={isLocked}
                     placeholder="—"
                     value={currentScore}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => handleScoreChange(letter, e.target.value)}
+                    className="judge-score-input"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck="false"
                     style={{
                       width: 78,
-                      height: 46,
+                      height: 48,
                       textAlign: "center",
                       fontSize: 19,
                       fontWeight: 900,
                       backgroundColor: isLocked ? theme.badgeBg : theme.inputBg,
                       border: `1.5px solid ${isFilled ? theme.accent : theme.inputBorder}`,
-                      borderRadius: 12,
+                      borderRadius: 14,
                       color: theme.text,
                       outline: "none",
                       fontFamily: "inherit",
                       cursor: isLocked ? "not-allowed" : "text",
+                      transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                     }}
                   />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: theme.subtext }}>
+                    / 100
+                  </span>
                 </div>
               </div>
             );
@@ -2029,16 +2070,18 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             bottom: 0,
             left: 0,
             right: 0,
-            backgroundColor: theme.card,
+            backgroundColor: dark ? "rgba(19, 21, 36, 0.96)" : "rgba(255, 255, 255, 0.96)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             borderTop: `1px solid ${theme.cardBorder}`,
-            padding: "10px 14px calc(10px + env(safe-area-inset-bottom, 0px))",
+            padding: "10px 14px calc(12px + env(safe-area-inset-bottom, 0px))",
             zIndex: 40,
-            boxShadow: "0 -6px 20px rgba(0,0,0,0.1)",
+            boxShadow: dark ? "0 -8px 24px rgba(0,0,0,0.4)" : "0 -8px 24px rgba(0,0,0,0.06)",
           }}
         >
           <div
             style={{
-              maxWidth: 640,
+              maxWidth: 500,
               margin: "0 auto",
               display: "flex",
               flexDirection: "column",
@@ -2121,35 +2164,61 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         </div>
       )}
 
-      {/* Submit Confirmation Modal (Mobile Bottom-Sheet / Dialog) */}
+      {/* Submit Confirmation Modal (Mobile Bottom-Sheet) */}
       {showConfirm && (
         <div
+          className="judge-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !submitting) setShowConfirm(false);
+          }}
           style={{
             position: "fixed",
             inset: 0,
             backgroundColor: "rgba(0,0,0,0.65)",
-            backdropFilter: "blur(4px)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "center",
             zIndex: 100,
-            padding: 16,
+            padding: 0,
           }}
         >
           <div
+            className="judge-bottom-sheet"
             style={{
               backgroundColor: theme.card,
-              border: `1px solid ${theme.cardBorder}`,
-              borderRadius: 22,
-              padding: submitting ? "36px 20px" : "24px 20px",
-              maxWidth: 380,
+              borderTop: `1px solid ${theme.cardBorder}`,
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
+              padding: submitting
+                ? "36px 20px calc(28px + env(safe-area-inset-bottom, 0px))"
+                : "16px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+              maxWidth: 500,
               width: "100%",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
-              transition: "all 0.2s ease",
+              boxShadow: "0 -16px 48px rgba(0,0,0,0.35)",
+              boxSizing: "border-box",
+              maxHeight: "88vh",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
+            {/* Top Sheet Drag Handle */}
+            <div
+              style={{
+                width: 38,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
+                margin: "0 auto 14px",
+                flexShrink: 0,
+              }}
+            />
+
             {submitting ? (
-              <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <div style={{ textAlign: "center", padding: "16px 0 20px" }}>
                 <div
                   style={{
                     position: "relative",
@@ -2187,27 +2256,28 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               <>
                 <div
                   style={{
-                    width: 46,
-                    height: 46,
+                    width: 44,
+                    height: 44,
                     borderRadius: 14,
                     backgroundColor: theme.accentSoft,
                     color: theme.accent,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    margin: "0 auto 12px",
+                    margin: "0 auto 10px",
+                    flexShrink: 0,
                   }}
                 >
-                  <Ic n="check" s={22} />
+                  <Ic n="check" s={20} />
                 </div>
 
                 <h3 style={{ fontSize: 17, fontWeight: 900, textAlign: "center", margin: "0 0 6px" }}>
                   Confirm Official Submission?
                 </h3>
-                <p style={{ fontSize: 12.5, color: theme.subtext, textAlign: "center", lineHeight: 1.4, margin: "0 0 16px" }}>
+                <p style={{ fontSize: 12.5, color: theme.subtext, textAlign: "center", lineHeight: 1.4, margin: "0 0 14px" }}>
                   {filledCount === codeLetters.length
                     ? "Scores will be locked and sent directly to the festival control room."
-                    : `Submitting marks for ${filledCount} entered ${filledCount === 1 ? "contestant" : "contestants"}. Unscored contestants will be omitted.`}
+                    : `Submitting marks for ${filledCount} entered ${filledCount === 1 ? "contestant" : "contestants"}. Unscored contestants will remain open.`}
                 </p>
 
                 {/* Score Summary List - Only displaying entered scores */}
@@ -2218,7 +2288,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     backgroundColor: theme.inputBg,
                     borderRadius: 14,
                     padding: "8px 12px",
-                    marginBottom: 18,
+                    marginBottom: 16,
                   }}
                 >
                   {codeLetters
@@ -2252,13 +2322,13 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     onClick={() => setShowConfirm(false)}
                     style={{
                       flex: 1,
-                      height: 44,
+                      height: 48,
                       backgroundColor: dark ? "rgba(255,255,255,0.08)" : "#f1f5f9",
                       color: theme.text,
                       border: "none",
-                      borderRadius: 12,
+                      borderRadius: 14,
                       fontWeight: 700,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       cursor: "pointer",
                     }}
                   >
@@ -2268,18 +2338,19 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     onClick={handleSubmit}
                     style={{
                       flex: 1.4,
-                      height: 44,
+                      height: 48,
                       backgroundColor: theme.accent,
                       color: "#ffffff",
                       border: "none",
-                      borderRadius: 12,
+                      borderRadius: 14,
                       fontWeight: 800,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 6,
+                      boxShadow: "0 4px 16px rgba(241,77,77,0.3)",
                     }}
                   >
                     <span>Yes, Submit</span>
