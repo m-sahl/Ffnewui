@@ -45,7 +45,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
 
   // Catalog filtering state
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [sessionFilter, setSessionFilter] = useState("All");
+  const [sessionFilter, setSessionFilter] = useState("Stage");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Convex live queries & mutations
@@ -253,12 +253,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         if (cat !== fCat) return false;
       }
 
-      // Session filter
-      if (sessionFilter !== "All") {
-        const sess = (p.session || p.type || "").toLowerCase();
-        const fSess = sessionFilter.toLowerCase();
-        if (fSess === "stage" && sess.includes("off")) return false;
-        if (fSess === "off-stage" && !sess.includes("off")) return false;
+      // Session filter (Strictly Stage or Off-Stage)
+      const sess = (p.session || p.type || "").toLowerCase();
+      if (sessionFilter === "Stage") {
+        if (sess.includes("off")) return false;
+      } else {
+        if (!sess.includes("off")) return false;
       }
 
       // Search query
@@ -274,13 +274,28 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     });
   }, [catalogPrograms, categoryFilter, sessionFilter, searchQuery]);
 
-  // Catalog Counters
-  const catalogStats = useMemo(() => {
-    const list = catalogPrograms || [];
+  // Stage and Off-Stage Counters
+  const stageStats = useMemo(() => {
+    const list = (catalogPrograms || []).filter((p) => {
+      const sess = (p.session || p.type || "").toLowerCase();
+      return !sess.includes("off");
+    });
     const submitted = list.filter((p) => p.isSubmitted || p.isConfirmed || p.isPublished).length;
     const pending = list.length - submitted;
     return { total: list.length, submitted, pending };
   }, [catalogPrograms]);
+
+  const offStageStats = useMemo(() => {
+    const list = (catalogPrograms || []).filter((p) => {
+      const sess = (p.session || p.type || "").toLowerCase();
+      return sess.includes("off");
+    });
+    const submitted = list.filter((p) => p.isSubmitted || p.isConfirmed || p.isPublished).length;
+    const pending = list.length - submitted;
+    return { total: list.length, submitted, pending };
+  }, [catalogPrograms]);
+
+  const currentSessionStats = sessionFilter === "Stage" ? stageStats : offStageStats;
 
   // Mobile-first CSS injected once
   const mobileStyles = `
@@ -592,7 +607,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           backgroundColor: theme.bg,
           color: theme.text,
           fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-          paddingBottom: "calc(32px + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
         }}
       >
         <style>{mobileStyles}</style>
@@ -645,27 +660,6 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {setDark && (
-                <button
-                  onClick={() => setDark(!dark)}
-                  style={{
-                    background: theme.inputBg,
-                    border: `1px solid ${theme.cardBorder}`,
-                    color: theme.text,
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                  }}
-                  aria-label="Toggle Theme"
-                >
-                  <Ic n={dark ? "sun" : "moon"} s={15} />
-                </button>
-              )}
-
               <button
                 onClick={handleLogout}
                 style={{
@@ -693,7 +687,49 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
 
         {/* Mobile Container */}
         <main style={{ maxWidth: 720, margin: "0 auto", padding: "14px 14px" }}>
-          {/* Mobile 3-Column Compact Stats Strip */}
+          {/* Active Session Page Title Banner */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  backgroundColor: theme.accentSoft,
+                  color: theme.accent,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ic n={sessionFilter === "Stage" ? "mic" : "pen"} s={16} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 16.5, fontWeight: 900, margin: 0, letterSpacing: "-0.2px", lineHeight: 1.2 }}>
+                  {sessionFilter === "Stage" ? "Stage Sessions" : "Off-Stage Sessions"}
+                </h2>
+                <div style={{ fontSize: 11, color: theme.subtext, marginTop: 1 }}>
+                  {sessionFilter === "Stage" ? "Live on-stage competitions" : "Off-stage events & arts"}
+                </div>
+              </div>
+            </div>
+
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                padding: "3px 9px",
+                borderRadius: 20,
+                backgroundColor: theme.badgeBg,
+                color: theme.subtext,
+                border: `1px solid ${theme.cardBorder}`,
+              }}
+            >
+              {filteredCatalog.length} {filteredCatalog.length === 1 ? "Program" : "Programs"}
+            </span>
+          </div>
+
+          {/* Mobile 3-Column Compact Stats Strip for Active Session */}
           <div
             style={{
               backgroundColor: theme.card,
@@ -716,7 +752,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 border: `1px solid ${theme.accent}25`,
               }}
             >
-              <div style={{ fontSize: 18, fontWeight: 900, color: theme.accent, lineHeight: 1.1 }}>{catalogStats.pending}</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: theme.accent, lineHeight: 1.1 }}>{currentSessionStats.pending}</div>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: theme.subtext, marginTop: 2 }}>
                 Pending
               </div>
@@ -730,7 +766,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 border: "1px solid rgba(16,185,129,0.25)",
               }}
             >
-              <div style={{ fontSize: 18, fontWeight: 900, color: theme.success, lineHeight: 1.1 }}>{catalogStats.submitted}</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: theme.success, lineHeight: 1.1 }}>{currentSessionStats.submitted}</div>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: theme.subtext, marginTop: 2 }}>
                 Submitted
               </div>
@@ -744,9 +780,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 border: `1px solid ${theme.cardBorder}`,
               }}
             >
-              <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.1 }}>{catalogStats.total}</div>
+              <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.1 }}>{currentSessionStats.total}</div>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: theme.subtext, marginTop: 2 }}>
-                Lot-Ready
+                {sessionFilter === "Stage" ? "Stage Lots" : "Off-Stage Lots"}
               </div>
             </div>
           </div>
@@ -758,7 +794,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </span>
             <input
               type="text"
-              placeholder="Search program by name or #..."
+              placeholder={`Search ${sessionFilter.toLowerCase()} program by name or #...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -796,9 +832,8 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             )}
           </div>
 
-          {/* Horizontal Scrolling Filter Pills (Mobile First Native Experience) */}
-          <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            {/* Category Pills Strip */}
+          {/* Category Pills Strip */}
+          <div style={{ marginBottom: 14 }}>
             <div className="judge-mobile-scroll">
               {["All", "Low", "Mid", "High", "General"].map((cat) => {
                 const active = categoryFilter === cat;
@@ -822,33 +857,6 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                     }}
                   >
                     {cat === "All" ? "All Categories" : cat}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Session Pills Strip */}
-            <div className="judge-mobile-scroll">
-              {["All", "Stage", "Off-Stage"].map((sess) => {
-                const active = sessionFilter === sess;
-                return (
-                  <button
-                    key={sess}
-                    onClick={() => setSessionFilter(sess)}
-                    style={{
-                      padding: "5px 12px",
-                      borderRadius: 16,
-                      fontSize: 11.5,
-                      fontWeight: active ? 700 : 600,
-                      backgroundColor: active ? (dark ? "rgba(255,255,255,0.2)" : "#334155") : theme.card,
-                      color: active ? "#ffffff" : theme.subtext,
-                      border: `1px solid ${active ? "transparent" : theme.cardBorder}`,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {sess === "All" ? "All Sessions" : sess}
                   </button>
                 );
               })}
@@ -883,11 +891,13 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               }}
             >
               <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-              <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 6px" }}>No Lot-Ready Programs</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 6px" }}>
+                No {sessionFilter === "Stage" ? "Stage" : "Off-Stage"} Programs
+              </h3>
               <p style={{ fontSize: 12.5, color: theme.subtext, margin: 0, lineHeight: 1.4 }}>
-                {searchQuery || categoryFilter !== "All" || sessionFilter !== "All"
-                  ? "No programs matched your current search or filters."
-                  : "Programs will appear here as soon as contestant lots are drawn by the stage manager."}
+                {searchQuery || categoryFilter !== "All"
+                  ? `No ${sessionFilter.toLowerCase()} programs matched your current search or category filter.`
+                  : `${sessionFilter} programs will appear here as soon as contestant lots are drawn by the festival control room.`}
               </p>
             </div>
           ) : (
@@ -1029,6 +1039,158 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             </div>
           )}
         </main>
+
+        {/* Mobile Fixed Bottom Navigation Bar (Stage vs Off-Stage Pages) */}
+        <nav
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            backgroundColor: dark ? "rgba(19, 21, 36, 0.96)" : "rgba(255, 255, 255, 0.96)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            borderTop: `1px solid ${theme.cardBorder}`,
+            boxShadow: dark ? "0 -8px 24px rgba(0,0,0,0.45)" : "0 -8px 24px rgba(0,0,0,0.06)",
+            padding: "6px 14px calc(8px + env(safe-area-inset-bottom, 0px))",
+          }}
+          aria-label="Judges Sessions Navigation"
+        >
+          <div
+            style={{
+              maxWidth: 500,
+              margin: "0 auto",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+            }}
+          >
+            {/* Stage Page Tab */}
+            <button
+              onClick={() => {
+                setSessionFilter("Stage");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                padding: "8px 12px",
+                borderRadius: 14,
+                border: `1.5px solid ${sessionFilter === "Stage" ? theme.accent : "transparent"}`,
+                backgroundColor: sessionFilter === "Stage"
+                  ? (dark ? "rgba(241, 77, 77, 0.18)" : "rgba(241, 77, 77, 0.1)")
+                  : "transparent",
+                color: sessionFilter === "Stage" ? theme.accent : theme.subtext,
+                cursor: "pointer",
+                transition: "all 0.18s ease",
+              }}
+            >
+              <div style={{ position: "relative", display: "inline-flex" }}>
+                <Ic n="mic" s={20} />
+                {stageStats.pending > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -12,
+                      backgroundColor: theme.accent,
+                      color: "#ffffff",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      minWidth: 17,
+                      height: 17,
+                      borderRadius: 8.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 4px",
+                      boxShadow: "0 2px 6px rgba(241,77,77,0.4)",
+                    }}
+                  >
+                    {stageStats.pending}
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: sessionFilter === "Stage" ? 800 : 600,
+                  letterSpacing: "0.2px",
+                }}
+              >
+                Stage
+              </span>
+            </button>
+
+            {/* Off-Stage Page Tab */}
+            <button
+              onClick={() => {
+                setSessionFilter("Off-Stage");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                padding: "8px 12px",
+                borderRadius: 14,
+                border: `1.5px solid ${sessionFilter === "Off-Stage" ? theme.accent : "transparent"}`,
+                backgroundColor: sessionFilter === "Off-Stage"
+                  ? (dark ? "rgba(241, 77, 77, 0.18)" : "rgba(241, 77, 77, 0.1)")
+                  : "transparent",
+                color: sessionFilter === "Off-Stage" ? theme.accent : theme.subtext,
+                cursor: "pointer",
+                transition: "all 0.18s ease",
+              }}
+            >
+              <div style={{ position: "relative", display: "inline-flex" }}>
+                <Ic n="pen" s={20} />
+                {offStageStats.pending > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -12,
+                      backgroundColor: theme.accent,
+                      color: "#ffffff",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      minWidth: 17,
+                      height: 17,
+                      borderRadius: 8.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 4px",
+                      boxShadow: "0 2px 6px rgba(241,77,77,0.4)",
+                    }}
+                  >
+                    {offStageStats.pending}
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: sessionFilter === "Off-Stage" ? 800 : 600,
+                  letterSpacing: "0.2px",
+                }}
+              >
+                Off-Stage
+              </span>
+            </button>
+          </div>
+        </nav>
       </div>
     );
   }
@@ -1200,28 +1362,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             {program.name}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            {setDark && (
-              <button
-                onClick={() => setDark(!dark)}
-                style={{
-                  background: theme.inputBg,
-                  border: `1px solid ${theme.cardBorder}`,
-                  color: theme.text,
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-                aria-label="Toggle Theme"
-              >
-                <Ic n={dark ? "sun" : "moon"} s={14} />
-              </button>
-            )}
-          </div>
+          <div style={{ width: 40, flexShrink: 0 }} />
         </div>
       </header>
 
