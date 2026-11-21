@@ -520,10 +520,7 @@ export default function PublishingSection({
                   {entries.map((e, idx) => {
                     const place = Number(e.place || (idx === 0 ? 1 : idx === 1 ? 2 : 3));
                     const isShared = e.isShared || (e.placeLabel && e.placeLabel.includes("Shared"));
-                    const calculatedPts = calculateEntryPoints(place, e.grade, prog, scoringRules);
-                    const pts = (e.points !== undefined && e.points !== null && e.points !== "" && !isNaN(Number(e.points)) && Number(e.points) > 0)
-                      ? Number(e.points)
-                      : (calculatedPts || Number(e.points || 0));
+                    const totalPts = calculateEntryPoints(place, e.grade, prog, scoringRules);
                     const medalColors = {
                       1: "#f59e0b",
                       2: "#94a3b8",
@@ -592,7 +589,7 @@ export default function PublishingSection({
                                 border: "1px solid rgba(16,185,129,0.25)",
                               }}
                             >
-                              {pts} pts
+                              {totalPts} pts
                             </span>
                             {e.grade && e.grade !== "—" && (
                               <span
@@ -1014,9 +1011,7 @@ export default function PublishingSection({
                     {entries.map((e, idx) => {
                       const place = e.place || idx + 1;
                       const medal = place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : "🎖️";
-                      const modalPts = (e.points !== undefined && e.points !== null && e.points !== "" && !isNaN(Number(e.points)) && Number(e.points) > 0)
-                        ? Number(e.points)
-                        : (calculateEntryPoints(place, e.grade, publishTargetProg, scoringRules) || Number(e.points || 0));
+                      const totalPts = calculateEntryPoints(place, e.grade, publishTargetProg, scoringRules);
                       return (
                         <div
                           key={e.studentId || idx}
@@ -1054,7 +1049,7 @@ export default function PublishingSection({
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                             <span style={{ fontWeight: 800, fontSize: 12, color: "#10b981" }}>
-                              {modalPts} pts
+                              {totalPts} pts
                             </span>
                             {e.grade && e.grade !== "—" && (
                               <span
