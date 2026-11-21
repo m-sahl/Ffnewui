@@ -215,16 +215,21 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
     }).length;
   }, [codeLetters, scores]);
 
-  // Submit Scores
+  // Submit Scores (Allows submitting with only the entered marks)
   const handleSubmit = async () => {
-    if (!isComplete || submitting) return;
+    if (filledCount === 0 || submitting) return;
     setSubmitting(true);
     setErrorMessage("");
     try {
-      const formattedScores = codeLetters.map((c) => ({
-        codeLetter: c.codeLetter,
-        score: parseFloat(scores[c.codeLetter]) || 0,
-      }));
+      const formattedScores = codeLetters
+        .filter((c) => {
+          const val = scores[c.codeLetter];
+          return val !== "" && val !== undefined && val !== null && !isNaN(parseFloat(val));
+        })
+        .map((c) => ({
+          codeLetter: c.codeLetter,
+          score: parseFloat(scores[c.codeLetter]),
+        }));
 
       await submitScores({
         judgeToken: currentToken,
@@ -1616,28 +1621,10 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
             {program.name}
           </h1>
 
-          <div style={{ fontSize: 12.5, color: theme.subtext, display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5, color: theme.subtext, display: "flex", alignItems: "center", gap: 12 }}>
             <span><strong>{codeLetters.length}</strong> Contestants</span>
             <span>•</span>
             <span>Scale: <strong>0 – 100 Marks</strong></span>
-          </div>
-
-          {/* Blind Evaluation Reminder */}
-          <div
-            style={{
-              padding: "8px 12px",
-              borderRadius: 10,
-              backgroundColor: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
-              border: `1px dashed ${theme.cardBorder}`,
-              fontSize: 11.5,
-              color: theme.subtext,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <Ic n="shield" s={14} />
-            <span><strong>Blind Scoring:</strong> Contestants are identified only by Code Letters.</span>
           </div>
         </div>
 
@@ -1816,8 +1803,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               <span style={{ color: theme.subtext }}>
                 Scored: <strong style={{ color: theme.text }}>{filledCount} of {codeLetters.length}</strong>
               </span>
-              <span style={{ color: isComplete ? theme.success : theme.subtext }}>
-                {isComplete ? "✓ All scores entered" : "Enter marks for all contestants"}
+              <span style={{ color: filledCount > 0 ? (isComplete ? theme.success : theme.accent) : theme.subtext }}>
+                {filledCount === 0
+                  ? "Enter marks to submit"
+                  : isComplete
+                  ? "✓ All scores entered"
+                  : `${filledCount} marks entered`}
               </span>
             </div>
 
@@ -1841,29 +1832,33 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               />
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Button (Allows partial submission with only entered marks) */}
             <button
               onClick={() => setShowConfirm(true)}
-              disabled={!isComplete || submitting}
+              disabled={filledCount === 0 || submitting}
               style={{
                 width: "100%",
                 height: 48,
-                backgroundColor: isComplete ? theme.accent : dark ? "rgba(255,255,255,0.08)" : "#e2e8f0",
-                color: isComplete ? "#ffffff" : theme.subtext,
+                backgroundColor: filledCount > 0 ? theme.accent : dark ? "rgba(255,255,255,0.08)" : "#e2e8f0",
+                color: filledCount > 0 ? "#ffffff" : theme.subtext,
                 border: "none",
                 borderRadius: 14,
                 fontWeight: 800,
                 fontSize: 15,
-                cursor: isComplete && !submitting ? "pointer" : "not-allowed",
+                cursor: filledCount > 0 && !submitting ? "pointer" : "not-allowed",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                boxShadow: isComplete ? "0 4px 16px rgba(241,77,77,0.3)" : "none",
+                boxShadow: filledCount > 0 ? "0 4px 16px rgba(241,77,77,0.3)" : "none",
                 transition: "all 0.2s ease",
               }}
             >
-              <span>Submit Evaluation ({filledCount}/{codeLetters.length})</span>
+              <span>
+                {filledCount === codeLetters.length
+                  ? `Submit Evaluation (${filledCount}/${codeLetters.length})`
+                  : `Submit Entered Marks (${filledCount}/${codeLetters.length})`}
+              </span>
               <Ic n="check" s={18} />
             </button>
           </div>
@@ -1916,10 +1911,12 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
               Confirm Official Submission?
             </h3>
             <p style={{ fontSize: 12.5, color: theme.subtext, textAlign: "center", lineHeight: 1.4, margin: "0 0 16px" }}>
-              Scores will be locked and sent directly to the festival control room.
+              {filledCount === codeLetters.length
+                ? "Scores will be locked and sent directly to the festival control room."
+                : `Submitting marks for ${filledCount} entered ${filledCount === 1 ? "contestant" : "contestants"}. Unscored contestants will be omitted.`}
             </p>
 
-            {/* Score Summary List */}
+            {/* Score Summary List - Only displaying entered scores */}
             <div
               style={{
                 maxHeight: 180,
@@ -1930,25 +1927,30 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                 marginBottom: 18,
               }}
             >
-              {codeLetters.map((c) => {
-                const s = scores[c.codeLetter] || 0;
-                return (
-                  <div
-                    key={c.codeLetter}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "7px 0",
-                      borderBottom: `1px solid ${theme.cardBorder}`,
-                      fontSize: 13,
-                    }}
-                  >
-                    <span style={{ fontWeight: 800 }}>Code {c.codeLetter}</span>
-                    <span style={{ fontWeight: 900, color: theme.accent }}>{s} Marks</span>
-                  </div>
-                );
-              })}
+              {codeLetters
+                .filter((c) => {
+                  const val = scores[c.codeLetter];
+                  return val !== "" && val !== undefined && val !== null && !isNaN(parseFloat(val));
+                })
+                .map((c) => {
+                  const s = scores[c.codeLetter];
+                  return (
+                    <div
+                      key={c.codeLetter}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "7px 0",
+                        borderBottom: `1px solid ${theme.cardBorder}`,
+                        fontSize: 13,
+                      }}
+                    >
+                      <span style={{ fontWeight: 800 }}>Code {c.codeLetter}</span>
+                      <span style={{ fontWeight: 900, color: theme.accent }}>{s} Marks</span>
+                    </div>
+                  );
+                })}
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
