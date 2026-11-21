@@ -71,6 +71,7 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [isClosedAfterSubmit, setIsClosedAfterSubmit] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   // Extract blind code letters
@@ -238,6 +239,40 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
 
       setShowConfirm(false);
       setSubmittedSuccess(true);
+
+      let isFromCatalog = false;
+      try {
+        isFromCatalog = Boolean(
+          isLoggedIn && (
+            sessionStorage.getItem("ff_judge_opened_from_catalog") === "true" ||
+            !initialToken
+          )
+        );
+      } catch {
+        isFromCatalog = Boolean(isLoggedIn && !initialToken);
+      }
+
+      if (isFromCatalog) {
+        // Logged into the portal: navigate back to the appropriate catalog page!
+        const sess = (program?.session || program?.type || "").toLowerCase();
+        const isOffStage = sess.includes("off");
+        setSessionFilter(isOffStage ? "Off-Stage" : "Stage");
+        try {
+          sessionStorage.removeItem("ff_judge_opened_from_catalog");
+        } catch {}
+
+        setCurrentToken("");
+        if (typeof window !== "undefined") {
+          window.location.hash = "#/judge";
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } else {
+        // Judge entered mark through direct link: close window / show close screen!
+        setIsClosedAfterSubmit(true);
+        if (typeof window !== "undefined") {
+          window.close();
+        }
+      }
     } catch (err) {
       setErrorMessage(err?.message || "Failed to submit scores. Please try again.");
     } finally {
@@ -375,6 +410,89 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
       50% { box-shadow: 0 4px 24px rgba(241,77,77,0.6); }
     }
   `;
+
+  // =========================================================================
+  // SCREEN 0: SUBMITTED VIA DIRECT LINK (Window Closed Screen)
+  // =========================================================================
+  if (isClosedAfterSubmit) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          backgroundColor: theme.bg,
+          color: theme.text,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px 16px",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 400,
+            width: "100%",
+            backgroundColor: theme.card,
+            border: `1px solid ${theme.cardBorder}`,
+            borderRadius: 24,
+            padding: "36px 22px",
+            textAlign: "center",
+            boxShadow: dark ? "0 24px 60px rgba(0,0,0,0.5)" : "0 20px 48px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              backgroundColor: theme.successSoft,
+              color: theme.success,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+          >
+            <Ic n="checkCircle" s={34} />
+          </div>
+
+          <h2 style={{ fontSize: 20, fontWeight: 900, margin: "0 0 8px", letterSpacing: "-0.3px" }}>
+            Scores Submitted!
+          </h2>
+
+          <p style={{ fontSize: 13, color: theme.subtext, lineHeight: 1.5, margin: "0 0 24px" }}>
+            Thank you, Judge. Your evaluation for <strong>{program?.name || "the event"}</strong> has been securely submitted to the festival control room.
+          </p>
+
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") window.close();
+              if (onExit) onExit();
+            }}
+            style={{
+              width: "100%",
+              height: 48,
+              backgroundColor: theme.accent,
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 14,
+              fontWeight: 800,
+              fontSize: 15,
+              cursor: "pointer",
+              boxShadow: "0 4px 16px rgba(241,77,77,0.3)",
+            }}
+          >
+            Close Window
+          </button>
+
+          <div style={{ marginTop: 14, fontSize: 11.5, color: theme.subtext }}>
+            You may now safely close this browser window.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // =========================================================================
   // SCREEN 1: PASSCODE LOGIN SCREEN (Mobile-Optimized)
@@ -980,6 +1098,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                           className="judge-touch-card"
                           onClick={() => {
                             const token = p.judgeToken || p.id;
+                            try {
+                              sessionStorage.setItem("ff_judge_opened_from_catalog", "true");
+                            } catch {}
                             setCurrentToken(token);
                             if (typeof window !== "undefined") {
                               window.location.hash = `#/judge/${token}`;
@@ -1133,6 +1254,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
                           className="judge-touch-card"
                           onClick={() => {
                             const token = p.judgeToken || p.id;
+                            try {
+                              sessionStorage.setItem("ff_judge_opened_from_catalog", "true");
+                            } catch {}
                             setCurrentToken(token);
                             if (typeof window !== "undefined") {
                               window.location.hash = `#/judge/${token}`;
@@ -1491,6 +1615,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
           </p>
           <button
             onClick={() => {
+              const sess = (program?.session || program?.type || "").toLowerCase();
+              const isOffStage = sess.includes("off");
+              setSessionFilter(isOffStage ? "Off-Stage" : "Stage");
               setCurrentToken("");
               if (typeof window !== "undefined") window.location.hash = "#/judge";
             }}
@@ -1552,6 +1679,9 @@ export default function JudgePortal({ token: initialToken, dark = false, setDark
         >
           <button
             onClick={() => {
+              const sess = (program?.session || program?.type || "").toLowerCase();
+              const isOffStage = sess.includes("off");
+              setSessionFilter(isOffStage ? "Off-Stage" : "Stage");
               setCurrentToken("");
               if (typeof window !== "undefined") window.location.hash = "#/judge";
             }}
