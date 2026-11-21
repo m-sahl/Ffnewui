@@ -95,7 +95,6 @@ export default function PublishingSection({
       const entries = (confirmed.entries || []).map((e, idx) => {
         const place = e.place || idx + 1;
         const autoPts = calculateEntryPoints(place, e.grade, prog, scoringRules);
-        const pts = e.points !== undefined && e.points !== "" ? Number(e.points) : (e.score !== undefined && e.score !== "" ? Number(e.score) : autoPts);
         return {
           place,
           placeLabel: e.placeLabel || (idx === 0 ? "1st" : idx === 1 ? "2nd" : idx === 2 ? "3rd" : `${idx + 1}th`),
@@ -107,7 +106,7 @@ export default function PublishingSection({
           groupId: e.groupId || "",
           groupName: e.groupName || "",
           groupColor: e.groupColor || "",
-          points: pts,
+          points: autoPts,
           grade: e.grade || "",
         };
       });
@@ -120,7 +119,7 @@ export default function PublishingSection({
         groupId: o.groupId || "",
         groupName: o.groupName || "",
         groupColor: o.groupColor || "",
-        points: o.score !== undefined ? Number(o.score) : Number(o.points || 0),
+        points: calculateEntryPoints(null, o.grade, prog, scoringRules),
         grade: o.grade || "",
       }));
 
@@ -147,15 +146,17 @@ export default function PublishingSection({
       entries: (confirmed.entries || []).map((e, idx) => {
         const place = e.place || idx + 1;
         const autoPts = calculateEntryPoints(place, e.grade, previewImpactProg, scoringRules);
-        const pts = e.points !== undefined && e.points !== "" ? Number(e.points) : (e.score !== undefined && e.score !== "" ? Number(e.score) : autoPts);
         return {
           ...e,
           place,
           placeLabel: e.placeLabel || (idx === 0 ? "1st" : idx === 1 ? "2nd" : idx === 2 ? "3rd" : `${idx + 1}th`),
-          points: pts,
+          points: autoPts,
         };
       }),
-      otherGrades: confirmed.otherGrades || [],
+      otherGrades: (confirmed.otherGrades || []).map((o) => ({
+        ...o,
+        points: calculateEntryPoints(null, o.grade, previewImpactProg, scoringRules),
+      })),
     };
     return simulateLeaderboardImpact(
       programs,

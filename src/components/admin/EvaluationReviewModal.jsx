@@ -4,6 +4,7 @@ import { calculateGrade } from "../judge/JudgePortal";
 import { buildJudgeMessage } from "../../utils/formatMessage";
 import { calculateFestivalRanks } from "../../utils/ranking";
 import { getProgramLots } from "../../utils/lotUtils";
+import { calculateEntryPoints } from "../../utils/scoring";
 
 export default function EvaluationReviewModal({
   open,
@@ -343,7 +344,7 @@ export default function EvaluationReviewModal({
           groupName: e.groupName,
           groupColor: e.groupColor,
           score: e.score,
-          points: e.score,
+          points: calculateEntryPoints(e.place, e.grade, program),
           grade: e.grade,
         })),
         otherGrades: otherRanked.map((o) => ({
@@ -358,7 +359,7 @@ export default function EvaluationReviewModal({
           groupName: o.groupName,
           groupColor: o.groupColor,
           score: o.score,
-          points: o.score,
+          points: calculateEntryPoints(null, o.grade, program),
           grade: o.grade,
         })),
         allScores: festivalRanking.allRanked.map((r) => ({

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
   DEFAULT_SCORING_RULES,
+  STATIC_FESTIVAL_RULES,
   getScoringRules,
   saveScoringRules,
 } from "../utils/scoring";
@@ -261,12 +262,12 @@ export const AppProvider = ({ children }) => {
       const merged = {
         ...DEFAULT_SCORING_RULES,
         ...convexScoringRules,
-        individual: { ...DEFAULT_SCORING_RULES.individual, ...(convexScoringRules.individual || {}) },
-        group: { ...DEFAULT_SCORING_RULES.group, ...(convexScoringRules.group || {}) },
-        generalDefaultSolo: { ...DEFAULT_SCORING_RULES.generalDefaultSolo, ...(convexScoringRules.generalDefaultSolo || {}) },
-        generalDefaultGroup: { ...DEFAULT_SCORING_RULES.generalDefaultGroup, ...(convexScoringRules.generalDefaultGroup || {}) },
-        grades: { ...DEFAULT_SCORING_RULES.grades, ...(convexScoringRules.grades || {}) },
-        customProgramPoints: { ...(convexScoringRules.customProgramPoints || {}) },
+        base: { ...STATIC_FESTIVAL_RULES.base, ...(convexScoringRules?.base || {}) },
+        individual: { ...STATIC_FESTIVAL_RULES.individual, ...(convexScoringRules?.individual || {}) },
+        group: { ...STATIC_FESTIVAL_RULES.group, ...(convexScoringRules?.group || {}) },
+        grades: { ...STATIC_FESTIVAL_RULES.grades, ...(convexScoringRules?.grades || {}) },
+        mode: "position_and_grade",
+        customProgramPoints: { ...(convexScoringRules?.customProgramPoints || {}) },
       };
       setScoringRulesState(merged);
       saveScoringRules(merged);
@@ -721,11 +722,11 @@ export const AppProvider = ({ children }) => {
     const merged = {
       ...DEFAULT_SCORING_RULES,
       ...newRules,
-      individual: { ...DEFAULT_SCORING_RULES.individual, ...(newRules?.individual || {}) },
-      group: { ...DEFAULT_SCORING_RULES.group, ...(newRules?.group || {}) },
-      generalDefaultSolo: { ...DEFAULT_SCORING_RULES.generalDefaultSolo, ...(newRules?.generalDefaultSolo || {}) },
-      generalDefaultGroup: { ...DEFAULT_SCORING_RULES.generalDefaultGroup, ...(newRules?.generalDefaultGroup || {}) },
-      grades: { ...DEFAULT_SCORING_RULES.grades, ...(newRules?.grades || {}) },
+      base: { ...STATIC_FESTIVAL_RULES.base, ...(newRules?.base || {}) },
+      individual: { ...STATIC_FESTIVAL_RULES.individual, ...(newRules?.individual || {}) },
+      group: { ...STATIC_FESTIVAL_RULES.group, ...(newRules?.group || {}) },
+      grades: { ...STATIC_FESTIVAL_RULES.grades, ...(newRules?.grades || {}) },
+      mode: "position_and_grade",
       customProgramPoints: { ...(newRules?.customProgramPoints || {}) },
     };
     setScoringRulesState(merged);
