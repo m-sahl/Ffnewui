@@ -520,6 +520,10 @@ export default function PublishingSection({
                   {entries.map((e, idx) => {
                     const place = Number(e.place || (idx === 0 ? 1 : idx === 1 ? 2 : 3));
                     const isShared = e.isShared || (e.placeLabel && e.placeLabel.includes("Shared"));
+                    const calculatedPts = calculateEntryPoints(place, e.grade, prog, scoringRules);
+                    const pts = (e.points !== undefined && e.points !== null && e.points !== "" && !isNaN(Number(e.points)) && Number(e.points) > 0)
+                      ? Number(e.points)
+                      : (calculatedPts || Number(e.points || 0));
                     const medalColors = {
                       1: "#f59e0b",
                       2: "#94a3b8",
@@ -563,22 +567,49 @@ export default function PublishingSection({
                         <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4, color: theme.text }}>
                           {e.studentName || `Participant ${e.chestNo ? `${e.chestNo}` : ""}`}
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-                          <span style={{ fontSize: 12, color: theme.subtext }}>
-                            {e.groupName || (e.chestNo ? `Chest ${e.chestNo}` : "")}
-                          </span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
                           <span
                             style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: "2px 6px",
-                              borderRadius: 6,
-                              backgroundColor: "rgba(16,185,129,0.12)",
-                              color: "#10b981",
+                              fontSize: 12,
+                              color: theme.subtext,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              marginRight: 8,
                             }}
                           >
-                            {e.grade ? `Grade ${e.grade}` : `${e.points || 0} pts`}
+                            {e.groupName || (e.chestNo ? `Chest ${e.chestNo}` : "")}
                           </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 800,
+                                padding: "2px 6px",
+                                borderRadius: 6,
+                                backgroundColor: "rgba(16,185,129,0.12)",
+                                color: "#10b981",
+                                border: "1px solid rgba(16,185,129,0.25)",
+                              }}
+                            >
+                              {pts} pts
+                            </span>
+                            {e.grade && e.grade !== "—" && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: "2px 6px",
+                                  borderRadius: 6,
+                                  backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                                  color: theme.text,
+                                  border: `1px solid ${theme.border}`,
+                                }}
+                              >
+                                Grade {e.grade}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -983,6 +1014,9 @@ export default function PublishingSection({
                     {entries.map((e, idx) => {
                       const place = e.place || idx + 1;
                       const medal = place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : "🎖️";
+                      const modalPts = (e.points !== undefined && e.points !== null && e.points !== "" && !isNaN(Number(e.points)) && Number(e.points) > 0)
+                        ? Number(e.points)
+                        : (calculateEntryPoints(place, e.grade, publishTargetProg, scoringRules) || Number(e.points || 0));
                       return (
                         <div
                           key={e.studentId || idx}
@@ -1018,8 +1052,25 @@ export default function PublishingSection({
                               </span>
                             )}
                           </div>
-                          <div style={{ fontWeight: 800, fontSize: 12, color: "#10b981", flexShrink: 0 }}>
-                            {e.points || 0} pts
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                            <span style={{ fontWeight: 800, fontSize: 12, color: "#10b981" }}>
+                              {modalPts} pts
+                            </span>
+                            {e.grade && e.grade !== "—" && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: "1px 6px",
+                                  borderRadius: 5,
+                                  backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                                  color: theme.subtext,
+                                  border: `1px solid ${theme.border}`,
+                                }}
+                              >
+                                Grade {e.grade}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
