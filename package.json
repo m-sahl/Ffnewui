@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "convex:deploy": "convex deploy --env-file .env.production"
   },
   "dependencies": {
     "convex": "^1.11.0",

@@ -27,6 +27,7 @@ import {
   getScoringRules,
   saveScoringRules,
   DEFAULT_SCORING_RULES,
+  STATIC_FESTIVAL_RULES,
   isGeneralProgram,
 } from "../../utils/scoring";
 
@@ -261,7 +262,12 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   // ── Festival Scoring Engine & Real-Time Standings ─────────────────────────────
   const [scoringRules, setScoringRules] = useState(() => contextScoringRules || getScoringRules());
   const [scoringRulesSaved, setScoringRulesSaved] = useState(false);
-  const [selectedGeneralProgId, setSelectedGeneralProgId] = useState("");
+  const [selectedCustomProgId, setSelectedCustomProgId] = useState("");
+  const [customFirst, setCustomFirst] = useState(3);
+  const [customSecond, setCustomSecond] = useState(2);
+  const [customThird, setCustomThird] = useState(1);
+  const [customToTeams, setCustomToTeams] = useState(true);
+  const [customToIndividuals, setCustomToIndividuals] = useState(true);
 
   useEffect(() => {
     if (contextScoringRules) {
@@ -270,14 +276,24 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
   }, [contextScoringRules]);
 
   const handleSaveScoringRules = (updatedRules) => {
+    const rulesToSave = {
+      ...DEFAULT_SCORING_RULES,
+      ...updatedRules,
+      base: { ...STATIC_FESTIVAL_RULES.base },
+      individual: { ...STATIC_FESTIVAL_RULES.individual },
+      group: { ...STATIC_FESTIVAL_RULES.group },
+      grades: { ...STATIC_FESTIVAL_RULES.grades },
+      mode: "position_and_grade",
+      customProgramPoints: { ...(updatedRules?.customProgramPoints || {}) },
+    };
     if (contextUpdateScoringRules) {
-      contextUpdateScoringRules(updatedRules);
+      contextUpdateScoringRules(rulesToSave);
     } else {
-      saveScoringRules(updatedRules);
+      saveScoringRules(rulesToSave);
     }
-    setScoringRules(updatedRules);
+    setScoringRules(rulesToSave);
     setScoringRulesSaved(true);
-    logActivity(user.name, "Updated festival scoring rules", "Configured points and awards distribution");
+    logActivity(user.name, "Updated festival scoring rules", "Saved custom program points & destination routing");
     setTimeout(() => setScoringRulesSaved(false), 3000);
   };
 
@@ -288,52 +304,101 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
       saveScoringRules(DEFAULT_SCORING_RULES);
     }
     setScoringRules(DEFAULT_SCORING_RULES);
+    setSelectedCustomProgId("");
+    setCustomFirst(3);
+    setCustomSecond(2);
+    setCustomThird(1);
+    setCustomToTeams(true);
+    setCustomToIndividuals(true);
     setScoringRulesSaved(true);
     logActivity(user.name, "Reset scoring rules to defaults", "Restored festival defaults");
     setTimeout(() => setScoringRulesSaved(false), 3000);
   };
 
-  const generalProgramsList = useMemo(() => {
-    const isGen = contextIsGeneralProgram || isGeneralProgram;
-    return programs
-      .filter(p => isGen(p))
-      .sort((a, b) => (Number(a.code) || 0) - (Number(b.code) || 0) || (a.name || "").localeCompare(b.name || ""));
-  }, [programs, contextIsGeneralProgram]);
+  const selectableProgramsList = useMemo(() => {
+    return [...programs].sort((a, b) => {
+      const catOrder = { "Low": 1, "Mid": 2, "High": 3, "General": 4 };
+      const cA = catOrder[a.category] || 9;
+      const cB = catOrder[b.category] || 9;
+      if (cA !== cB) return cA - cB;
+      return (Number(a.order ?? a.code) || 0) - (Number(b.order ?? b.code) || 0) || (a.name || "").localeCompare(b.name || "");
+    });
+  }, [programs]);
 
-  const handleAddCustomProgram = () => {
-    if (!selectedGeneralProgId) return;
-    const targetProg = programs.find(p => p.id === selectedGeneralProgId);
-    if (!targetProg) return;
-    const isGroup = Number(targetProg.maxParticipants || 1) > 1;
-    const defaultScale = isGroup
-      ? (scoringRules.generalDefaultGroup || scoringRules.group || { first: 6, second: 4, third: 2 })
-      : (scoringRules.generalDefaultSolo || scoringRules.individual || { first: 3, second: 2, third: 1 });
+  const handleSelectProgramToCustomize = (progId) => {
+    setSelectedCustomProgId(progId);
+    if (!progId) {
+      setCustomFirst(3);
+      setCustomSecond(2);
+      setCustomThird(1);
+      setCustomToTeams(true);
+      setCustomToIndividuals(true);
+      return;
+    }
+    const existing = scoringRules?.customProgramPoints?.[progId];
+    if (existing) {
+      setCustomFirst(Number(existing.first ?? 3));
+      setCustomSecond(Number(existing.second ?? 2));
+      setCustomThird(Number(existing.third ?? 1));
+      setCustomToTeams(existing.toTeams !== false);
+      setCustomToIndividuals(existing.toIndividuals !== false);
+    } else {
+      setCustomFirst(3);
+      setCustomSecond(2);
+      setCustomThird(1);
+      setCustomToTeams(true);
+      setCustomToIndividuals(true);
+    }
+  };
 
+  const handleAddOrUpdateCustomProgram = () => {
+    if (!selectedCustomProgId) return;
+    if (!customToTeams && !customToIndividuals) {
+      alert("Please select at least one destination (Teams or Individuals).");
+      return;
+    }
     const updated = {
       ...scoringRules,
       customProgramPoints: {
         ...(scoringRules.customProgramPoints || {}),
-        [selectedGeneralProgId]: {
-          first: defaultScale.first ?? (isGroup ? 6 : 3),
-          second: defaultScale.second ?? (isGroup ? 4 : 2),
-          third: defaultScale.third ?? (isGroup ? 2 : 1),
+        [selectedCustomProgId]: {
+          first: Math.max(0, Number(customFirst) || 0),
+          second: Math.max(0, Number(customSecond) || 0),
+          third: Math.max(0, Number(customThird) || 0),
+          toTeams: !!customToTeams,
+          toIndividuals: !!customToIndividuals,
         },
       },
     };
     handleSaveScoringRules(updated);
-    setSelectedGeneralProgId("");
+    setSelectedCustomProgId("");
+    setCustomFirst(3);
+    setCustomSecond(2);
+    setCustomThird(1);
+    setCustomToTeams(true);
+    setCustomToIndividuals(true);
   };
 
-  const handleUpdateCustomProgramPoints = (progId, field, val) => {
-    const num = Math.max(0, Number(val) || 0);
-    const existing = scoringRules.customProgramPoints?.[progId] || { first: 3, second: 2, third: 1 };
+  const handleUpdateCustomProgramField = (progId, field, val) => {
+    const existing = scoringRules.customProgramPoints?.[progId] || { first: 3, second: 2, third: 1, toTeams: true, toIndividuals: true };
+    let nextVal = val;
+    if (field === "first" || field === "second" || field === "third") {
+      nextVal = Math.max(0, Number(val) || 0);
+    }
+    // Prevent unchecking both destinations
+    if (field === "toTeams" && !nextVal && !existing.toIndividuals) {
+      return;
+    }
+    if (field === "toIndividuals" && !nextVal && !existing.toTeams) {
+      return;
+    }
     const updated = {
       ...scoringRules,
       customProgramPoints: {
         ...(scoringRules.customProgramPoints || {}),
         [progId]: {
           ...existing,
-          [field]: num,
+          [field]: nextVal,
         },
       },
     };
@@ -3087,334 +3152,267 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18 }}>
-              {/* Individual Positions */}
-              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
-                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>👤</span>
-                  <span>Standard Solo (Individual) Items</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>1st Place</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.individual?.first ?? 3}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        individual: { ...prev.individual, first: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>2nd Place</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.individual?.second ?? 2}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        individual: { ...prev.individual, second: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>3rd Place</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.individual?.third ?? 1}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        individual: { ...prev.individual, third: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Group Positions */}
-              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
-                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>👥</span>
-                  <span>Standard Group Items</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>1st Place</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.group?.first ?? 6}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        group: { ...prev.group, first: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>2nd Place</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.group?.second ?? 4}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        group: { ...prev.group, second: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>3rd Place</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.group?.third ?? 2}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        group: { ...prev.group, third: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Quality Grade Points */}
-              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
-                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>⭐</span>
-                  <span>Quality Grade Marks (Added to Place)</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#10b981" }}>A+ Grade</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center", borderColor: "rgba(16,185,129,0.3)" }}
-                      value={scoringRules.grades?.["A+"] ?? 6}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        grades: { ...prev.grades, "A+": Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>A Grade</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.grades?.A ?? 5}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        grades: { ...prev.grades, A: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>B Grade</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.grades?.B ?? 3}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        grades: { ...prev.grades, B: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>C Grade</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      style={{ marginTop: 4, height: 38, fontWeight: 800, textAlign: "center" }}
-                      value={scoringRules.grades?.C ?? 1}
-                      onChange={e => setScoringRules(prev => ({
-                        ...prev,
-                        grades: { ...prev.grades, C: Number(e.target.value) || 0 }
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* General Category Default Points */}
-              <div style={{ padding: "16px", borderRadius: 14, background: rowBg, border: cardBorder }}>
-                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 12, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>🌐</span>
-                  <span>General Category Base Defaults</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: ACCENT, marginBottom: 4 }}>General Solo (1st/2nd/3rd)</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="1st"
-                        title="1st Place"
-                        className="input"
-                        style={{ height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
-                        value={scoringRules.generalDefaultSolo?.first ?? 3}
-                        onChange={e => setScoringRules(prev => ({
-                          ...prev,
-                          generalDefaultSolo: { ...prev.generalDefaultSolo, first: Number(e.target.value) || 0 }
-                        }))}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="2nd"
-                        title="2nd Place"
-                        className="input"
-                        style={{ height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
-                        value={scoringRules.generalDefaultSolo?.second ?? 2}
-                        onChange={e => setScoringRules(prev => ({
-                          ...prev,
-                          generalDefaultSolo: { ...prev.generalDefaultSolo, second: Number(e.target.value) || 0 }
-                        }))}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="3rd"
-                        title="3rd Place"
-                        className="input"
-                        style={{ height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
-                        value={scoringRules.generalDefaultSolo?.third ?? 1}
-                        onChange={e => setScoringRules(prev => ({
-                          ...prev,
-                          generalDefaultSolo: { ...prev.generalDefaultSolo, third: Number(e.target.value) || 0 }
-                        }))}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#3b82f6", marginBottom: 4 }}>General Group (1st/2nd/3rd)</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="1st"
-                        title="1st Place"
-                        className="input"
-                        style={{ height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
-                        value={scoringRules.generalDefaultGroup?.first ?? 6}
-                        onChange={e => setScoringRules(prev => ({
-                          ...prev,
-                          generalDefaultGroup: { ...prev.generalDefaultGroup, first: Number(e.target.value) || 0 }
-                        }))}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="2nd"
-                        title="2nd Place"
-                        className="input"
-                        style={{ height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
-                        value={scoringRules.generalDefaultGroup?.second ?? 4}
-                        onChange={e => setScoringRules(prev => ({
-                          ...prev,
-                          generalDefaultGroup: { ...prev.generalDefaultGroup, second: Number(e.target.value) || 0 }
-                        }))}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="3rd"
-                        title="3rd Place"
-                        className="input"
-                        style={{ height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
-                        value={scoringRules.generalDefaultGroup?.third ?? 2}
-                        onChange={e => setScoringRules(prev => ({
-                          ...prev,
-                          generalDefaultGroup: { ...prev.generalDefaultGroup, third: Number(e.target.value) || 0 }
-                        }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── General Programs Custom Points Overrides Manager ───────────────────────── */}
+            {/* ── 1. Universal Base Program Scoring (Defaults) ── */}
             <div style={{
-              marginTop: 20,
               padding: "18px 20px",
               borderRadius: 14,
               background: dark ? "rgba(255,255,255,0.02)" : "#fafafa",
               border: cardBorder,
+              marginBottom: 20,
             }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>🎯</span>
-                    <span>General Category — Custom Program Points</span>
-                    <span style={{
-                      fontSize: 11,
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: "rgba(241,77,77,0.12)",
-                      color: ACCENT,
-                      fontWeight: 800,
-                    }}>
-                      {Object.keys(scoringRules.customProgramPoints || {}).length} Customized
-                    </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>🏆</span>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>Universal Base Program Scoring</span>
+                      <span style={{
+                        fontSize: 10.5,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        background: "rgba(16,185,129,0.12)",
+                        color: "#10b981",
+                        fontWeight: 800,
+                        letterSpacing: "0.03em",
+                      }}>
+                        DEFAULT BASELINE
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: mutedTx, marginTop: 2 }}>
+                      All programs across Low, Mid, High, and General default to 3, 2, 1 place scores + grade points, awarded to Both Teams & Individuals.
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: mutedTx, marginTop: 2 }}>
-                    Add specific General programs below to customize their 1st, 2nd, and 3rd place scores. Changes sync to the database in real-time.
+                </div>
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: mutedTx,
+                  background: rowBg,
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  border: cardBorder,
+                }}>
+                  Separate Scores + Quality Grade Points
+                </div>
+              </div>
+
+              {/* Display Columns: Universal Position Points + Quality Grade Marks */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+                {/* Standard Base Position Points */}
+                <div style={{ padding: "14px", borderRadius: 12, background: rowBg, border: cardBorder }}>
+                  <div style={{ fontWeight: 800, fontSize: 12, color: primaryHeadingColor, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>🎯</span>
+                    <span>Standard Position Scores (All Programs)</span>
+                    <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#10b981", fontWeight: 800 }}>Teams & Individuals</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, textAlign: "center" }}>
+                    <div style={{ padding: "8px 4px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: mutedTx }}>1st Place</div>
+                      <div style={{ fontSize: 17, fontWeight: 900, color: "#f59e0b", marginTop: 2 }}>3 <span style={{ fontSize: 11, fontWeight: 700 }}>pts</span></div>
+                    </div>
+                    <div style={{ padding: "8px 4px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: mutedTx }}>2nd Place</div>
+                      <div style={{ fontSize: 17, fontWeight: 900, color: "#94a3b8", marginTop: 2 }}>2 <span style={{ fontSize: 11, fontWeight: 700 }}>pts</span></div>
+                    </div>
+                    <div style={{ padding: "8px 4px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: mutedTx }}>3rd Place</div>
+                      <div style={{ fontSize: 17, fontWeight: 900, color: "#b45309", marginTop: 2 }}>1 <span style={{ fontSize: 11, fontWeight: 700 }}>pt</span></div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Add Custom Program Controls */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <select
-                    value={selectedGeneralProgId}
-                    onChange={e => setSelectedGeneralProgId(e.target.value)}
-                    className="input"
-                    style={{ height: 38, minWidth: 240, fontSize: 12.5, fontWeight: 700 }}
-                  >
-                    <option value="">— Select a General Program to Customize —</option>
-                    {generalProgramsList.map((p) => {
-                      const isCustom = !!scoringRules.customProgramPoints?.[p.id];
-                      const isGrp = Number(p.maxParticipants || 1) > 1;
-                      return (
-                        <option key={p.id} value={p.id} disabled={isCustom}>
-                          {p.code ? `#${p.code} ` : ""}{p.name} ({isGrp ? "Group" : "Solo"} · {p.session || p.type || "Stage"}) {isCustom ? "✓ (Added)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddCustomProgram}
-                    disabled={!selectedGeneralProgId}
-                    className="btn btn-primary btn-sm"
-                    style={{ height: 38, borderRadius: 10, padding: "0 14px", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
-                  >
-                    <span>+</span>
-                    <span>Customize Points</span>
-                  </button>
+                {/* Quality Grade Marks */}
+                <div style={{ padding: "14px", borderRadius: 12, background: rowBg, border: cardBorder }}>
+                  <div style={{ fontWeight: 800, fontSize: 12, color: primaryHeadingColor, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>⭐</span>
+                    <span>Quality Grade Marks (Added to Place)</span>
+                    <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#10b981", fontWeight: 800 }}>Fixed</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, textAlign: "center" }}>
+                    <div style={{ padding: "8px 2px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#10b981" }}>A+</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "#10b981", marginTop: 2 }}>+6 <span style={{ fontSize: 10 }}>pts</span></div>
+                    </div>
+                    <div style={{ padding: "8px 2px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#3b82f6" }}>A</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "#3b82f6", marginTop: 2 }}>+5 <span style={{ fontSize: 10 }}>pts</span></div>
+                    </div>
+                    <div style={{ padding: "8px 2px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b" }}>B</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "#f59e0b", marginTop: 2 }}>+3 <span style={{ fontSize: 10 }}>pts</span></div>
+                    </div>
+                    <div style={{ padding: "8px 2px", borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#fff", border: cardBorder }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: mutedTx }}>C</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: mutedTx, marginTop: 2 }}>+1 <span style={{ fontSize: 10 }}>pt</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule Explanation Banner */}
+              <div style={{
+                marginTop: 12,
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
+                border: cardBorder,
+                fontSize: 12,
+                color: mutedTx,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                <span style={{ fontSize: 15 }}>💡</span>
+                <span>
+                  <strong>Calculation Formula:</strong> Total Points = Position Points + Quality Grade Points. For example, 1st Place with A+ = <strong>9 pts</strong> (3 + 6); 1st Place with A = <strong>8 pts</strong> (3 + 5); 2nd Place with A = <strong>7 pts</strong> (2 + 5). Customize any program below to set custom scores or route points to Teams only / Individuals only.
+                </span>
+              </div>
+            </div>
+
+            {/* ── 2. Program-Specific Custom Points & Destination Routing Manager ── */}
+            <div style={{
+              padding: "18px 20px",
+              borderRadius: 14,
+              background: rowBg,
+              border: cardBorder,
+            }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: primaryHeadingColor, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span>🎯</span>
+                  <span>Custom Program Points & Point Destinations</span>
+                  <span style={{
+                    fontSize: 11,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: "rgba(241,77,77,0.12)",
+                    color: ACCENT,
+                    fontWeight: 800,
+                  }}>
+                    {Object.keys(scoringRules.customProgramPoints || {}).length} Customized
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: mutedTx, marginTop: 3 }}>
+                  Select any program to customize its 1st, 2nd, and 3rd place scores, and specify where points should route (Teams, Individuals, or Both). Changes sync in real-time.
+                </div>
+              </div>
+
+              {/* Customization Input Controls */}
+              <div style={{
+                padding: "16px",
+                borderRadius: 12,
+                background: dark ? "rgba(255,255,255,0.02)" : "#ffffff",
+                border: cardBorder,
+                marginBottom: 16,
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: primaryHeadingColor, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>➕</span>
+                  <span>{selectedCustomProgId && scoringRules.customProgramPoints?.[selectedCustomProgId] ? "Edit Custom Program Points" : "Add / Customize a Program"}</span>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+                  {/* Program Selector */}
+                  <div style={{ flex: "1 1 280px", minWidth: 260 }}>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: mutedTx, marginBottom: 4 }}>Select Program</label>
+                    <select
+                      value={selectedCustomProgId}
+                      onChange={e => handleSelectProgramToCustomize(e.target.value)}
+                      className="input"
+                      style={{ height: 38, width: "100%", fontSize: 12.5, fontWeight: 700 }}
+                    >
+                      <option value="">— Select a Program to Customize —</option>
+                      {selectableProgramsList.map((p) => {
+                        const isCustom = !!scoringRules.customProgramPoints?.[p.id];
+                        return (
+                          <option key={p.id} value={p.id}>
+                            [{p.category || "General"}] #{p.order ?? p.code ?? "?"} {p.name} ({p.session || p.type || "Stage"}) {isCustom ? "★ Customized" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* 1st Place */}
+                  <div style={{ width: 70 }}>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#f59e0b", marginBottom: 4 }}>1st Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={customFirst}
+                      onChange={e => setCustomFirst(e.target.value)}
+                      className="input"
+                      style={{ height: 38, width: "100%", fontWeight: 800, textAlign: "center", fontSize: 13 }}
+                    />
+                  </div>
+
+                  {/* 2nd Place */}
+                  <div style={{ width: 70 }}>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>2nd Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={customSecond}
+                      onChange={e => setCustomSecond(e.target.value)}
+                      className="input"
+                      style={{ height: 38, width: "100%", fontWeight: 800, textAlign: "center", fontSize: 13 }}
+                    />
+                  </div>
+
+                  {/* 3rd Place */}
+                  <div style={{ width: 70 }}>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#b45309", marginBottom: 4 }}>3rd Place</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={customThird}
+                      onChange={e => setCustomThird(e.target.value)}
+                      className="input"
+                      style={{ height: 38, width: "100%", fontWeight: 800, textAlign: "center", fontSize: 13 }}
+                    />
+                  </div>
+
+                  {/* Destination Checkboxes */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200, paddingBottom: 2 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>Award Points To:</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, color: primaryHeadingColor }}>
+                        <input
+                          type="checkbox"
+                          checked={customToTeams}
+                          onChange={e => {
+                            if (!e.target.checked && !customToIndividuals) return;
+                            setCustomToTeams(e.target.checked);
+                          }}
+                          style={{ width: 16, height: 16, accentColor: ACCENT, cursor: "pointer" }}
+                        />
+                        <span>👥 Teams</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, color: primaryHeadingColor }}>
+                        <input
+                          type="checkbox"
+                          checked={customToIndividuals}
+                          onChange={e => {
+                            if (!e.target.checked && !customToTeams) return;
+                            setCustomToIndividuals(e.target.checked);
+                          }}
+                          style={{ width: 16, height: 16, accentColor: ACCENT, cursor: "pointer" }}
+                        />
+                        <span>👤 Individuals</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleAddOrUpdateCustomProgram}
+                      disabled={!selectedCustomProgId || (!customToTeams && !customToIndividuals)}
+                      className="btn btn-primary"
+                      style={{ height: 38, borderRadius: 10, padding: "0 18px", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
+                    >
+                      <span>{selectedCustomProgId && scoringRules.customProgramPoints?.[selectedCustomProgId] ? "✓ Update Points" : "+ Customize Points"}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -3429,16 +3427,17 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   color: mutedTx,
                   fontSize: 12.5,
                 }}>
-                  No General programs have custom points yet. All General events currently use the default scores above.
+                  No programs have custom points yet. All events currently use the universal base scores (1st: 3, 2nd: 2, 3rd: 1 + grades) awarded to both Teams and Individuals.
                   <div style={{ fontSize: 11.5, marginTop: 4, opacity: 0.8 }}>
-                    Select a program from the dropdown above and click <strong>Customize Points</strong> to set custom scores for it.
+                    Select a program from the dropdown above to customize its place scores or point routing destinations.
                   </div>
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {Object.entries(scoringRules.customProgramPoints || {}).map(([progId, pts]) => {
                     const prog = programs.find(p => p.id === progId);
-                    const isGrp = Number(prog?.maxParticipants || 1) > 1;
+                    const toTeams = pts?.toTeams !== false;
+                    const toIndividuals = pts?.toIndividuals !== false;
                     return (
                       <div
                         key={progId}
@@ -3454,20 +3453,20 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                           gap: 12,
                         }}
                       >
-                        <div style={{ minWidth: 200, flex: 1 }}>
+                        <div style={{ minWidth: 220, flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <span style={{ fontWeight: 800, fontSize: 13.5, color: primaryHeadingColor }}>
-                              {prog?.code ? `#${prog.code} · ` : ""}{prog?.name || `Program ${progId}`}
+                              {prog?.order || prog?.code ? `#${prog.order || prog.code} · ` : ""}{prog?.name || `Program ${progId}`}
                             </span>
                             <span style={{
                               fontSize: 10.5,
                               fontWeight: 800,
                               padding: "2px 7px",
                               borderRadius: 6,
-                              background: isGrp ? "rgba(59,130,246,0.12)" : "rgba(16,185,129,0.12)",
-                              color: isGrp ? "#3b82f6" : "#10b981",
+                              background: "rgba(59,130,246,0.12)",
+                              color: "#3b82f6",
                             }}>
-                              {isGrp ? `Group (${prog?.maxParticipants || "team"})` : "Solo"}
+                              {prog?.category || "General"}
                             </span>
                             <span style={{
                               fontSize: 10.5,
@@ -3480,46 +3479,80 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                               {prog?.session || prog?.type || "Stage"}
                             </span>
                           </div>
-                          <div style={{ fontSize: 11, color: mutedTx, marginTop: 2 }}>
-                            {isGrp ? "Group event: points add to Team standings" : "Solo event: points add to Team and Student standings"}
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+                            <span style={{ fontSize: 11, color: mutedTx }}>Routing:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateCustomProgramField(progId, "toTeams", !toTeams)}
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 800,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                border: "none",
+                                cursor: "pointer",
+                                background: toTeams ? "rgba(16,185,129,0.15)" : "rgba(100,116,139,0.15)",
+                                color: toTeams ? "#10b981" : mutedTx,
+                              }}
+                              title="Toggle points to Team Leaderboard"
+                            >
+                              👥 Teams: {toTeams ? "Yes" : "No"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateCustomProgramField(progId, "toIndividuals", !toIndividuals)}
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 800,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                border: "none",
+                                cursor: "pointer",
+                                background: toIndividuals ? "rgba(59,130,246,0.15)" : "rgba(100,116,139,0.15)",
+                                color: toIndividuals ? "#3b82f6" : mutedTx,
+                              }}
+                              title="Toggle points to Student Standings"
+                            >
+                              👤 Individuals: {toIndividuals ? "Yes" : "No"}
+                            </button>
                           </div>
                         </div>
 
                         {/* Point inputs for 1st, 2nd, 3rd */}
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>1st:</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>1st:</span>
                             <input
                               type="number"
                               min="0"
                               className="input"
                               style={{ width: 56, height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
                               value={pts?.first ?? 3}
-                              onChange={e => handleUpdateCustomProgramPoints(progId, "first", e.target.value)}
+                              onChange={e => handleUpdateCustomProgramField(progId, "first", e.target.value)}
                             />
                           </div>
 
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>2nd:</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>2nd:</span>
                             <input
                               type="number"
                               min="0"
                               className="input"
                               style={{ width: 56, height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
                               value={pts?.second ?? 2}
-                              onChange={e => handleUpdateCustomProgramPoints(progId, "second", e.target.value)}
+                              onChange={e => handleUpdateCustomProgramField(progId, "second", e.target.value)}
                             />
                           </div>
 
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: mutedTx }}>3rd:</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#b45309" }}>3rd:</span>
                             <input
                               type="number"
                               min="0"
                               className="input"
                               style={{ width: 56, height: 34, fontWeight: 800, textAlign: "center", fontSize: 12 }}
                               value={pts?.third ?? 1}
-                              onChange={e => handleUpdateCustomProgramPoints(progId, "third", e.target.value)}
+                              onChange={e => handleUpdateCustomProgramField(progId, "third", e.target.value)}
                             />
                           </div>
 
@@ -3545,52 +3578,40 @@ const AdminPortal = ({ user, dark, setDark, onBack }) => {
                   })}
                 </div>
               )}
-            </div>
 
-            {/* Scoring Mode and Actions */}
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginTop: 18,
-              paddingTop: 16,
-              borderTop: cardBorder,
-              flexWrap: "wrap",
-              gap: 14,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: primaryHeadingColor }}>
-                  Scoring Mode:
-                </span>
-                <select
-                  value={scoringRules.mode || "position_and_grade"}
-                  onChange={e => setScoringRules(prev => ({ ...prev, mode: e.target.value }))}
-                  className="input"
-                  style={{ height: 38, padding: "0 10px", fontSize: 12.5, fontWeight: 700 }}
-                >
-                  <option value="position_and_grade">Position Points + Grade Points (Additive)</option>
-                  <option value="position_only">Position Points Only (Standard)</option>
-                  <option value="grade_only">Grade Points Only</option>
-                </select>
-              </div>
+              {/* Action Buttons */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginTop: 18,
+                paddingTop: 16,
+                borderTop: cardBorder,
+                flexWrap: "wrap",
+                gap: 14,
+              }}>
+                <div style={{ fontSize: 12, color: mutedTx }}>
+                  Universal baseline: 1st (3), 2nd (2), 3rd (1) + Grades. Overrides sync to the cloud database in real-time.
+                </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={handleResetScoringRules}
-                  className="btn btn-ghost btn-sm"
-                  style={{ height: 38, borderRadius: 10 }}
-                >
-                  Reset Defaults
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveScoringRules(scoringRules)}
-                  className="btn btn-primary"
-                  style={{ height: 38, borderRadius: 10, padding: "0 18px", fontWeight: 700 }}
-                >
-                  Save Scoring Rules
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={handleResetScoringRules}
+                    className="btn btn-ghost btn-sm"
+                    style={{ height: 38, borderRadius: 10, fontWeight: 700 }}
+                  >
+                    Reset All Defaults
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveScoringRules(scoringRules)}
+                    className="btn btn-primary"
+                    style={{ height: 38, borderRadius: 10, padding: "0 18px", fontWeight: 700 }}
+                  >
+                    Save Scoring Rules
+                  </button>
+                </div>
               </div>
             </div>
           </div>

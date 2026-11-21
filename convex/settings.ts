@@ -9,25 +9,20 @@ export const DEFAULT_LIMITS = {
 export const DEFAULT_JUDGE_PASSCODE = "judge2026";
 
 export const DEFAULT_SCORING_RULES = {
+  base: {
+    first: 3,
+    second: 2,
+    third: 1,
+  },
   individual: {
     first: 3,
     second: 2,
     third: 1,
   },
   group: {
-    first: 6,
-    second: 4,
-    third: 2,
-  },
-  generalDefaultSolo: {
     first: 3,
     second: 2,
     third: 1,
-  },
-  generalDefaultGroup: {
-    first: 6,
-    second: 4,
-    third: 2,
   },
   grades: {
     "A+": 6,
